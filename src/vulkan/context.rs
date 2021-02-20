@@ -8,8 +8,7 @@ use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
 
 use super::platform;
-use ash::vk::{make_version, version_major, version_minor, version_patch, ExtensionProperties};
-use std::fmt::{Display, Formatter};
+use ash::vk::{make_version, version_major, version_minor, version_patch};
 
 const API_VERSION: u32 = vk::make_version(1, 0, 92);
 const APPLICATION_VERSION: u32 = make_version(
