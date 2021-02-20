@@ -14,7 +14,6 @@ pub fn log_debug(line: &str) {
     println!("[DEBUG] {}", line);
 }
 
-
 pub fn print_last_10() {
     let buffer = BUFFER.lock().unwrap();
 

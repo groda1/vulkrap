@@ -1,5 +1,5 @@
-use ash::extensions::khr::{Surface, Win32Surface};
 use ash::extensions::ext::DebugUtils;
+use ash::extensions::khr::{Surface, Win32Surface};
 
 #[cfg(target_os = "macos")]
 pub fn required_extension_names() -> Vec<*const i8> {

@@ -1,25 +1,33 @@
-use std::ffi::{CString, CStr};
-use ash::vk;
 use ash::version::{EntryV1_0, InstanceV1_0};
+use ash::vk;
+use std::ffi::{CStr, CString};
 use std::ptr;
 
-use crate::WINDOW_TITLE;
-use crate::ENGINE_NAME;
 use crate::console::logger;
+use crate::ENGINE_NAME;
+use crate::WINDOW_TITLE;
 
 use super::platform;
-use ash::vk::{make_version, ExtensionProperties, version_major, version_minor, version_patch};
+use ash::vk::{make_version, version_major, version_minor, version_patch, ExtensionProperties};
 use std::fmt::{Display, Formatter};
 
 const API_VERSION: u32 = vk::make_version(1, 0, 92);
-const APPLICATION_VERSION: u32 = make_version(crate::APPLICATION_VERSION.0, crate::APPLICATION_VERSION.1, crate::APPLICATION_VERSION.2);
-const ENGINE_VERSION: u32 = make_version(crate::ENGINE_VERSION.0, crate::ENGINE_VERSION.1, crate::ENGINE_VERSION.2);
+const APPLICATION_VERSION: u32 = make_version(
+    crate::APPLICATION_VERSION.0,
+    crate::APPLICATION_VERSION.1,
+    crate::APPLICATION_VERSION.2,
+);
+const ENGINE_VERSION: u32 = make_version(
+    crate::ENGINE_VERSION.0,
+    crate::ENGINE_VERSION.1,
+    crate::ENGINE_VERSION.2,
+);
 
 pub struct Context {
     entry: ash::Entry,
     instance: ash::Instance,
 
-    n_frames: u32
+    n_frames: u32,
 }
 
 impl Context {
@@ -29,7 +37,11 @@ impl Context {
 
         _log_available_extension_properties(&entry);
 
-        Context { entry, instance, n_frames: 0 }
+        Context {
+            entry,
+            instance,
+            n_frames: 0,
+        }
     }
 
     pub fn draw_frame(&mut self) {
@@ -38,14 +50,15 @@ impl Context {
         if self.n_frames % 1000 == 0 {
             println!("1000 frame!");
         }
-
     }
 }
 
 impl Drop for Context {
     fn drop(&mut self) {
         logger::log_debug("vulkan::Context: destroying instance");
-        unsafe { self.instance.destroy_instance(None); }
+        unsafe {
+            self.instance.destroy_instance(None);
+        }
     }
 }
 
@@ -75,26 +88,36 @@ fn _create_instance(entry: &ash::Entry) -> ash::Instance {
         enabled_extension_count: required_extensions.len() as u32,
     };
 
-    let instance: ash::Instance = unsafe { entry.create_instance(&create_info, None).expect("Failed to create instance!") };
+    let instance: ash::Instance = unsafe {
+        entry
+            .create_instance(&create_info, None)
+            .expect("Failed to create instance!")
+    };
 
     instance
 }
 
 fn _log_available_extension_properties(entry: &ash::Entry) {
-    let properties = entry.enumerate_instance_extension_properties().expect("Failed to enumerate extenion properties!");
+    let properties = entry
+        .enumerate_instance_extension_properties()
+        .expect("Failed to enumerate extenion properties!");
 
     logger::log_info("Available Instance extension properties:");
 
     for prop in properties {
-        let str = unsafe { CStr::from_ptr(prop.extension_name.as_ptr()) }.to_str().unwrap();
+        let str = unsafe { CStr::from_ptr(prop.extension_name.as_ptr()) }
+            .to_str()
+            .unwrap();
 
-        logger::log_info(format!(" - {} [{}.{}.{}]",
-                                 str,
-                                 version_major(prop.spec_version),
-                                 version_minor(prop.spec_version),
-                                 version_patch(prop.spec_version),
-        ).as_str());
+        logger::log_info(
+            format!(
+                " - {} [{}.{}.{}]",
+                str,
+                version_major(prop.spec_version),
+                version_minor(prop.spec_version),
+                version_patch(prop.spec_version),
+            )
+            .as_str(),
+        );
     }
 }
-
-
