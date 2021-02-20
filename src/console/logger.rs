@@ -4,10 +4,16 @@ lazy_static! {
     static ref BUFFER: Mutex<Vec<String>> = Mutex::new(Vec::new());
 }
 
-pub fn log(line: &str) {
+pub fn log_info(line: &str) {
     BUFFER.lock().unwrap().push(line.to_string());
-    println!("Derp {}", line);
+    println!("[INFO] {}", line);
 }
+
+pub fn log_debug(line: &str) {
+    BUFFER.lock().unwrap().push(line.to_string());
+    println!("[DEBUG] {}", line);
+}
+
 
 pub fn print_last_10() {
     let buffer = BUFFER.lock().unwrap();

@@ -8,8 +8,5 @@ edition = "2018"
 
 [dependencies]
 lazy_static = "1.4.0"
-
-[dependencies.sdl2]
-version = "0.34.2"
-default-features = false
-features = ["ttf"]
+winit     = "0.24.0"
+ash       = "0.31.0"

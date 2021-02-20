@@ -1,36 +1,34 @@
 #[macro_use]
 extern crate lazy_static;
 
+use winit::event_loop::{EventLoop};
+
 mod console;
 
-use console::log;
+use console::logger;
 
-trait Derp {
-    fn foo(&self) -> String;
-}
+mod window;
+mod vulkan;
 
-impl Derp for bool {
-    fn foo(&self) -> String {
-        format!("HEH {}", self)
-    }
-}
+const ENGINE_NAME: &'static str = "cvulkan";
 
-fn print_derpa<T: Derp>(arg: T) {
-    println!("{}", arg.foo())
-}
+
+const APPLICATION_VERSION: (u32, u32, u32) = (1, 0, 0);
+const ENGINE_VERSION: (u32, u32, u32) = (1, 0, 0);
+
+
+const WINDOW_TITLE: &'static str = "cvulkan test";
+const WINDOW_WIDTH: u32 = 1920;
+const WINDOW_HEIGHT: u32 = 1080;
 
 fn main() {
-    println!("Hello, world!");
+    logger::log_info("cvulkan init...");
 
+    let event_loop = EventLoop::new();
+    let _window = window::winit::init_window(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, &event_loop);
+    let mut _vulkan_context = vulkan::context::Context::new();
 
-    log::log("Foo!");
-    log::log("Derp!");
-    log::log("Klerp!");
+    window::winit::main_loop(event_loop, _window, _vulkan_context);
 
-    log::print_last_10();
-
-    let boole = false;
-
-    dbg!(boole);
-    print_derpa(boole);
+    logger::log_info("Exiting");
 }
