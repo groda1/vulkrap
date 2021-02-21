@@ -1,12 +1,31 @@
 #[macro_use]
 extern crate lazy_static;
 
+#[macro_export]
+macro_rules! log_info {
+    () => (crate::console::logger::info(""));
+    ($($arg:tt)*) => ({
+        crate::console::logger::info(format!($($arg)*).as_str());
+    })
+}
+#[macro_export]
+macro_rules! log_warning {
+    () => (crate::console::logger::warning(""));
+    ($($arg:tt)*) => ({
+        crate::console::logger::warning(format!($($arg)*).as_str());
+    })
+}
+#[macro_export]
+macro_rules! log_debug {
+    () => (crate::console::logger::debug(""));
+    ($($arg:tt)*) => ({
+        crate::console::logger::debug(format!($($arg)*).as_str());
+    })
+}
+
 use winit::event_loop::EventLoop;
 
 mod console;
-
-use console::logger;
-
 mod vulkan;
 mod window;
 
@@ -20,7 +39,7 @@ const WINDOW_WIDTH: u32 = 1920;
 const WINDOW_HEIGHT: u32 = 1080;
 
 fn main() {
-    logger::log_info("cvulkan init...");
+    log_info!("cvulkan init...");
 
     let event_loop = EventLoop::new();
     let _window =
@@ -29,5 +48,5 @@ fn main() {
 
     window::winit::main_loop(event_loop, _window, _vulkan_context);
 
-    logger::log_info("Exiting");
+    log_info!("Exiting");
 }
