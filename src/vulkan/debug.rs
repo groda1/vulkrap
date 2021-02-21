@@ -34,7 +34,7 @@ pub fn create_debug_messenger_create_info() -> vk::DebugUtilsMessengerCreateInfo
         flags: vk::DebugUtilsMessengerCreateFlagsEXT::empty(),
         message_severity: vk::DebugUtilsMessageSeverityFlagsEXT::WARNING |
             //vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE |
-            //vk::DebugUtilsMessageSeverityFlagsEXT::INFO |
+            vk::DebugUtilsMessageSeverityFlagsEXT::INFO |
             vk::DebugUtilsMessageSeverityFlagsEXT::ERROR,
         message_type: vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
             | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE

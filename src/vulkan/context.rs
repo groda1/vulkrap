@@ -1,4 +1,4 @@
-use ash::version::{EntryV1_0, InstanceV1_0};
+use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
 use ash::vk::{PhysicalDevice, QueueFlags};
 use std::ffi::{c_void, CString};
@@ -18,7 +18,8 @@ pub struct Context {
     entry: ash::Entry,
     instance: ash::Instance,
     physical_device: PhysicalDevice,
-    queue_families: QueueFamilyIndices,
+    logical_device: ash::Device,
+    graphics_queue: vk::Queue,
 
     debug_utils_loader: ash::extensions::ext::DebugUtils,
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
@@ -39,7 +40,7 @@ impl Context {
             layers.push(constants::VALIDATION_LAYER_NAME);
         }
 
-        let instance = _create_instance(&entry, layers);
+        let instance = _create_instance(&entry, &layers);
         let (debug_utils_loader, debug_utils_messenger) =
             debug::setup_debug_utils(&entry, &instance);
 
@@ -50,17 +51,15 @@ impl Context {
         debug::log_physical_device(&instance, &physical_device);
         debug::log_device_queue_families(&instance, &physical_device);
 
-        let queue_families = QueueFamilyIndices::new(&instance, &physical_device);
-        log_info!("Picked Queue families: {}", queue_families);
-        if !queue_families.is_complete() {
-            panic!("No valid queue family!");
-        }
+        let (logical_device, graphics_queue) =
+            _create_logical_device(&instance, &physical_device, &layers);
 
         Context {
             entry,
             instance,
             physical_device,
-            queue_families,
+            logical_device,
+            graphics_queue,
             debug_utils_loader,
             debug_utils_messenger,
             n_frames: 0,
@@ -80,6 +79,8 @@ impl Drop for Context {
     fn drop(&mut self) {
         log_debug!("vulkan::Context: destroying instance");
         unsafe {
+            self.logical_device.destroy_device(None);
+
             #[cfg(debug_assertions)]
             self.debug_utils_loader
                 .destroy_debug_utils_messenger(self.debug_utils_messenger, None);
@@ -89,7 +90,7 @@ impl Drop for Context {
     }
 }
 
-fn _create_instance(entry: &ash::Entry, layers: Vec<&str>) -> ash::Instance {
+fn _create_instance(entry: &ash::Entry, layers: &Vec<&str>) -> ash::Instance {
     let app_name = CString::new(WINDOW_TITLE).unwrap();
     let engine_name = CString::new(ENGINE_NAME).unwrap();
     let app_info = vk::ApplicationInfo {
@@ -104,15 +105,8 @@ fn _create_instance(entry: &ash::Entry, layers: Vec<&str>) -> ash::Instance {
 
     let required_extensions = platform::required_extension_names();
 
-    let cstring_enabled_layer_names: Vec<CString> = layers
-        .iter()
-        .map(|layer| CString::new(*layer).unwrap())
-        .collect();
-    let converted_layer_names: Vec<*const i8> = cstring_enabled_layer_names
-        .iter()
-        .map(|layer_name| layer_name.as_ptr())
-        .collect();
-
+    let cstring_vec = util::copy_str_vec_to_cstring_vec(&layers);
+    let converted_layer_names = util::cstring_vec_to_vk_vec(&cstring_vec);
     layers
         .iter()
         .for_each(|layer| log_debug!("Enabling layer:  {}", layer));
@@ -177,6 +171,58 @@ fn _check_instance_layer_support(entry: &ash::Entry, layer_name: &str) -> bool {
     }
 
     false
+}
+
+fn _create_logical_device(
+    instance: &ash::Instance,
+    physical_device: &vk::PhysicalDevice,
+    layers: &Vec<&str>,
+) -> (ash::Device, vk::Queue) {
+    let queue_families = QueueFamilyIndices::new(&instance, &physical_device);
+    log_info!("Picked Queue families: {}", queue_families);
+    if !queue_families.is_complete() {
+        panic!("No valid queue family!");
+    }
+
+    let queue_priorities = [1.0_f32];
+    let queue_create_info = vk::DeviceQueueCreateInfo {
+        s_type: vk::StructureType::DEVICE_QUEUE_CREATE_INFO,
+        p_next: ptr::null(),
+        flags: vk::DeviceQueueCreateFlags::empty(),
+        queue_family_index: queue_families.graphics.unwrap(),
+        p_queue_priorities: queue_priorities.as_ptr(),
+        queue_count: queue_priorities.len() as u32,
+    };
+
+    let cstring_vec = util::copy_str_vec_to_cstring_vec(&layers);
+    let converted_layer_names = util::cstring_vec_to_vk_vec(&cstring_vec);
+
+    let physical_device_features = vk::PhysicalDeviceFeatures {
+        ..Default::default() // default just enable no feature.
+    };
+
+    let device_create_info = vk::DeviceCreateInfo {
+        s_type: vk::StructureType::DEVICE_CREATE_INFO,
+        p_next: ptr::null(),
+        flags: vk::DeviceCreateFlags::empty(),
+        queue_create_info_count: 1,
+        p_queue_create_infos: &queue_create_info,
+        enabled_layer_count: converted_layer_names.len() as u32,
+        pp_enabled_layer_names: converted_layer_names.as_ptr(),
+        enabled_extension_count: 0,
+        pp_enabled_extension_names: ptr::null(),
+        p_enabled_features: &physical_device_features,
+    };
+
+    let device: ash::Device = unsafe {
+        instance
+            .create_device(*physical_device, &device_create_info, None)
+            .expect("Failed to create logical Device!")
+    };
+
+    let graphics_queue = unsafe { device.get_device_queue(queue_families.graphics.unwrap(), 0) };
+
+    (device, graphics_queue)
 }
 
 struct QueueFamilyIndices {

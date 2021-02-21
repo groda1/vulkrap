@@ -1,5 +1,5 @@
 use ash::vk::{version_major, version_minor, version_patch};
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
 pub fn vk_cstr_to_str(c_str: &[c_char]) -> &str {
@@ -17,4 +17,18 @@ pub fn vk_format_version<'a>(version: u32) -> String {
         version_minor(version),
         version_patch(version)
     )
+}
+
+pub fn copy_str_vec_to_cstring_vec(str_vec: &Vec<&str>) -> Vec<CString> {
+    str_vec
+        .iter()
+        .map(|layer| CString::new(*layer).unwrap())
+        .collect()
+}
+
+pub fn cstring_vec_to_vk_vec(cstring_vec: &Vec<CString>) -> Vec<*const i8> {
+    return cstring_vec
+        .iter()
+        .map(|layer_name| layer_name.as_ptr())
+        .collect();
 }
