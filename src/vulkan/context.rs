@@ -120,10 +120,11 @@ fn _create_instance(entry: &ash::Entry, layers: Vec<&str>) -> ash::Instance {
     let debug_messenger_create_info = debug::create_debug_messenger_create_info();
 
     #[cfg(debug_assertions)]
-        let p_next = &debug_messenger_create_info as *const vk::DebugUtilsMessengerCreateInfoEXT as *const c_void;
+    let p_next = &debug_messenger_create_info as *const vk::DebugUtilsMessengerCreateInfoEXT
+        as *const c_void;
     #[cfg(not(debug_assertions))]
-        let p_next = ptr::null();
-    
+    let p_next = ptr::null();
+
     let create_info = vk::InstanceCreateInfo {
         s_type: vk::StructureType::INSTANCE_CREATE_INFO,
         p_next,
