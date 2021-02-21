@@ -1,7 +1,7 @@
 use crate::vulkan::util::{vk_cstr_to_str, vk_format_version};
 use ash::version::{EntryV1_0, InstanceV1_0};
 use ash::vk;
-use ash::vk::PhysicalDevice;
+use ash::vk::{PhysicalDevice, QueueFlags};
 use std::ffi::{c_void, CStr};
 use std::ptr;
 
@@ -94,6 +94,28 @@ pub fn log_physical_device(instance: &ash::Instance, device: &PhysicalDevice) {
         name_str,
         vk_format_version(prop.driver_version)
     );
+}
+
+pub fn log_device_queue_families(instance: &ash::Instance, device: &PhysicalDevice) {
+    let queue_family_properties =
+        unsafe { instance.get_physical_device_queue_family_properties(*device) };
+
+    log_info!("Available queue families:");
+    let mut index = 0;
+    for family_properties in queue_family_properties.iter() {
+        log_info!(
+            " - {}: count={} gfx={}, compute={}, transfer={}, sparse_binding={}",
+            index,
+            family_properties.queue_count,
+            family_properties.queue_flags.contains(QueueFlags::GRAPHICS),
+            family_properties.queue_flags.contains(QueueFlags::COMPUTE),
+            family_properties.queue_flags.contains(QueueFlags::TRANSFER),
+            family_properties
+                .queue_flags
+                .contains(QueueFlags::SPARSE_BINDING),
+        );
+        index += 1;
+    }
 }
 
 pub fn log_available_extension_properties(entry: &ash::Entry) {

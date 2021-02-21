@@ -1,8 +1,8 @@
 use ash::version::{EntryV1_0, InstanceV1_0};
 use ash::vk;
-use ash::vk::{version_major, version_minor, version_patch, PhysicalDevice};
+use ash::vk::{PhysicalDevice, QueueFlags};
 use std::ffi::{c_void, CString};
-use std::ptr;
+use std::{fmt, ptr};
 
 use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
@@ -12,11 +12,13 @@ use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
 use super::debug;
 use super::platform;
 use super::util;
+use std::fmt::Display;
 
 pub struct Context {
     entry: ash::Entry,
     instance: ash::Instance,
     physical_device: PhysicalDevice,
+    queue_families: QueueFamilyIndices,
 
     debug_utils_loader: ash::extensions::ext::DebugUtils,
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
@@ -46,11 +48,19 @@ impl Context {
         let physical_device = _pick_physical_device(&instance);
         log_info!("Picked Physical device: ");
         debug::log_physical_device(&instance, &physical_device);
+        debug::log_device_queue_families(&instance, &physical_device);
+
+        let queue_families = QueueFamilyIndices::new(&instance, &physical_device);
+        log_info!("Picked Queue families: {}", queue_families);
+        if !queue_families.is_complete() {
+            panic!("No valid queue family!");
+        }
 
         Context {
             entry,
             instance,
             physical_device,
+            queue_families,
             debug_utils_loader,
             debug_utils_messenger,
             n_frames: 0,
@@ -108,13 +118,12 @@ fn _create_instance(entry: &ash::Entry, layers: Vec<&str>) -> ash::Instance {
         .for_each(|layer| log_debug!("Enabling layer:  {}", layer));
 
     let debug_messenger_create_info = debug::create_debug_messenger_create_info();
-    let mut p_next = ptr::null();
-    #[cfg(debug_assertions)]
-    {
-        p_next = &debug_messenger_create_info as *const vk::DebugUtilsMessengerCreateInfoEXT
-            as *const c_void;
-    }
 
+    #[cfg(debug_assertions)]
+        let p_next = &debug_messenger_create_info as *const vk::DebugUtilsMessengerCreateInfoEXT as *const c_void;
+    #[cfg(not(debug_assertions))]
+        let p_next = ptr::null();
+    
     let create_info = vk::InstanceCreateInfo {
         s_type: vk::StructureType::INSTANCE_CREATE_INFO,
         p_next,
@@ -167,4 +176,45 @@ fn _check_instance_layer_support(entry: &ash::Entry, layer_name: &str) -> bool {
     }
 
     false
+}
+
+struct QueueFamilyIndices {
+    graphics: Option<u32>,
+}
+
+impl QueueFamilyIndices {
+    fn new(instance: &ash::Instance, device: &PhysicalDevice) -> QueueFamilyIndices {
+        let graphics = _pick_graphics_queue_family(instance, device);
+
+        QueueFamilyIndices { graphics }
+    }
+
+    fn is_complete(&self) -> bool {
+        self.graphics.is_some()
+    }
+}
+
+impl Display for QueueFamilyIndices {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "(gfx={})",
+            self.graphics.map(|gfx| gfx as i32).unwrap_or(-1)
+        )
+    }
+}
+
+fn _pick_graphics_queue_family(instance: &ash::Instance, device: &PhysicalDevice) -> Option<u32> {
+    let queue_family_properties =
+        unsafe { instance.get_physical_device_queue_family_properties(*device) };
+
+    let mut index = 0;
+    for family_properties in queue_family_properties.iter() {
+        if family_properties.queue_flags.contains(QueueFlags::GRAPHICS) {
+            return Option::Some(index);
+        }
+        index += 1;
+    }
+
+    Option::None
 }
