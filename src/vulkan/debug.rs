@@ -1,4 +1,7 @@
+use crate::vulkan::util::{vk_cstr_to_str, vk_format_version};
+use ash::version::{EntryV1_0, InstanceV1_0};
 use ash::vk;
+use ash::vk::PhysicalDevice;
 use std::ffi::{c_void, CStr};
 use std::ptr;
 
@@ -64,4 +67,68 @@ unsafe extern "system" fn _debug_utils_callback(
     println!("VK: {}{}{:?}", severity, types, message);
 
     vk::FALSE
+}
+
+pub fn log_physical_devices(instance: &ash::Instance) {
+    let physical_devices = unsafe {
+        instance
+            .enumerate_physical_devices()
+            .expect("Failed to enumerate Physical devices!")
+    };
+
+    if physical_devices.len() > 0 {
+        log_info!("Available Physical devices: ");
+        for device in physical_devices.iter() {
+            log_physical_device(instance, device);
+        }
+    }
+}
+
+pub fn log_physical_device(instance: &ash::Instance, device: &PhysicalDevice) {
+    let prop = unsafe { instance.get_physical_device_properties(*device) };
+    let name_str = vk_cstr_to_str(&prop.device_name);
+
+    log_info!(
+        " - [{}] {} ({})",
+        prop.device_id,
+        name_str,
+        vk_format_version(prop.driver_version)
+    );
+}
+
+pub fn log_available_extension_properties(entry: &ash::Entry) {
+    let properties = entry
+        .enumerate_instance_extension_properties()
+        .expect("Failed to enumerate extenion properties!");
+
+    log_info!("Available Instance extension properties:");
+
+    for prop in properties {
+        let str = vk_cstr_to_str(&prop.extension_name);
+
+        log_info!(" - {} [{}]", str, vk_format_version(prop.spec_version));
+    }
+}
+
+pub fn log_validation_layer_support(entry: &ash::Entry) {
+    let layer_properties = entry
+        .enumerate_instance_layer_properties()
+        .expect("Failed to enumerate Instance Layers Properties!");
+
+    if layer_properties.len() <= 0 {
+        log_warning!("No available layers.");
+    } else {
+        log_info!("Available Instance layers: ");
+        for layer in layer_properties.iter() {
+            let str = vk_cstr_to_str(&layer.layer_name);
+            let desc = vk_cstr_to_str(&layer.description);
+
+            log_info!(
+                " - {} [{}] - {}",
+                str,
+                vk_format_version(layer.spec_version),
+                desc
+            );
+        }
+    }
 }

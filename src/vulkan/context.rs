@@ -1,6 +1,6 @@
 use ash::version::{EntryV1_0, InstanceV1_0};
 use ash::vk;
-use ash::vk::{version_major, version_minor, version_patch};
+use ash::vk::{version_major, version_minor, version_patch, PhysicalDevice};
 use std::ffi::{c_void, CString};
 use std::ptr;
 
@@ -16,6 +16,7 @@ use super::util;
 pub struct Context {
     entry: ash::Entry,
     instance: ash::Instance,
+    physical_device: PhysicalDevice,
 
     debug_utils_loader: ash::extensions::ext::DebugUtils,
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
@@ -27,8 +28,8 @@ impl Context {
     pub fn new() -> Context {
         let entry = ash::Entry::new().unwrap();
 
-        _log_available_extension_properties(&entry);
-        _log_validation_layer_support(&entry);
+        debug::log_available_extension_properties(&entry);
+        debug::log_validation_layer_support(&entry);
 
         let mut layers = Vec::new();
         #[cfg(debug_assertions)]
@@ -37,16 +38,22 @@ impl Context {
         }
 
         let instance = _create_instance(&entry, layers);
-
         let (debug_utils_loader, debug_utils_messenger) =
             debug::setup_debug_utils(&entry, &instance);
+
+        debug::log_physical_devices(&instance);
+
+        let physical_device = _pick_physical_device(&instance);
+        log_info!("Picked Physical device: ");
+        debug::log_physical_device(&instance, &physical_device);
 
         Context {
             entry,
             instance,
-            n_frames: 0,
+            physical_device,
             debug_utils_loader,
             debug_utils_messenger,
+            n_frames: 0,
         }
     }
 
@@ -128,48 +135,21 @@ fn _create_instance(entry: &ash::Entry, layers: Vec<&str>) -> ash::Instance {
     instance
 }
 
-fn _log_available_extension_properties(entry: &ash::Entry) {
-    let properties = entry
-        .enumerate_instance_extension_properties()
-        .expect("Failed to enumerate extenion properties!");
+fn _pick_physical_device(instance: &ash::Instance) -> PhysicalDevice {
+    unsafe {
+        let physical_devices = instance
+            .enumerate_physical_devices()
+            .expect("Failed to enumerate Physical devices!");
 
-    log_info!("Available Instance extension properties:");
-
-    for prop in properties {
-        let str = util::vk_cstr_to_str(&prop.extension_name);
-
-        log_info!(
-            " - {} [{}.{}.{}]",
-            str,
-            version_major(prop.spec_version),
-            version_minor(prop.spec_version),
-            version_patch(prop.spec_version),
-        );
-    }
-}
-
-fn _log_validation_layer_support(entry: &ash::Entry) {
-    let layer_properties = entry
-        .enumerate_instance_layer_properties()
-        .expect("Failed to enumerate Instance Layers Properties!");
-
-    if layer_properties.len() <= 0 {
-        log_warning!("No available layers.");
-    } else {
-        log_info!("Available Instance layers: ");
-        for layer in layer_properties.iter() {
-            let str = util::vk_cstr_to_str(&layer.layer_name);
-            let desc = util::vk_cstr_to_str(&layer.description);
-
-            log_info!(
-                " - {} [{}.{}.{}] - {}",
-                str,
-                version_major(layer.spec_version),
-                version_minor(layer.spec_version),
-                version_patch(layer.spec_version),
-                desc
-            );
+        if physical_devices.len() <= 0 {
+            panic!("No available physical devices.");
         }
+
+        for device in physical_devices.iter() {
+            // TODO Check and select a suitable device
+            return *device;
+        }
+        panic!("No suitable devices!");
     }
 }
 
