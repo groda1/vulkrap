@@ -12,7 +12,9 @@ use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
 use super::debug;
 use super::platform;
 use super::util;
+use std::collections::HashSet;
 use std::fmt::Display;
+use winit::window::Window;
 
 pub struct Context {
     entry: ash::Entry,
@@ -20,6 +22,10 @@ pub struct Context {
     physical_device: PhysicalDevice,
     logical_device: ash::Device,
     graphics_queue: vk::Queue,
+    present_queue: vk::Queue,
+
+    surface_loader: ash::extensions::khr::Surface,
+    surface: vk::SurfaceKHR,
 
     debug_utils_loader: ash::extensions::ext::DebugUtils,
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
@@ -28,7 +34,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new() -> Context {
+    pub fn new(window: &Window) -> Context {
         let entry = ash::Entry::new().unwrap();
 
         debug::log_available_extension_properties(&entry);
@@ -46,20 +52,30 @@ impl Context {
 
         debug::log_physical_devices(&instance);
 
+        let (surface, surface_loader) = create_surface(&entry, &instance, &window);
+
         let physical_device = _pick_physical_device(&instance);
         log_info!("Picked Physical device: ");
         debug::log_physical_device(&instance, &physical_device);
         debug::log_device_queue_families(&instance, &physical_device);
 
-        let (logical_device, graphics_queue) =
-            _create_logical_device(&instance, &physical_device, &layers);
+        let (logical_device, graphics_queue, present_queue) = _create_logical_device(
+            &instance,
+            &physical_device,
+            &layers,
+            &surface,
+            &surface_loader,
+        );
 
         Context {
             entry,
             instance,
+            surface,
+            surface_loader,
             physical_device,
             logical_device,
             graphics_queue,
+            present_queue,
             debug_utils_loader,
             debug_utils_messenger,
             n_frames: 0,
@@ -85,6 +101,7 @@ impl Drop for Context {
             self.debug_utils_loader
                 .destroy_debug_utils_messenger(self.debug_utils_messenger, None);
 
+            self.surface_loader.destroy_surface(self.surface, None);
             self.instance.destroy_instance(None);
         }
     }
@@ -177,22 +194,39 @@ fn _create_logical_device(
     instance: &ash::Instance,
     physical_device: &vk::PhysicalDevice,
     layers: &Vec<&str>,
-) -> (ash::Device, vk::Queue) {
-    let queue_families = QueueFamilyIndices::new(&instance, &physical_device);
+    surface: &vk::SurfaceKHR,
+    surface_loader: &ash::extensions::khr::Surface,
+) -> (ash::Device, vk::Queue, vk::Queue) {
+    let queue_families =
+        QueueFamilyIndices::new(&instance, &physical_device, surface, surface_loader);
+
     log_info!("Picked Queue families: {}", queue_families);
     if !queue_families.is_complete() {
-        panic!("No valid queue family!");
+        // TODO: log which one is missing
+        panic!("Missing queue family!");
     }
 
+    let distinct_queue_familes: HashSet<u32> = [
+        queue_families.graphics.unwrap(),
+        queue_families.present.unwrap(),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+    let mut queue_create_infos = Vec::new();
     let queue_priorities = [1.0_f32];
-    let queue_create_info = vk::DeviceQueueCreateInfo {
-        s_type: vk::StructureType::DEVICE_QUEUE_CREATE_INFO,
-        p_next: ptr::null(),
-        flags: vk::DeviceQueueCreateFlags::empty(),
-        queue_family_index: queue_families.graphics.unwrap(),
-        p_queue_priorities: queue_priorities.as_ptr(),
-        queue_count: queue_priorities.len() as u32,
-    };
+
+    for queue_family_index in distinct_queue_familes {
+        let queue_create_info = vk::DeviceQueueCreateInfo {
+            s_type: vk::StructureType::DEVICE_QUEUE_CREATE_INFO,
+            p_next: ptr::null(),
+            flags: vk::DeviceQueueCreateFlags::empty(),
+            queue_family_index,
+            p_queue_priorities: queue_priorities.as_ptr(),
+            queue_count: queue_priorities.len() as u32,
+        };
+        queue_create_infos.push(queue_create_info);
+    }
 
     let cstring_vec = util::copy_str_vec_to_cstring_vec(&layers);
     let converted_layer_names = util::cstring_vec_to_vk_vec(&cstring_vec);
@@ -205,8 +239,8 @@ fn _create_logical_device(
         s_type: vk::StructureType::DEVICE_CREATE_INFO,
         p_next: ptr::null(),
         flags: vk::DeviceCreateFlags::empty(),
-        queue_create_info_count: 1,
-        p_queue_create_infos: &queue_create_info,
+        queue_create_info_count: queue_create_infos.len() as u32,
+        p_queue_create_infos: queue_create_infos.as_ptr(),
         enabled_layer_count: converted_layer_names.len() as u32,
         pp_enabled_layer_names: converted_layer_names.as_ptr(),
         enabled_extension_count: 0,
@@ -221,23 +255,44 @@ fn _create_logical_device(
     };
 
     let graphics_queue = unsafe { device.get_device_queue(queue_families.graphics.unwrap(), 0) };
+    let present_queue = unsafe { device.get_device_queue(queue_families.present.unwrap(), 0) };
 
-    (device, graphics_queue)
+    (device, graphics_queue, present_queue)
+}
+
+fn create_surface(
+    entry: &ash::Entry,
+    instance: &ash::Instance,
+    window: &winit::window::Window,
+) -> (vk::SurfaceKHR, ash::extensions::khr::Surface) {
+    let surface = unsafe {
+        platform::create_surface(entry, instance, window).expect("Failed to create surface.")
+    };
+    let surface_loader = ash::extensions::khr::Surface::new(entry, instance);
+
+    (surface, surface_loader)
 }
 
 struct QueueFamilyIndices {
     graphics: Option<u32>,
+    present: Option<u32>,
 }
 
 impl QueueFamilyIndices {
-    fn new(instance: &ash::Instance, device: &PhysicalDevice) -> QueueFamilyIndices {
-        let graphics = _pick_graphics_queue_family(instance, device);
+    fn new(
+        instance: &ash::Instance,
+        device: &PhysicalDevice,
+        surface: &vk::SurfaceKHR,
+        surface_loader: &ash::extensions::khr::Surface,
+    ) -> QueueFamilyIndices {
+        let graphics = _pick_queue_families(instance, device);
+        let present = _pick_present_queue_family(instance, device, surface, surface_loader);
 
-        QueueFamilyIndices { graphics }
+        QueueFamilyIndices { graphics, present }
     }
 
     fn is_complete(&self) -> bool {
-        self.graphics.is_some()
+        self.graphics.is_some() && self.present.is_some()
     }
 }
 
@@ -245,19 +300,48 @@ impl Display for QueueFamilyIndices {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "(gfx={})",
-            self.graphics.map(|gfx| gfx as i32).unwrap_or(-1)
+            "(gfx={}, present={})",
+            self.graphics.map(|g| g as i32).unwrap_or(-1),
+            self.present.map(|g| g as i32).unwrap_or(-1)
         )
     }
 }
 
-fn _pick_graphics_queue_family(instance: &ash::Instance, device: &PhysicalDevice) -> Option<u32> {
+fn _pick_queue_families(instance: &ash::Instance, device: &PhysicalDevice) -> Option<u32> {
     let queue_family_properties =
         unsafe { instance.get_physical_device_queue_family_properties(*device) };
 
     let mut index = 0;
     for family_properties in queue_family_properties.iter() {
         if family_properties.queue_flags.contains(QueueFlags::GRAPHICS) {
+            return Option::Some(index);
+        }
+        index += 1;
+    }
+
+    Option::None
+}
+
+fn _pick_present_queue_family(
+    instance: &ash::Instance,
+    physical_device: &PhysicalDevice,
+    surface: &vk::SurfaceKHR,
+    surface_loader: &ash::extensions::khr::Surface,
+) -> Option<u32> {
+    let queue_family_properties =
+        unsafe { instance.get_physical_device_queue_family_properties(*physical_device) };
+
+    let mut index = 0;
+    for _family_properties in queue_family_properties.iter() {
+        let present_support = unsafe {
+            surface_loader.get_physical_device_surface_support(
+                *physical_device,
+                index as u32,
+                *surface,
+            )
+        };
+
+        if present_support.unwrap_or(false) {
             return Option::Some(index);
         }
         index += 1;

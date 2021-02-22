@@ -42,11 +42,10 @@ fn main() {
     log_info!("cvulkan init...");
 
     let event_loop = EventLoop::new();
-    let _window =
-        window::winit::init_window(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, &event_loop);
-    let mut _vulkan_context = vulkan::context::Context::new();
+    let window = window::winit::init_window(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, &event_loop);
+    let mut _vulkan_context = vulkan::context::Context::new(&window);
 
-    window::winit::main_loop(event_loop, _window, _vulkan_context);
+    window::winit::main_loop(event_loop, window, _vulkan_context);
 
     log_info!("Exiting");
 }
