@@ -1,5 +1,5 @@
 [package]
-name = "cvulkan"
+name = "vulkrap"
 version = "0.1.0"
 authors = ["Adam Andersson <geheaz@gmail.com>"]
 edition = "2018"
