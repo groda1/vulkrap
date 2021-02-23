@@ -118,6 +118,25 @@ pub fn log_device_queue_families(instance: &ash::Instance, device: &PhysicalDevi
     }
 }
 
+pub fn log_physical_device_extensions(instance: &ash::Instance, device: &PhysicalDevice) {
+    let physical_device_extensions = unsafe {
+        instance
+            .enumerate_device_extension_properties(*device)
+            .expect("Failed to enumerate physical device extensions!")
+    };
+
+    log_info!("Available physical device extensions: ");
+    for extension in physical_device_extensions.iter() {
+        let name_str = vk_cstr_to_str(&extension.extension_name);
+
+        log_info!(
+            " - {} [{}]",
+            name_str,
+            vk_format_version(extension.spec_version)
+        );
+    }
+}
+
 pub fn log_available_extension_properties(entry: &ash::Entry) {
     let properties = entry
         .enumerate_instance_extension_properties()

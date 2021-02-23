@@ -1,8 +1,11 @@
 use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
 use ash::vk::{PhysicalDevice, QueueFlags};
+use std::collections::HashSet;
 use std::ffi::{c_void, CString};
+use std::fmt::Display;
 use std::{fmt, ptr};
+use winit::window::Window;
 
 use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
@@ -11,10 +14,9 @@ use super::constants;
 use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
 use super::debug;
 use super::platform;
+use super::surface::SurfaceContainer;
+use super::swap_chain;
 use super::util;
-use std::collections::HashSet;
-use std::fmt::Display;
-use winit::window::Window;
 
 pub struct Context {
     entry: ash::Entry,
@@ -24,9 +26,9 @@ pub struct Context {
     graphics_queue: vk::Queue,
     present_queue: vk::Queue,
 
-    surface_loader: ash::extensions::khr::Surface,
-    surface: vk::SurfaceKHR,
-
+    surface_container: SurfaceContainer,
+    //surface_loader: ash::extensions::khr::Surface,
+    //surface: vk::SurfaceKHR,
     debug_utils_loader: ash::extensions::ext::DebugUtils,
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
 
@@ -52,26 +54,30 @@ impl Context {
 
         debug::log_physical_devices(&instance);
 
-        let (surface, surface_loader) = create_surface(&entry, &instance, &window);
+        let surface_container = SurfaceContainer::new(&entry, &instance, &window);
 
         let physical_device = _pick_physical_device(&instance);
         log_info!("Picked Physical device: ");
         debug::log_physical_device(&instance, &physical_device);
         debug::log_device_queue_families(&instance, &physical_device);
+        debug::log_physical_device_extensions(&instance, &physical_device);
 
-        let (logical_device, graphics_queue, present_queue) = _create_logical_device(
+        let (logical_device, graphics_queue, present_queue) =
+            _create_logical_device(&instance, &physical_device, &layers, &surface_container);
+
+        swap_chain::create_swapchain(
             &instance,
-            &physical_device,
-            &layers,
-            &surface,
-            &surface_loader,
+            &logical_device,
+            physical_device,
+            &surface_container,
+            &graphics_queue,
+            &present_queue,
         );
 
         Context {
             entry,
             instance,
-            surface,
-            surface_loader,
+            surface_container,
             physical_device,
             logical_device,
             graphics_queue,
@@ -101,7 +107,7 @@ impl Drop for Context {
             self.debug_utils_loader
                 .destroy_debug_utils_messenger(self.debug_utils_messenger, None);
 
-            self.surface_loader.destroy_surface(self.surface, None);
+            self.surface_container.destroy_surface();
             self.instance.destroy_instance(None);
         }
     }
@@ -163,15 +169,26 @@ fn _pick_physical_device(instance: &ash::Instance) -> PhysicalDevice {
             .expect("Failed to enumerate Physical devices!");
 
         if physical_devices.len() <= 0 {
-            panic!("No available physical devices.");
+            panic!("No available physical device.");
         }
 
         for device in physical_devices.iter() {
-            // TODO Check and select a suitable device
-            return *device;
+            if _is_physical_device_suitable(device) {
+                return *device;
+            }
         }
-        panic!("No suitable devices!");
+        panic!("No suitable physical device!");
     }
+}
+
+fn _is_physical_device_suitable(device: &PhysicalDevice) -> bool {
+    /* TODO:
+    Check for queue family support
+    Check for extensions:
+        - DEVICE_EXTENSIONS
+    Check for swap chain support
+     */
+    true
 }
 
 fn _check_instance_layer_support(entry: &ash::Entry, layer_name: &str) -> bool {
@@ -194,11 +211,9 @@ fn _create_logical_device(
     instance: &ash::Instance,
     physical_device: &vk::PhysicalDevice,
     layers: &Vec<&str>,
-    surface: &vk::SurfaceKHR,
-    surface_loader: &ash::extensions::khr::Surface,
+    surface_container: &SurfaceContainer,
 ) -> (ash::Device, vk::Queue, vk::Queue) {
-    let queue_families =
-        QueueFamilyIndices::new(&instance, &physical_device, surface, surface_loader);
+    let queue_families = QueueFamilyIndices::new(&instance, &physical_device, surface_container);
 
     log_info!("Picked Queue families: {}", queue_families);
     if !queue_families.is_complete() {
@@ -228,8 +243,11 @@ fn _create_logical_device(
         queue_create_infos.push(queue_create_info);
     }
 
-    let cstring_vec = util::copy_str_vec_to_cstring_vec(&layers);
-    let converted_layer_names = util::cstring_vec_to_vk_vec(&cstring_vec);
+    let layer_cstring_vec = util::copy_str_vec_to_cstring_vec(&layers);
+    let layers_converted = util::cstring_vec_to_vk_vec(&layer_cstring_vec);
+
+    let extensions_cstring_vec = util::copy_str_arr_to_cstring_vec(&constants::DEVICE_EXTENSIONS);
+    let extensions_converted = util::cstring_vec_to_vk_vec(&extensions_cstring_vec);
 
     let physical_device_features = vk::PhysicalDeviceFeatures {
         ..Default::default() // default just enable no feature.
@@ -241,10 +259,10 @@ fn _create_logical_device(
         flags: vk::DeviceCreateFlags::empty(),
         queue_create_info_count: queue_create_infos.len() as u32,
         p_queue_create_infos: queue_create_infos.as_ptr(),
-        enabled_layer_count: converted_layer_names.len() as u32,
-        pp_enabled_layer_names: converted_layer_names.as_ptr(),
-        enabled_extension_count: 0,
-        pp_enabled_extension_names: ptr::null(),
+        enabled_layer_count: layers_converted.len() as u32,
+        pp_enabled_layer_names: layers_converted.as_ptr(),
+        enabled_extension_count: extensions_converted.len() as u32,
+        pp_enabled_extension_names: extensions_converted.as_ptr(),
         p_enabled_features: &physical_device_features,
     };
 
@@ -260,19 +278,6 @@ fn _create_logical_device(
     (device, graphics_queue, present_queue)
 }
 
-fn create_surface(
-    entry: &ash::Entry,
-    instance: &ash::Instance,
-    window: &winit::window::Window,
-) -> (vk::SurfaceKHR, ash::extensions::khr::Surface) {
-    let surface = unsafe {
-        platform::create_surface(entry, instance, window).expect("Failed to create surface.")
-    };
-    let surface_loader = ash::extensions::khr::Surface::new(entry, instance);
-
-    (surface, surface_loader)
-}
-
 struct QueueFamilyIndices {
     graphics: Option<u32>,
     present: Option<u32>,
@@ -282,11 +287,10 @@ impl QueueFamilyIndices {
     fn new(
         instance: &ash::Instance,
         device: &PhysicalDevice,
-        surface: &vk::SurfaceKHR,
-        surface_loader: &ash::extensions::khr::Surface,
+        surface_container: &SurfaceContainer,
     ) -> QueueFamilyIndices {
         let graphics = _pick_queue_families(instance, device);
-        let present = _pick_present_queue_family(instance, device, surface, surface_loader);
+        let present = _pick_present_queue_family(instance, device, surface_container);
 
         QueueFamilyIndices { graphics, present }
     }
@@ -325,8 +329,7 @@ fn _pick_queue_families(instance: &ash::Instance, device: &PhysicalDevice) -> Op
 fn _pick_present_queue_family(
     instance: &ash::Instance,
     physical_device: &PhysicalDevice,
-    surface: &vk::SurfaceKHR,
-    surface_loader: &ash::extensions::khr::Surface,
+    surface_container: &SurfaceContainer,
 ) -> Option<u32> {
     let queue_family_properties =
         unsafe { instance.get_physical_device_queue_family_properties(*physical_device) };
@@ -334,11 +337,13 @@ fn _pick_present_queue_family(
     let mut index = 0;
     for _family_properties in queue_family_properties.iter() {
         let present_support = unsafe {
-            surface_loader.get_physical_device_surface_support(
-                *physical_device,
-                index as u32,
-                *surface,
-            )
+            surface_container
+                .loader
+                .get_physical_device_surface_support(
+                    *physical_device,
+                    index as u32,
+                    surface_container.surface,
+                )
         };
 
         if present_support.unwrap_or(false) {
