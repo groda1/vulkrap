@@ -64,6 +64,9 @@ pub fn create_swapchain(
         old_swapchain: vk::SwapchainKHR::null(),
         image_array_layers: 1,
     };
+
+    log_debug!("{:#?}", &swapchain_create_info);
+
     /*
     let swapchain_loader = ash::extensions::khr::Swapchain::new(instance, device);
     let swapchain = unsafe {
@@ -102,7 +105,7 @@ fn _choose_swapchain_present_mode(
     available_present_modes: &Vec<vk::PresentModeKHR>,
     vsync: bool,
 ) -> vk::PresentModeKHR {
-    if vsync {
+    if !vsync {
         for &available_present_mode in available_present_modes.iter() {
             if available_present_mode == vk::PresentModeKHR::IMMEDIATE {
                 return available_present_mode;
@@ -141,39 +144,8 @@ pub struct SwapChainSupportDetail {
 impl SwapChainSupportDetail {
     pub fn log_info(&self) {
         log_info!("Swap chain support:");
-        self.log_capabilites();
-        self.log_formats();
-        self.log_present_modes();
-    }
-
-    pub fn log_capabilites(&self) {
-        log_info!("min image count: {}", self.capabilities.min_image_count);
-        log_info!("max image count: {}", self.capabilities.max_image_count);
-        log_info!(
-            "min image extent: {}x{}",
-            self.capabilities.min_image_extent.width,
-            self.capabilities.min_image_extent.height
-        );
-        log_info!(
-            "max image extent: {}x{}",
-            self.capabilities.max_image_extent.width,
-            self.capabilities.max_image_extent.height
-        );
-        log_info!(
-            "current extent: {}x{}",
-            self.capabilities.current_extent.width,
-            self.capabilities.current_extent.height
-        );
-    }
-
-    pub fn log_formats(&self) {
-        for format in self.formats.iter() {
-            // TODO
-        }
-    }
-    pub fn log_present_modes(&self) {
-        for present_mode in self.present_modes.iter() {
-            // TODO
-        }
+        log_info!(" - {:#?}", self.capabilities);
+        log_info!("- Formats:  {:#?}", self.formats);
+        log_info!("- Present modes:  {:#?}", self.present_modes);
     }
 }

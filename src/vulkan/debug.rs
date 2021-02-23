@@ -87,7 +87,6 @@ pub fn log_physical_devices(instance: &ash::Instance) {
 pub fn log_physical_device(instance: &ash::Instance, device: &PhysicalDevice) {
     let prop = unsafe { instance.get_physical_device_properties(*device) };
     let name_str = vk_cstr_to_str(&prop.device_name);
-
     log_info!(
         " - [{}] {} ({})",
         prop.device_id,
