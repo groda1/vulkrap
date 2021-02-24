@@ -15,20 +15,21 @@ use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
 use super::debug;
 use super::platform;
 use super::surface::SurfaceContainer;
-use super::swap_chain;
 use super::util;
+use crate::vulkan::swap_chain::SwapChainContainer;
 
 pub struct Context {
     entry: ash::Entry,
     instance: ash::Instance,
+
     physical_device: PhysicalDevice,
     logical_device: ash::Device,
     graphics_queue: vk::Queue,
     present_queue: vk::Queue,
 
     surface_container: SurfaceContainer,
-    //surface_loader: ash::extensions::khr::Surface,
-    //surface: vk::SurfaceKHR,
+    swap_chain_container: SwapChainContainer,
+
     debug_utils_loader: ash::extensions::ext::DebugUtils,
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
 
@@ -62,26 +63,38 @@ impl Context {
         debug::log_device_queue_families(&instance, &physical_device);
         debug::log_physical_device_extensions(&instance, &physical_device);
 
-        let (logical_device, graphics_queue, present_queue) =
-            _create_logical_device(&instance, &physical_device, &layers, &surface_container);
+        let queue_families =
+            QueueFamilyIndices::new(&instance, &physical_device, &surface_container);
+        log_info!("Picked Queue families: {}", queue_families);
+        if !queue_families.is_complete() {
+            // TODO: log which one is missing
+            panic!("Missing queue family!");
+        }
 
-        swap_chain::create_swapchain(
+        let logical_device =
+            _create_logical_device(&instance, &physical_device, &layers, &queue_families);
+        let graphics_queue =
+            unsafe { logical_device.get_device_queue(queue_families.graphics.unwrap(), 0) };
+        let present_queue =
+            unsafe { logical_device.get_device_queue(queue_families.present.unwrap(), 0) };
+
+        let swap_chain_container = SwapChainContainer::new(
             &instance,
             &logical_device,
             physical_device,
             &surface_container,
-            &graphics_queue,
-            &present_queue,
+            &queue_families,
         );
 
         Context {
             entry,
             instance,
-            surface_container,
             physical_device,
             logical_device,
             graphics_queue,
             present_queue,
+            surface_container,
+            swap_chain_container,
             debug_utils_loader,
             debug_utils_messenger,
             n_frames: 0,
@@ -101,13 +114,14 @@ impl Drop for Context {
     fn drop(&mut self) {
         log_debug!("vulkan::Context: destroying instance");
         unsafe {
+            self.swap_chain_container.destroy();
             self.logical_device.destroy_device(None);
 
             #[cfg(debug_assertions)]
             self.debug_utils_loader
                 .destroy_debug_utils_messenger(self.debug_utils_messenger, None);
 
-            self.surface_container.destroy_surface();
+            self.surface_container.destroy();
             self.instance.destroy_instance(None);
         }
     }
@@ -211,16 +225,8 @@ fn _create_logical_device(
     instance: &ash::Instance,
     physical_device: &vk::PhysicalDevice,
     layers: &Vec<&str>,
-    surface_container: &SurfaceContainer,
-) -> (ash::Device, vk::Queue, vk::Queue) {
-    let queue_families = QueueFamilyIndices::new(&instance, &physical_device, surface_container);
-
-    log_info!("Picked Queue families: {}", queue_families);
-    if !queue_families.is_complete() {
-        // TODO: log which one is missing
-        panic!("Missing queue family!");
-    }
-
+    queue_families: &QueueFamilyIndices,
+) -> ash::Device {
     let distinct_queue_familes: HashSet<u32> = [
         queue_families.graphics.unwrap(),
         queue_families.present.unwrap(),
@@ -272,15 +278,12 @@ fn _create_logical_device(
             .expect("Failed to create logical Device!")
     };
 
-    let graphics_queue = unsafe { device.get_device_queue(queue_families.graphics.unwrap(), 0) };
-    let present_queue = unsafe { device.get_device_queue(queue_families.present.unwrap(), 0) };
-
-    (device, graphics_queue, present_queue)
+    device
 }
 
-struct QueueFamilyIndices {
-    graphics: Option<u32>,
-    present: Option<u32>,
+pub struct QueueFamilyIndices {
+    pub(crate) graphics: Option<u32>,
+    pub(crate) present: Option<u32>,
 }
 
 impl QueueFamilyIndices {

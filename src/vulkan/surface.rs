@@ -24,7 +24,7 @@ impl SurfaceContainer {
         }
     }
 
-    pub unsafe fn destroy_surface(&self) {
+    pub unsafe fn destroy(&self) {
         self.loader.destroy_surface(self.surface, None);
     }
 
