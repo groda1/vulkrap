@@ -6,6 +6,7 @@ use std::ptr;
 
 use super::constants::USE_VSYNC;
 use crate::vulkan::context::QueueFamilyIndices;
+use ash::version::DeviceV1_0;
 
 pub struct SwapChainContainer {
     loader: ash::extensions::khr::Swapchain,
@@ -13,6 +14,7 @@ pub struct SwapChainContainer {
     images: Vec<vk::Image>,
     format: vk::Format,
     extent: vk::Extent2D,
+    image_views: Vec<vk::ImageView>
 }
 
 impl SwapChainContainer {
@@ -88,18 +90,65 @@ impl SwapChainContainer {
                 .expect("Failed to get Swapchain Images.")
         };
 
+        let image_views = _create_image_views(device, surface_format.format, &images);
+
         SwapChainContainer {
             loader: swapchain_loader,
             swapchain,
             format: surface_format.format,
             extent,
             images,
+            image_views
         }
     }
 
-    pub unsafe fn destroy(&self) {
+    pub unsafe fn destroy(&self, device: &ash::Device) {
+        for image_view in self.image_views.iter() {
+            device.destroy_image_view(*image_view, None);
+        }
+
         self.loader.destroy_swapchain(self.swapchain, None);
     }
+}
+
+fn _create_image_views(
+    device: &ash::Device,
+    surface_format: vk::Format,
+    images: &Vec<vk::Image>,
+) -> Vec<vk::ImageView> {
+    let mut swapchain_imageviews = vec![];
+
+    for &image in images.iter() {
+        let imageview_create_info = vk::ImageViewCreateInfo {
+            s_type: vk::StructureType::IMAGE_VIEW_CREATE_INFO,
+            p_next: ptr::null(),
+            flags: vk::ImageViewCreateFlags::empty(),
+            view_type: vk::ImageViewType::TYPE_2D,
+            format: surface_format,
+            components: vk::ComponentMapping {
+                r: vk::ComponentSwizzle::IDENTITY,
+                g: vk::ComponentSwizzle::IDENTITY,
+                b: vk::ComponentSwizzle::IDENTITY,
+                a: vk::ComponentSwizzle::IDENTITY,
+            },
+            subresource_range: vk::ImageSubresourceRange {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            image,
+        };
+
+        let imageview = unsafe {
+            device.create_image_view(&imageview_create_info, None)
+                .expect("Failed to create Image View!")
+        };
+        swapchain_imageviews.push(imageview);
+    }
+
+    swapchain_imageviews
 }
 
 fn _choose_swapchain_format(available_formats: &Vec<vk::SurfaceFormatKHR>) -> vk::SurfaceFormatKHR {

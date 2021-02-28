@@ -114,7 +114,7 @@ impl Drop for Context {
     fn drop(&mut self) {
         log_debug!("vulkan::Context: destroying instance");
         unsafe {
-            self.swap_chain_container.destroy();
+            self.swap_chain_container.destroy(&self.logical_device);
             self.logical_device.destroy_device(None);
 
             #[cfg(debug_assertions)]
