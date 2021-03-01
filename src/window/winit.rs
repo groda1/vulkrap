@@ -1,9 +1,10 @@
-use crate::vulkan::context::Context;
 use core::time;
 use std::thread;
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
+
+use crate::renderer::context::Context;
 
 pub fn init_window(
     title: &'static str,

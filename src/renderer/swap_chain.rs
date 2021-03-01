@@ -1,11 +1,11 @@
-use crate::vulkan::surface::SurfaceContainer;
 use ash::vk;
 use ash::vk::PhysicalDevice;
 use num::clamp;
 use std::ptr;
 
 use super::constants::USE_VSYNC;
-use crate::vulkan::context::QueueFamilyIndices;
+use super::context::QueueFamilyIndices;
+use super::surface::SurfaceContainer;
 use ash::version::DeviceV1_0;
 
 pub struct SwapChainContainer {
@@ -14,7 +14,7 @@ pub struct SwapChainContainer {
     images: Vec<vk::Image>,
     format: vk::Format,
     extent: vk::Extent2D,
-    image_views: Vec<vk::ImageView>
+    image_views: Vec<vk::ImageView>,
 }
 
 impl SwapChainContainer {
@@ -98,7 +98,7 @@ impl SwapChainContainer {
             format: surface_format.format,
             extent,
             images,
-            image_views
+            image_views,
         }
     }
 
@@ -142,7 +142,8 @@ fn _create_image_views(
         };
 
         let imageview = unsafe {
-            device.create_image_view(&imageview_create_info, None)
+            device
+                .create_image_view(&imageview_create_info, None)
                 .expect("Failed to create Image View!")
         };
         swapchain_imageviews.push(imageview);

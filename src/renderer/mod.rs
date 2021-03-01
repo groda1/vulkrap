@@ -5,4 +5,4 @@ mod debug;
 mod platform;
 mod surface;
 mod swap_chain;
-mod util;
+mod vulkan_util;

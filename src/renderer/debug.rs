@@ -1,9 +1,10 @@
-use crate::vulkan::util::{vk_cstr_to_str, vk_format_version};
 use ash::version::{EntryV1_0, InstanceV1_0};
 use ash::vk;
 use ash::vk::{PhysicalDevice, QueueFlags};
 use std::ffi::{c_void, CStr};
 use std::ptr;
+
+use super::vulkan_util::{vk_cstr_to_str, vk_format_version};
 
 pub fn setup_debug_utils(
     entry: &ash::Entry,

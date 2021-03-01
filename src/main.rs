@@ -26,7 +26,8 @@ macro_rules! log_debug {
 use winit::event_loop::EventLoop;
 
 mod console;
-mod vulkan;
+mod renderer;
+mod util;
 mod window;
 
 const ENGINE_NAME: &'static str = "vulkrap";
@@ -43,7 +44,7 @@ fn main() {
 
     let event_loop = EventLoop::new();
     let window = window::winit::init_window(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, &event_loop);
-    let mut _vulkan_context = vulkan::context::Context::new(&window);
+    let mut _vulkan_context = renderer::context::Context::new(&window);
 
     window::winit::main_loop(event_loop, window, _vulkan_context);
 

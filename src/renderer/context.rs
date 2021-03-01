@@ -15,8 +15,8 @@ use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
 use super::debug;
 use super::platform;
 use super::surface::SurfaceContainer;
-use super::util;
-use crate::vulkan::swap_chain::SwapChainContainer;
+use super::swap_chain::SwapChainContainer;
+use super::vulkan_util;
 
 pub struct Context {
     entry: ash::Entry,
@@ -101,6 +101,10 @@ impl Context {
         }
     }
 
+    fn create_graphics_pipeline() {
+        // leave it empty right now
+    }
+
     pub fn draw_frame(&mut self) {
         self.n_frames += 1;
 
@@ -142,8 +146,8 @@ fn _create_instance(entry: &ash::Entry, layers: &Vec<&str>) -> ash::Instance {
 
     let required_extensions = platform::required_extension_names();
 
-    let cstring_vec = util::copy_str_vec_to_cstring_vec(&layers);
-    let converted_layer_names = util::cstring_vec_to_vk_vec(&cstring_vec);
+    let cstring_vec = vulkan_util::copy_str_vec_to_cstring_vec(&layers);
+    let converted_layer_names = vulkan_util::cstring_vec_to_vk_vec(&cstring_vec);
     layers
         .iter()
         .for_each(|layer| log_debug!("Enabling layer:  {}", layer));
@@ -211,7 +215,7 @@ fn _check_instance_layer_support(entry: &ash::Entry, layer_name: &str) -> bool {
         .expect("Failed to enumerate Instance Layers Properties!");
 
     for layer in layer_properties.iter() {
-        let str = util::vk_cstr_to_str(&layer.layer_name);
+        let str = vulkan_util::vk_cstr_to_str(&layer.layer_name);
 
         if *layer_name == *str {
             return true;
@@ -249,11 +253,12 @@ fn _create_logical_device(
         queue_create_infos.push(queue_create_info);
     }
 
-    let layer_cstring_vec = util::copy_str_vec_to_cstring_vec(&layers);
-    let layers_converted = util::cstring_vec_to_vk_vec(&layer_cstring_vec);
+    let layer_cstring_vec = vulkan_util::copy_str_vec_to_cstring_vec(&layers);
+    let layers_converted = vulkan_util::cstring_vec_to_vk_vec(&layer_cstring_vec);
 
-    let extensions_cstring_vec = util::copy_str_arr_to_cstring_vec(&constants::DEVICE_EXTENSIONS);
-    let extensions_converted = util::cstring_vec_to_vk_vec(&extensions_cstring_vec);
+    let extensions_cstring_vec =
+        vulkan_util::copy_str_arr_to_cstring_vec(&constants::DEVICE_EXTENSIONS);
+    let extensions_converted = vulkan_util::cstring_vec_to_vk_vec(&extensions_cstring_vec);
 
     let physical_device_features = vk::PhysicalDeviceFeatures {
         ..Default::default() // default just enable no feature.
