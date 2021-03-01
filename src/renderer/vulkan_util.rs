@@ -1,6 +1,7 @@
-use ash::vk::{version_major, version_minor, version_patch};
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+
+use ash::vk::{version_major, version_minor, version_patch};
 
 pub fn vk_cstr_to_str(c_str: &[c_char]) -> &str {
     unsafe {

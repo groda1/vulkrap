@@ -1,19 +1,20 @@
+use std::ptr;
+
+use ash::version::DeviceV1_0;
 use ash::vk;
 use ash::vk::PhysicalDevice;
 use num::clamp;
-use std::ptr;
 
 use super::constants::USE_VSYNC;
 use super::context::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
-use ash::version::DeviceV1_0;
 
 pub struct SwapChainContainer {
     loader: ash::extensions::khr::Swapchain,
     swapchain: vk::SwapchainKHR,
     images: Vec<vk::Image>,
     format: vk::Format,
-    extent: vk::Extent2D,
+    pub(crate) extent: vk::Extent2D,
     image_views: Vec<vk::ImageView>,
 }
 
