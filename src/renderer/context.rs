@@ -20,7 +20,6 @@ use super::platform;
 use super::surface::SurfaceContainer;
 use super::swap_chain::SwapChainContainer;
 use super::vulkan_util;
-use std::ptr::swap;
 
 pub struct Context {
     entry: ash::Entry,

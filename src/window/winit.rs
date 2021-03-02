@@ -51,7 +51,7 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut rendering_contex
             }
             Event::RedrawRequested(_window_id) => {
                 rendering_context.draw_frame();
-                thread::sleep(time::Duration::from_millis(10));
+                //thread::sleep(time::Duration::from_millis(10));
             }
             _ => (),
         }
