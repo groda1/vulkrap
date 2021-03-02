@@ -32,8 +32,10 @@ pub struct Context {
     present_queue: vk::Queue,
 
     surface_container: SurfaceContainer,
-    swap_chain_container: SwapChainContainer,
+    swapchain_container: SwapChainContainer,
 
+    render_pass: vk::RenderPass,
+    pipeline: vk::Pipeline,
     pipeline_layout: vk::PipelineLayout,
 
     debug_utils_loader: ash::extensions::ext::DebugUtils,
@@ -84,7 +86,7 @@ impl Context {
         let present_queue =
             unsafe { logical_device.get_device_queue(queue_families.present.unwrap(), 0) };
 
-        let swap_chain_container = SwapChainContainer::new(
+        let swapchain_container = SwapChainContainer::new(
             &instance,
             &logical_device,
             physical_device,
@@ -92,8 +94,12 @@ impl Context {
             &queue_families,
         );
 
-        let pipeline_layout =
-            _create_graphics_pipeline_layout(&logical_device, swap_chain_container.extent);
+        let render_pass = _create_render_pass(&logical_device, swapchain_container.format);
+        let (pipeline, pipeline_layout) = _create_graphics_pipeline_layout(
+            &logical_device,
+            render_pass,
+            swapchain_container.extent,
+        );
 
         Context {
             entry,
@@ -103,7 +109,9 @@ impl Context {
             graphics_queue,
             present_queue,
             surface_container,
-            swap_chain_container,
+            swapchain_container,
+            render_pass,
+            pipeline,
             pipeline_layout,
             debug_utils_loader,
             debug_utils_messenger,
@@ -124,9 +132,12 @@ impl Drop for Context {
     fn drop(&mut self) {
         log_debug!("vulkan::Context: destroying instance");
         unsafe {
+            self.logical_device.destroy_pipeline(self.pipeline, None);
             self.logical_device
                 .destroy_pipeline_layout(self.pipeline_layout, None);
-            self.swap_chain_container.destroy(&self.logical_device);
+            self.logical_device
+                .destroy_render_pass(self.render_pass, None);
+            self.swapchain_container.destroy(&self.logical_device);
             self.logical_device.destroy_device(None);
 
             #[cfg(debug_assertions)]
@@ -141,8 +152,9 @@ impl Drop for Context {
 
 fn _create_graphics_pipeline_layout(
     device: &ash::Device,
+    render_pass: vk::RenderPass,
     swapchain_extent: vk::Extent2D,
-) -> vk::PipelineLayout {
+) -> (vk::Pipeline, vk::PipelineLayout) {
     let vert_shader_code =
         file::read_file(Path::new("./resources/shaders/simple_triangle_vert.spv"));
     let frag_shader_code =
@@ -153,7 +165,7 @@ fn _create_graphics_pipeline_layout(
 
     let main_function_name = CString::new("main").unwrap();
 
-    let _shader_stages = [
+    let shader_stages = [
         vk::PipelineShaderStageCreateInfo {
             // Vertex Shader
             s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -176,7 +188,7 @@ fn _create_graphics_pipeline_layout(
         },
     ];
 
-    let _vertex_input_state_create_info = vk::PipelineVertexInputStateCreateInfo {
+    let vertex_input_state_create_info = vk::PipelineVertexInputStateCreateInfo {
         s_type: vk::StructureType::PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         p_next: ptr::null(),
         flags: vk::PipelineVertexInputStateCreateFlags::empty(),
@@ -186,7 +198,7 @@ fn _create_graphics_pipeline_layout(
         p_vertex_binding_descriptions: ptr::null(),
     };
 
-    let _vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
+    let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
         s_type: vk::StructureType::PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         flags: vk::PipelineInputAssemblyStateCreateFlags::empty(),
         p_next: ptr::null(),
@@ -208,7 +220,7 @@ fn _create_graphics_pipeline_layout(
         extent: swapchain_extent,
     }];
 
-    let _viewport_state_create_info = vk::PipelineViewportStateCreateInfo {
+    let viewport_state_create_info = vk::PipelineViewportStateCreateInfo {
         s_type: vk::StructureType::PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         p_next: ptr::null(),
         flags: vk::PipelineViewportStateCreateFlags::empty(),
@@ -218,7 +230,7 @@ fn _create_graphics_pipeline_layout(
         p_viewports: viewports.as_ptr(),
     };
 
-    let _rasterization_statue_create_info = vk::PipelineRasterizationStateCreateInfo {
+    let rasterization_statue_create_info = vk::PipelineRasterizationStateCreateInfo {
         s_type: vk::StructureType::PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         p_next: ptr::null(),
         flags: vk::PipelineRasterizationStateCreateFlags::empty(),
@@ -234,7 +246,7 @@ fn _create_graphics_pipeline_layout(
         depth_bias_slope_factor: 0.0,
     };
 
-    let _multisample_state_create_info = vk::PipelineMultisampleStateCreateInfo {
+    let multisample_state_create_info = vk::PipelineMultisampleStateCreateInfo {
         s_type: vk::StructureType::PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         flags: vk::PipelineMultisampleStateCreateFlags::empty(),
         p_next: ptr::null(),
@@ -256,7 +268,7 @@ fn _create_graphics_pipeline_layout(
         reference: 0,
     };
 
-    let _depth_state_create_info = vk::PipelineDepthStencilStateCreateInfo {
+    let depth_state_create_info = vk::PipelineDepthStencilStateCreateInfo {
         s_type: vk::StructureType::PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         p_next: ptr::null(),
         flags: vk::PipelineDepthStencilStateCreateFlags::empty(),
@@ -282,7 +294,7 @@ fn _create_graphics_pipeline_layout(
         alpha_blend_op: vk::BlendOp::ADD,
     }];
 
-    let _color_blend_state = vk::PipelineColorBlendStateCreateInfo {
+    let color_blend_state = vk::PipelineColorBlendStateCreateInfo {
         s_type: vk::StructureType::PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         p_next: ptr::null(),
         flags: vk::PipelineColorBlendStateCreateFlags::empty(),
@@ -309,12 +321,96 @@ fn _create_graphics_pipeline_layout(
             .expect("Failed to create pipeline layout!")
     };
 
+    let graphic_pipeline_create_infos = [vk::GraphicsPipelineCreateInfo {
+        s_type: vk::StructureType::GRAPHICS_PIPELINE_CREATE_INFO,
+        p_next: ptr::null(),
+        flags: vk::PipelineCreateFlags::empty(),
+        stage_count: shader_stages.len() as u32,
+        p_stages: shader_stages.as_ptr(),
+        p_vertex_input_state: &vertex_input_state_create_info,
+        p_input_assembly_state: &vertex_input_assembly_state_info,
+        p_tessellation_state: ptr::null(),
+        p_viewport_state: &viewport_state_create_info,
+        p_rasterization_state: &rasterization_statue_create_info,
+        p_multisample_state: &multisample_state_create_info,
+        p_depth_stencil_state: &depth_state_create_info,
+        p_color_blend_state: &color_blend_state,
+        p_dynamic_state: ptr::null(),
+        layout: pipeline_layout,
+        render_pass,
+        subpass: 0,
+        base_pipeline_handle: vk::Pipeline::null(),
+        base_pipeline_index: -1,
+    }];
+
+    let graphics_pipelines = unsafe {
+        device
+            .create_graphics_pipelines(
+                vk::PipelineCache::null(),
+                &graphic_pipeline_create_infos,
+                None,
+            )
+            .expect("Failed to create Graphics Pipeline!.")
+    };
+
     unsafe {
         device.destroy_shader_module(vert_shader_module, None);
         device.destroy_shader_module(frag_shader_module, None);
     }
 
-    pipeline_layout
+    (graphics_pipelines[0], pipeline_layout)
+}
+
+fn _create_render_pass(device: &ash::Device, surface_format: vk::Format) -> vk::RenderPass {
+    let color_attachment = vk::AttachmentDescription {
+        flags: vk::AttachmentDescriptionFlags::empty(),
+        format: surface_format,
+        samples: vk::SampleCountFlags::TYPE_1,
+        load_op: vk::AttachmentLoadOp::CLEAR, // TODO: try changing this!
+        store_op: vk::AttachmentStoreOp::STORE,
+        stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
+        stencil_store_op: vk::AttachmentStoreOp::DONT_CARE,
+        initial_layout: vk::ImageLayout::UNDEFINED,
+        final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
+    };
+
+    let color_attachment_ref = vk::AttachmentReference {
+        attachment: 0,
+        layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+    };
+
+    let subpass = vk::SubpassDescription {
+        flags: vk::SubpassDescriptionFlags::empty(),
+        pipeline_bind_point: vk::PipelineBindPoint::GRAPHICS,
+        input_attachment_count: 0,
+        p_input_attachments: ptr::null(),
+        color_attachment_count: 1,
+        p_color_attachments: &color_attachment_ref,
+        p_resolve_attachments: ptr::null(),
+        p_depth_stencil_attachment: ptr::null(),
+        preserve_attachment_count: 0,
+        p_preserve_attachments: ptr::null(),
+    };
+
+    let render_pass_attachments = [color_attachment];
+
+    let renderpass_create_info = vk::RenderPassCreateInfo {
+        s_type: vk::StructureType::RENDER_PASS_CREATE_INFO,
+        flags: vk::RenderPassCreateFlags::empty(),
+        p_next: ptr::null(),
+        attachment_count: render_pass_attachments.len() as u32,
+        p_attachments: render_pass_attachments.as_ptr(),
+        subpass_count: 1,
+        p_subpasses: &subpass,
+        dependency_count: 0,
+        p_dependencies: ptr::null(),
+    };
+
+    unsafe {
+        device
+            .create_render_pass(&renderpass_create_info, None)
+            .expect("Failed to create render pass!")
+    }
 }
 
 fn _create_shader_module(device: &ash::Device, code: Vec<u8>) -> vk::ShaderModule {

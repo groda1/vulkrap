@@ -13,7 +13,7 @@ pub struct SwapChainContainer {
     loader: ash::extensions::khr::Swapchain,
     swapchain: vk::SwapchainKHR,
     images: Vec<vk::Image>,
-    format: vk::Format,
+    pub(crate) format: vk::Format,
     pub(crate) extent: vk::Extent2D,
     image_views: Vec<vk::ImageView>,
 }
