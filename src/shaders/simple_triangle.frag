@@ -6,5 +6,13 @@ layout(location = 0) in vec3 fragColor;
 layout(location = 0) out vec4 outColor;
 
 void main() {
-    outColor = vec4(fragColor, 1.0);
+    if (fragColor.r + fragColor.b > 0.98) {
+        outColor = vec4(1.0, 1.0, 1.0, 1.0);
+    } else if (fragColor.g + fragColor.b > 0.98) {
+        outColor = vec4(1.0, 1.0, 1.0, 1.0);
+    } else if (fragColor.g + fragColor.r > 0.98) {
+        outColor = vec4(1.0, 1.0, 1.0, 1.0);
+    } else {
+        outColor = vec4(fragColor, 1.0);
+    }
 }

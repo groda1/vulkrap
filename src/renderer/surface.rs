@@ -1,7 +1,7 @@
 use ash::vk;
 
 use super::platform;
-use super::swap_chain::SwapChainSupportDetail;
+use super::swapchain::SwapChainSupportDetail;
 
 pub struct SurfaceContainer {
     pub(crate) surface: vk::SurfaceKHR,

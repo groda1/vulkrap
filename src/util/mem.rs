@@ -1,7 +1,7 @@
 use std::alloc::{alloc, Layout};
 pub fn raw_alloc<T>() -> Box<T> {
     let layout = Layout::new::<T>();
-    let mut buf = unsafe {
+    let buf = unsafe {
         let ptr = alloc(layout) as *mut T;
         Box::from_raw(ptr)
     };

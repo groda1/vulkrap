@@ -10,12 +10,13 @@ use super::context::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 
 pub struct SwapChainContainer {
-    loader: ash::extensions::khr::Swapchain,
-    swapchain: vk::SwapchainKHR,
+    pub(crate) loader: ash::extensions::khr::Swapchain,
+    pub(crate) swapchain: vk::SwapchainKHR,
     images: Vec<vk::Image>,
     pub(crate) format: vk::Format,
     pub(crate) extent: vk::Extent2D,
     image_views: Vec<vk::ImageView>,
+    pub(crate) framebuffers: Vec<vk::Framebuffer>,
 }
 
 impl SwapChainContainer {
@@ -92,6 +93,7 @@ impl SwapChainContainer {
         };
 
         let image_views = _create_image_views(device, surface_format.format, &images);
+        let image_count = image_views.len();
 
         SwapChainContainer {
             loader: swapchain_loader,
@@ -100,14 +102,46 @@ impl SwapChainContainer {
             extent,
             images,
             image_views,
+            framebuffers: Vec::with_capacity(image_count),
         }
+    }
+
+    pub fn create_framebuffers(&mut self, device: &ash::Device, render_pass: vk::RenderPass) {
+        for &image_view in self.image_views.iter() {
+            let attachments = [image_view];
+
+            let framebuffer_create_info = vk::FramebufferCreateInfo {
+                s_type: vk::StructureType::FRAMEBUFFER_CREATE_INFO,
+                p_next: ptr::null(),
+                flags: vk::FramebufferCreateFlags::empty(),
+                render_pass,
+                attachment_count: attachments.len() as u32,
+                p_attachments: attachments.as_ptr(),
+                width: self.extent.width,
+                height: self.extent.height,
+                layers: 1,
+            };
+
+            let framebuffer = unsafe {
+                device
+                    .create_framebuffer(&framebuffer_create_info, None)
+                    .expect("Failed to create Framebuffer!")
+            };
+            self.framebuffers.push(framebuffer);
+        }
+    }
+
+    pub unsafe fn destroy_framebuffers(&mut self, device: &ash::Device) {
+        for framebuffer in self.framebuffers.iter() {
+            device.destroy_framebuffer(*framebuffer, None);
+        }
+        self.framebuffers.clear();
     }
 
     pub unsafe fn destroy(&self, device: &ash::Device) {
         for image_view in self.image_views.iter() {
             device.destroy_image_view(*image_view, None);
         }
-
         self.loader.destroy_swapchain(self.swapchain, None);
     }
 }

@@ -18,8 +18,16 @@ use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
 use super::debug;
 use super::platform;
 use super::surface::SurfaceContainer;
-use super::swap_chain::SwapChainContainer;
+use super::swapchain::SwapChainContainer;
 use super::vulkan_util;
+
+const MAX_FRAMES_IN_FLIGHT: usize = 2;
+
+struct SyncObjects {
+    image_available_semaphores: Vec<vk::Semaphore>,
+    render_finished_semaphores: Vec<vk::Semaphore>,
+    inflight_fences: Vec<vk::Fence>,
+}
 
 pub struct Context {
     entry: ash::Entry,
@@ -37,10 +45,15 @@ pub struct Context {
     pipeline: vk::Pipeline,
     pipeline_layout: vk::PipelineLayout,
 
+    command_pool: vk::CommandPool,
+    command_buffers: Vec<vk::CommandBuffer>,
+
+    sync_objects: SyncObjects,
+
     debug_utils_loader: ash::extensions::ext::DebugUtils,
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
 
-    n_frames: u32,
+    n_frames: usize,
 }
 
 impl Context {
@@ -85,7 +98,7 @@ impl Context {
         let present_queue =
             unsafe { logical_device.get_device_queue(queue_families.present.unwrap(), 0) };
 
-        let swapchain_container = SwapChainContainer::new(
+        let mut swapchain_container = SwapChainContainer::new(
             &instance,
             &logical_device,
             physical_device,
@@ -100,6 +113,20 @@ impl Context {
             swapchain_container.extent,
         );
 
+        swapchain_container.create_framebuffers(&logical_device, render_pass);
+
+        let command_pool = _create_command_pool(&logical_device, &queue_families);
+        let command_buffers = _create_command_buffers(
+            &logical_device,
+            command_pool,
+            pipeline,
+            &swapchain_container.framebuffers,
+            render_pass,
+            swapchain_container.extent,
+        );
+
+        let sync_objects = _create_sync_objects(&logical_device);
+
         Context {
             entry,
             instance,
@@ -112,6 +139,9 @@ impl Context {
             render_pass,
             pipeline,
             pipeline_layout,
+            command_pool,
+            command_buffers,
+            sync_objects,
             debug_utils_loader,
             debug_utils_messenger,
             n_frames: 0,
@@ -119,11 +149,81 @@ impl Context {
     }
 
     pub fn draw_frame(&mut self) {
-        self.n_frames += 1;
+        let wait_fences = [self.sync_objects.inflight_fences[self.n_frames]];
 
-        if self.n_frames % 1000 == 0 {
-            println!("1000 frame!");
+        let (image_index, _is_sub_optimal) = unsafe {
+            self.logical_device
+                .wait_for_fences(&wait_fences, true, std::u64::MAX)
+                .expect("Failed to wait for Fence!");
+
+            self.swapchain_container
+                .loader
+                .acquire_next_image(
+                    self.swapchain_container.swapchain,
+                    std::u64::MAX,
+                    self.sync_objects.image_available_semaphores[self.n_frames],
+                    vk::Fence::null(),
+                )
+                .expect("Failed to acquire next image.")
+        };
+
+        let wait_semaphores = [self.sync_objects.image_available_semaphores[self.n_frames]];
+        let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+        let signal_semaphores = [self.sync_objects.render_finished_semaphores[self.n_frames]];
+
+        let submit_infos = [vk::SubmitInfo {
+            s_type: vk::StructureType::SUBMIT_INFO,
+            p_next: ptr::null(),
+            wait_semaphore_count: wait_semaphores.len() as u32,
+            p_wait_semaphores: wait_semaphores.as_ptr(),
+            p_wait_dst_stage_mask: wait_stages.as_ptr(),
+            command_buffer_count: 1,
+            p_command_buffers: &self.command_buffers[image_index as usize],
+            signal_semaphore_count: signal_semaphores.len() as u32,
+            p_signal_semaphores: signal_semaphores.as_ptr(),
+        }];
+
+        unsafe {
+            self.logical_device
+                .reset_fences(&wait_fences)
+                .expect("Failed to reset Fence!");
+
+            self.logical_device
+                .queue_submit(
+                    self.graphics_queue,
+                    &submit_infos,
+                    self.sync_objects.inflight_fences[self.n_frames],
+                )
+                .expect("Failed to execute queue submit.");
         }
+
+        let swapchains = [self.swapchain_container.swapchain];
+
+        let present_info = vk::PresentInfoKHR {
+            s_type: vk::StructureType::PRESENT_INFO_KHR,
+            p_next: ptr::null(),
+            wait_semaphore_count: 1,
+            p_wait_semaphores: signal_semaphores.as_ptr(),
+            swapchain_count: 1,
+            p_swapchains: swapchains.as_ptr(),
+            p_image_indices: &image_index,
+            p_results: ptr::null_mut(),
+        };
+
+        unsafe {
+            self.swapchain_container
+                .loader
+                .queue_present(self.present_queue, &present_info)
+                .expect("Failed to execute queue present.");
+        }
+
+        self.n_frames = (self.n_frames + 1) % MAX_FRAMES_IN_FLIGHT;
+    }
+
+    pub unsafe fn wait_idle(&self) {
+        self.logical_device
+            .device_wait_idle()
+            .expect("Failed to wait device idle!");
     }
 }
 
@@ -131,6 +231,19 @@ impl Drop for Context {
     fn drop(&mut self) {
         log_debug!("vulkan::Context: destroying instance");
         unsafe {
+            for i in 0..MAX_FRAMES_IN_FLIGHT {
+                self.logical_device
+                    .destroy_semaphore(self.sync_objects.image_available_semaphores[i], None);
+                self.logical_device
+                    .destroy_semaphore(self.sync_objects.render_finished_semaphores[i], None);
+                self.logical_device
+                    .destroy_fence(self.sync_objects.inflight_fences[i], None);
+            }
+
+            self.logical_device
+                .destroy_command_pool(self.command_pool, None);
+            self.swapchain_container
+                .destroy_framebuffers(&self.logical_device);
             self.logical_device.destroy_pipeline(self.pipeline, None);
             self.logical_device
                 .destroy_pipeline_layout(self.pipeline_layout, None);
@@ -146,6 +259,101 @@ impl Drop for Context {
             self.surface_container.destroy();
             self.instance.destroy_instance(None);
         }
+    }
+}
+
+fn _create_command_buffers(
+    device: &ash::Device,
+    command_pool: vk::CommandPool,
+    graphics_pipeline: vk::Pipeline,
+    framebuffers: &Vec<vk::Framebuffer>,
+    render_pass: vk::RenderPass,
+    surface_extent: vk::Extent2D,
+) -> Vec<vk::CommandBuffer> {
+    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
+        s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
+        p_next: ptr::null(),
+        command_buffer_count: framebuffers.len() as u32,
+        command_pool,
+        level: vk::CommandBufferLevel::PRIMARY,
+    };
+
+    let command_buffers = unsafe {
+        device
+            .allocate_command_buffers(&command_buffer_allocate_info)
+            .expect("Failed to allocate Command Buffers!")
+    };
+
+    for (i, &command_buffer) in command_buffers.iter().enumerate() {
+        let command_buffer_begin_info = vk::CommandBufferBeginInfo {
+            s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
+            p_next: ptr::null(),
+            p_inheritance_info: ptr::null(),
+            flags: vk::CommandBufferUsageFlags::SIMULTANEOUS_USE,
+        };
+
+        unsafe {
+            device
+                .begin_command_buffer(command_buffer, &command_buffer_begin_info)
+                .expect("Failed to begin recording Command Buffer at beginning!");
+        }
+
+        let clear_values = [vk::ClearValue {
+            color: vk::ClearColorValue {
+                float32: [0.1, 0.1, 0.1, 1.0],
+            },
+        }];
+
+        let render_pass_begin_info = vk::RenderPassBeginInfo {
+            s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
+            p_next: ptr::null(),
+            render_pass,
+            framebuffer: framebuffers[i],
+            render_area: vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent: surface_extent,
+            },
+            clear_value_count: clear_values.len() as u32,
+            p_clear_values: clear_values.as_ptr(),
+        };
+
+        unsafe {
+            device.cmd_begin_render_pass(
+                command_buffer,
+                &render_pass_begin_info,
+                vk::SubpassContents::INLINE,
+            );
+            device.cmd_bind_pipeline(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                graphics_pipeline,
+            );
+            device.cmd_draw(command_buffer, 3, 1, 0, 0);
+            device.cmd_end_render_pass(command_buffer);
+            device
+                .end_command_buffer(command_buffer)
+                .expect("Failed to record Command Buffer at Ending!");
+        }
+    }
+
+    command_buffers
+}
+
+fn _create_command_pool(
+    device: &ash::Device,
+    queue_families: &QueueFamilyIndices,
+) -> vk::CommandPool {
+    let command_pool_create_info = vk::CommandPoolCreateInfo {
+        s_type: vk::StructureType::COMMAND_POOL_CREATE_INFO,
+        p_next: ptr::null(),
+        flags: vk::CommandPoolCreateFlags::empty(),
+        queue_family_index: queue_families.graphics.unwrap(),
+    };
+
+    unsafe {
+        device
+            .create_command_pool(&command_pool_create_info, None)
+            .expect("Failed to create Command Pool!")
     }
 }
 
@@ -393,6 +601,16 @@ fn _create_render_pass(device: &ash::Device, surface_format: vk::Format) -> vk::
 
     let render_pass_attachments = [color_attachment];
 
+    let subpass_dependencies = [vk::SubpassDependency {
+        src_subpass: vk::SUBPASS_EXTERNAL,
+        dst_subpass: 0,
+        src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+        dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+        src_access_mask: vk::AccessFlags::empty(),
+        dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+        dependency_flags: vk::DependencyFlags::empty(),
+    }];
+
     let renderpass_create_info = vk::RenderPassCreateInfo {
         s_type: vk::StructureType::RENDER_PASS_CREATE_INFO,
         flags: vk::RenderPassCreateFlags::empty(),
@@ -401,8 +619,8 @@ fn _create_render_pass(device: &ash::Device, surface_format: vk::Format) -> vk::
         p_attachments: render_pass_attachments.as_ptr(),
         subpass_count: 1,
         p_subpasses: &subpass,
-        dependency_count: 0,
-        p_dependencies: ptr::null(),
+        dependency_count: subpass_dependencies.len() as u32,
+        p_dependencies: subpass_dependencies.as_ptr(),
     };
 
     unsafe {
@@ -658,4 +876,47 @@ fn _pick_present_queue_family(
     }
 
     Option::None
+}
+
+fn _create_sync_objects(device: &ash::Device) -> SyncObjects {
+    let mut sync_objects = SyncObjects {
+        image_available_semaphores: vec![],
+        render_finished_semaphores: vec![],
+        inflight_fences: vec![],
+    };
+
+    let semaphore_create_info = vk::SemaphoreCreateInfo {
+        s_type: vk::StructureType::SEMAPHORE_CREATE_INFO,
+        p_next: ptr::null(),
+        flags: vk::SemaphoreCreateFlags::empty(),
+    };
+
+    let fence_create_info = vk::FenceCreateInfo {
+        s_type: vk::StructureType::FENCE_CREATE_INFO,
+        p_next: ptr::null(),
+        flags: vk::FenceCreateFlags::SIGNALED,
+    };
+
+    for _ in 0..MAX_FRAMES_IN_FLIGHT {
+        unsafe {
+            let image_available_semaphore = device
+                .create_semaphore(&semaphore_create_info, None)
+                .expect("Failed to create Semaphore Object!");
+            let render_finished_semaphore = device
+                .create_semaphore(&semaphore_create_info, None)
+                .expect("Failed to create Semaphore Object!");
+            let inflight_fence = device
+                .create_fence(&fence_create_info, None)
+                .expect("Failed to create Fence Object!");
+
+            sync_objects
+                .image_available_semaphores
+                .push(image_available_semaphore);
+            sync_objects
+                .render_finished_semaphores
+                .push(render_finished_semaphore);
+            sync_objects.inflight_fences.push(inflight_fence);
+        }
+    }
+    sync_objects
 }

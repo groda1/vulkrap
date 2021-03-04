@@ -1,5 +1,3 @@
-use core::time;
-use std::thread;
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
@@ -40,7 +38,7 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut rendering_contex
             },
             Event::DeviceEvent { event, .. } => {
                 match event {
-                    DeviceEvent::MouseMotion { delta } => {
+                    DeviceEvent::MouseMotion { delta: _ } => {
                         //println!("Mouse move {} {}", delta.0, delta.1)
                     }
                     _ => {}
@@ -53,6 +51,9 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut rendering_contex
                 rendering_context.draw_frame();
                 //thread::sleep(time::Duration::from_millis(10));
             }
+            Event::LoopDestroyed => unsafe {
+                rendering_context.wait_idle();
+            },
             _ => (),
         }
     })

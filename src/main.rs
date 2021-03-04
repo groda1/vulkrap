@@ -44,7 +44,7 @@ fn main() {
 
     let event_loop = EventLoop::new();
     let window = window::winit::init_window(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, &event_loop);
-    let mut vulkan_context = renderer::context::Context::new(&window);
+    let vulkan_context = renderer::context::Context::new(&window);
 
     window::winit::main_loop(event_loop, window, vulkan_context);
 
