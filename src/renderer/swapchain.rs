@@ -2,7 +2,7 @@ use std::ptr;
 
 use ash::version::DeviceV1_0;
 use ash::vk;
-use ash::vk::PhysicalDevice;
+use ash::vk::{PhysicalDevice, Extent2D};
 use num::clamp;
 
 use super::constants::USE_VSYNC;
@@ -10,140 +10,130 @@ use super::context::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 
 pub struct SwapChainContainer {
-    pub(crate) loader: ash::extensions::khr::Swapchain,
-    pub(crate) swapchain: vk::SwapchainKHR,
-    images: Vec<vk::Image>,
-    pub(crate) format: vk::Format,
-    pub(crate) extent: vk::Extent2D,
-    image_views: Vec<vk::ImageView>,
-    pub(crate) framebuffers: Vec<vk::Framebuffer>,
+    pub loader: ash::extensions::khr::Swapchain,
+    pub swapchain: vk::SwapchainKHR,
+    pub images: Vec<vk::Image>,
+    pub format: vk::Format,
+    pub extent: vk::Extent2D,
+    pub image_views: Vec<vk::ImageView>,
 }
 
-impl SwapChainContainer {
-    pub fn new(
-        instance: &ash::Instance,
-        device: &ash::Device,
-        physical_device: PhysicalDevice,
-        surface_container: &SurfaceContainer,
-        queue_families: &QueueFamilyIndices,
-    ) -> SwapChainContainer {
-        let swapchain_support = surface_container.query_swapchain_support(physical_device);
-        swapchain_support.log_info();
+pub fn create_swapchain(
+    instance: &ash::Instance,
+    device: &ash::Device,
+    physical_device: PhysicalDevice,
+    surface_container: &SurfaceContainer,
+    queue_families: &QueueFamilyIndices,
+) -> SwapChainContainer {
+    let swapchain_support = surface_container.query_swapchain_support(physical_device);
+    swapchain_support.log_info();
 
-        let surface_format = _choose_swapchain_format(&swapchain_support.formats);
-        let present_mode =
-            _choose_swapchain_present_mode(&swapchain_support.present_modes, USE_VSYNC);
-        let extent = _choose_swapchain_extent(&swapchain_support.capabilities);
+    let surface_format = _choose_swapchain_format(&swapchain_support.formats);
+    let present_mode =
+        _choose_swapchain_present_mode(&swapchain_support.present_modes, USE_VSYNC);
+    let extent = _choose_swapchain_extent(&swapchain_support.capabilities);
 
-        let image_count = 2;
-        if swapchain_support.capabilities.min_image_count > 2
-            || swapchain_support.capabilities.max_image_count < 2
-        {
-            panic!("Unsupported swapchain image count: {}", image_count)
-        }
+    let image_count = 2;
+    if swapchain_support.capabilities.min_image_count > 2
+        || swapchain_support.capabilities.max_image_count < 2
+    {
+        panic!("Unsupported swapchain image count: {}", image_count)
+    }
 
-        let graphics_family = queue_families.graphics.unwrap();
-        let present_family = queue_families.present.unwrap();
+    let graphics_family = queue_families.graphics.unwrap();
+    let present_family = queue_families.present.unwrap();
 
-        let (image_sharing_mode, queue_family_index_count, queue_family_indices) =
-            if graphics_family != present_family {
-                (
-                    vk::SharingMode::EXCLUSIVE,
-                    2,
-                    vec![graphics_family, present_family],
-                )
-            } else {
-                (vk::SharingMode::CONCURRENT, 0, vec![])
-            };
+    let (image_sharing_mode, queue_family_index_count, queue_family_indices) =
+        if graphics_family != present_family {
+            (
+                vk::SharingMode::EXCLUSIVE,
+                2,
+                vec![graphics_family, present_family],
+            )
+        } else {
+            (vk::SharingMode::CONCURRENT, 0, vec![])
+        };
 
-        let swapchain_create_info = vk::SwapchainCreateInfoKHR {
-            s_type: vk::StructureType::SWAPCHAIN_CREATE_INFO_KHR,
+    let swapchain_create_info = vk::SwapchainCreateInfoKHR {
+        s_type: vk::StructureType::SWAPCHAIN_CREATE_INFO_KHR,
+        p_next: ptr::null(),
+        flags: vk::SwapchainCreateFlagsKHR::empty(),
+        surface: surface_container.surface,
+        min_image_count: image_count,
+        image_color_space: surface_format.color_space,
+        image_format: surface_format.format,
+        image_extent: extent,
+        image_usage: vk::ImageUsageFlags::COLOR_ATTACHMENT,
+        image_sharing_mode,
+        p_queue_family_indices: queue_family_indices.as_ptr(),
+        queue_family_index_count,
+        pre_transform: swapchain_support.capabilities.current_transform,
+        composite_alpha: vk::CompositeAlphaFlagsKHR::OPAQUE,
+        present_mode,
+        clipped: vk::TRUE,
+        old_swapchain: vk::SwapchainKHR::null(),
+        image_array_layers: 1,
+    };
+
+    log_debug!("{:#?}", &swapchain_create_info);
+
+    let swapchain_loader = ash::extensions::khr::Swapchain::new(instance, device);
+    let swapchain = unsafe {
+        swapchain_loader
+            .create_swapchain(&swapchain_create_info, None)
+            .expect("Failed to create Swapchain!")
+    };
+
+    let images = unsafe {
+        swapchain_loader
+            .get_swapchain_images(swapchain)
+            .expect("Failed to get Swapchain Images.")
+    };
+
+    let image_views = _create_image_views(device, surface_format.format, &images);
+    let image_count = image_views.len();
+
+    SwapChainContainer {
+        loader: swapchain_loader,
+        swapchain,
+        format: surface_format.format,
+        extent,
+        images,
+        image_views,
+
+    }
+}
+
+pub fn create_framebuffers(device: &ash::Device,
+                           image_views: &Vec<vk::ImageView>,
+                           extent: Extent2D,
+                           render_pass: vk::RenderPass) -> Vec<vk::Framebuffer> {
+    let mut framebuffers = Vec::with_capacity(image_views.len());
+
+    for &image_view in image_views.iter() {
+        let attachments = [image_view];
+
+        let framebuffer_create_info = vk::FramebufferCreateInfo {
+            s_type: vk::StructureType::FRAMEBUFFER_CREATE_INFO,
             p_next: ptr::null(),
-            flags: vk::SwapchainCreateFlagsKHR::empty(),
-            surface: surface_container.surface,
-            min_image_count: image_count,
-            image_color_space: surface_format.color_space,
-            image_format: surface_format.format,
-            image_extent: extent,
-            image_usage: vk::ImageUsageFlags::COLOR_ATTACHMENT,
-            image_sharing_mode,
-            p_queue_family_indices: queue_family_indices.as_ptr(),
-            queue_family_index_count,
-            pre_transform: swapchain_support.capabilities.current_transform,
-            composite_alpha: vk::CompositeAlphaFlagsKHR::OPAQUE,
-            present_mode,
-            clipped: vk::TRUE,
-            old_swapchain: vk::SwapchainKHR::null(),
-            image_array_layers: 1,
+            flags: vk::FramebufferCreateFlags::empty(),
+            render_pass,
+            attachment_count: attachments.len() as u32,
+            p_attachments: attachments.as_ptr(),
+            width: extent.width,
+            height: extent.height,
+            layers: 1,
         };
 
-        log_debug!("{:#?}", &swapchain_create_info);
-
-        let swapchain_loader = ash::extensions::khr::Swapchain::new(instance, device);
-        let swapchain = unsafe {
-            swapchain_loader
-                .create_swapchain(&swapchain_create_info, None)
-                .expect("Failed to create Swapchain!")
+        let framebuffer = unsafe {
+            device
+                .create_framebuffer(&framebuffer_create_info, None)
+                .expect("Failed to create Framebuffer!")
         };
-
-        let images = unsafe {
-            swapchain_loader
-                .get_swapchain_images(swapchain)
-                .expect("Failed to get Swapchain Images.")
-        };
-
-        let image_views = _create_image_views(device, surface_format.format, &images);
-        let image_count = image_views.len();
-
-        SwapChainContainer {
-            loader: swapchain_loader,
-            swapchain,
-            format: surface_format.format,
-            extent,
-            images,
-            image_views,
-            framebuffers: Vec::with_capacity(image_count),
-        }
+        framebuffers.push(framebuffer);
     }
 
-    pub fn create_framebuffers(&mut self, device: &ash::Device, render_pass: vk::RenderPass) {
-        for &image_view in self.image_views.iter() {
-            let attachments = [image_view];
-
-            let framebuffer_create_info = vk::FramebufferCreateInfo {
-                s_type: vk::StructureType::FRAMEBUFFER_CREATE_INFO,
-                p_next: ptr::null(),
-                flags: vk::FramebufferCreateFlags::empty(),
-                render_pass,
-                attachment_count: attachments.len() as u32,
-                p_attachments: attachments.as_ptr(),
-                width: self.extent.width,
-                height: self.extent.height,
-                layers: 1,
-            };
-
-            let framebuffer = unsafe {
-                device
-                    .create_framebuffer(&framebuffer_create_info, None)
-                    .expect("Failed to create Framebuffer!")
-            };
-            self.framebuffers.push(framebuffer);
-        }
-    }
-
-    pub unsafe fn destroy_framebuffers(&mut self, device: &ash::Device) {
-        for framebuffer in self.framebuffers.iter() {
-            device.destroy_framebuffer(*framebuffer, None);
-        }
-        self.framebuffers.clear();
-    }
-
-    pub unsafe fn destroy(&self, device: &ash::Device) {
-        for image_view in self.image_views.iter() {
-            device.destroy_image_view(*image_view, None);
-        }
-        self.loader.destroy_swapchain(self.swapchain, None);
-    }
+    framebuffers
 }
 
 fn _create_image_views(

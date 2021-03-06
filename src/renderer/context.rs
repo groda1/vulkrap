@@ -10,7 +10,7 @@ use ash::vk::{PhysicalDevice, QueueFlags};
 use winit::window::Window;
 
 use crate::util::file;
-use crate::ENGINE_NAME;
+use crate::{ENGINE_NAME, WINDOW_WIDTH, WINDOW_HEIGHT};
 use crate::WINDOW_TITLE;
 
 use super::constants;
@@ -18,7 +18,7 @@ use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
 use super::debug;
 use super::platform;
 use super::surface::SurfaceContainer;
-use super::swapchain::SwapChainContainer;
+use super::swapchain;
 use super::vulkan_util;
 
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
@@ -35,11 +35,20 @@ pub struct Context {
 
     physical_device: PhysicalDevice,
     logical_device: ash::Device,
+
+    queue_families: QueueFamilyIndices,
     graphics_queue: vk::Queue,
     present_queue: vk::Queue,
 
     surface_container: SurfaceContainer,
-    swapchain_container: SwapChainContainer,
+
+    swapchain_loader: ash::extensions::khr::Swapchain,
+    swapchain: vk::SwapchainKHR,
+    swapchain_images: Vec<vk::Image>,
+    swapchain_format: vk::Format,
+    swapchain_extent: vk::Extent2D,
+    swapchain_imageviews: Vec<vk::ImageView>,
+    swapchain_framebuffers: Vec<vk::Framebuffer>,
 
     render_pass: vk::RenderPass,
     pipeline: vk::Pipeline,
@@ -48,7 +57,7 @@ pub struct Context {
     command_pool: vk::CommandPool,
     command_buffers: Vec<vk::CommandBuffer>,
 
-    sync_objects: SyncObjects,
+    sync: SyncObjects,
 
     debug_utils_loader: ash::extensions::ext::DebugUtils,
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
@@ -98,7 +107,7 @@ impl Context {
         let present_queue =
             unsafe { logical_device.get_device_queue(queue_families.present.unwrap(), 0) };
 
-        let mut swapchain_container = SwapChainContainer::new(
+        let swapchain_container = swapchain::create_swapchain(
             &instance,
             &logical_device,
             physical_device,
@@ -113,14 +122,17 @@ impl Context {
             swapchain_container.extent,
         );
 
-        swapchain_container.create_framebuffers(&logical_device, render_pass);
+        let swapchain_framebuffers = swapchain::create_framebuffers(
+            &logical_device, &swapchain_container.image_views,
+            swapchain_container.extent,
+            render_pass);
 
         let command_pool = _create_command_pool(&logical_device, &queue_families);
         let command_buffers = _create_command_buffers(
             &logical_device,
             command_pool,
             pipeline,
-            &swapchain_container.framebuffers,
+            &swapchain_framebuffers,
             render_pass,
             swapchain_container.extent,
         );
@@ -132,16 +144,23 @@ impl Context {
             instance,
             physical_device,
             logical_device,
+            queue_families,
             graphics_queue,
             present_queue,
             surface_container,
-            swapchain_container,
+            swapchain_loader: swapchain_container.loader,
+            swapchain: swapchain_container.swapchain,
+            swapchain_images: swapchain_container.images,
+            swapchain_format: swapchain_container.format,
+            swapchain_extent: swapchain_container.extent,
+            swapchain_imageviews: swapchain_container.image_views,
+            swapchain_framebuffers,
             render_pass,
             pipeline,
             pipeline_layout,
             command_pool,
             command_buffers,
-            sync_objects,
+            sync: sync_objects,
             debug_utils_loader,
             debug_utils_messenger,
             n_frames: 0,
@@ -149,27 +168,40 @@ impl Context {
     }
 
     pub fn draw_frame(&mut self) {
-        let wait_fences = [self.sync_objects.inflight_fences[self.n_frames]];
+        let wait_fences = [self.sync.inflight_fences[self.n_frames]];
 
-        let (image_index, _is_sub_optimal) = unsafe {
+        unsafe {
             self.logical_device
                 .wait_for_fences(&wait_fences, true, std::u64::MAX)
                 .expect("Failed to wait for Fence!");
+        }
 
-            self.swapchain_container
-                .loader
+
+        let (image_index, _is_sub_optimal) = unsafe {
+
+            let result = self.swapchain_loader
                 .acquire_next_image(
-                    self.swapchain_container.swapchain,
+                    self.swapchain,
                     std::u64::MAX,
-                    self.sync_objects.image_available_semaphores[self.n_frames],
+                    self.sync.image_available_semaphores[self.n_frames],
                     vk::Fence::null(),
-                )
-                .expect("Failed to acquire next image.")
+                );
+            match result {
+                Ok(image_index) => image_index,
+                Err(vk_result) => match vk_result {
+                    vk::Result::ERROR_OUT_OF_DATE_KHR => {
+                        log_info!("Recreating swapchain...");
+                        self.recreate_swapchain();
+                        return;
+                    }
+                    _ => panic!("Failed to acquire Swap Chain Image!"),
+                },
+            }
         };
 
-        let wait_semaphores = [self.sync_objects.image_available_semaphores[self.n_frames]];
+        let wait_semaphores = [self.sync.image_available_semaphores[self.n_frames]];
         let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-        let signal_semaphores = [self.sync_objects.render_finished_semaphores[self.n_frames]];
+        let signal_semaphores = [self.sync.render_finished_semaphores[self.n_frames]];
 
         let submit_infos = [vk::SubmitInfo {
             s_type: vk::StructureType::SUBMIT_INFO,
@@ -192,12 +224,12 @@ impl Context {
                 .queue_submit(
                     self.graphics_queue,
                     &submit_infos,
-                    self.sync_objects.inflight_fences[self.n_frames],
+                    self.sync.inflight_fences[self.n_frames],
                 )
                 .expect("Failed to execute queue submit.");
         }
 
-        let swapchains = [self.swapchain_container.swapchain];
+        let swapchains = [self.swapchain];
 
         let present_info = vk::PresentInfoKHR {
             s_type: vk::StructureType::PRESENT_INFO_KHR,
@@ -211,10 +243,19 @@ impl Context {
         };
 
         unsafe {
-            self.swapchain_container
-                .loader
-                .queue_present(self.present_queue, &present_info)
-                .expect("Failed to execute queue present.");
+            let result = self.swapchain_loader
+                .queue_present(self.present_queue, &present_info);
+
+            let is_resized = match result {
+                Ok(_) => false,
+                Err(vk_result) => match vk_result {
+                    vk::Result::ERROR_OUT_OF_DATE_KHR | vk::Result::SUBOPTIMAL_KHR => true,
+                    _ => panic!("Failed to execute queue present."),
+                },
+            };
+            if is_resized {
+                self.recreate_swapchain();
+            }
         }
 
         self.n_frames = (self.n_frames + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -225,35 +266,113 @@ impl Context {
             .device_wait_idle()
             .expect("Failed to wait device idle!");
     }
+
+    fn destroy_swapchain(&mut self) {
+        unsafe {
+            self.logical_device.free_command_buffers(self.command_pool, &self.command_buffers);
+            // Framebuffers
+            for framebuffer in self.swapchain_framebuffers.iter() {
+                self.logical_device.destroy_framebuffer(*framebuffer, None);
+            }
+            self.swapchain_framebuffers.clear();
+
+            // Pipeline & render pass
+            self.logical_device.destroy_pipeline(self.pipeline, None);
+            self.logical_device
+                .destroy_pipeline_layout(self.pipeline_layout, None);
+            self.logical_device
+                .destroy_render_pass(self.render_pass, None);
+
+            // Swapchain
+            for image_view in self.swapchain_imageviews.iter() {
+                self.logical_device.destroy_image_view(*image_view, None);
+            }
+            self.swapchain_loader.destroy_swapchain(self.swapchain, None);
+        }
+    }
+
+    fn recreate_swapchain(&mut self) {
+        // parameters -------------
+      let  surface_suff = SurfaceContainer {
+          loader: self.surface_container.loader.clone(),
+            surface: self.surface_container.surface,
+      };
+
+        self.surface_container = surface_suff;
+
+        unsafe {
+            self.logical_device
+                .device_wait_idle()
+                .expect("Failed to wait device idle!")
+        };
+        self.destroy_swapchain();
+
+        let swapchain_container  = swapchain::create_swapchain(
+            &self.instance,
+            &self.logical_device,
+            self.physical_device,
+            &self.surface_container,
+            &self.queue_families
+        );
+        self.swapchain_loader = swapchain_container.loader;
+        self.swapchain = swapchain_container.swapchain;
+        self.swapchain_images = swapchain_container.images;
+        self.swapchain_format = swapchain_container.format;
+        self.swapchain_extent = swapchain_container.extent;
+        self.swapchain_imageviews = swapchain_container.image_views;
+
+
+        self.render_pass = _create_render_pass(&self.logical_device, swapchain_container.format);
+        let (pipeline, pipeline_layout) = _create_graphics_pipeline_layout(
+            &self.logical_device,
+            self.render_pass,
+            swapchain_container.extent,
+        );
+        self.pipeline = pipeline;
+        self.pipeline_layout = pipeline_layout;
+
+        self.swapchain_framebuffers = swapchain::create_framebuffers(
+            &self.logical_device, &self.swapchain_imageviews,
+            swapchain_container.extent,
+            self.render_pass);
+
+        self.command_buffers = _create_command_buffers(
+            &self.logical_device,
+            self.command_pool,
+            self.pipeline,
+            &self.swapchain_framebuffers,
+            self.render_pass,
+            self.swapchain_extent,
+        );
+    }
 }
 
 impl Drop for Context {
     fn drop(&mut self) {
         log_debug!("vulkan::Context: destroying instance");
         unsafe {
+
+            // Synchronization objects
             for i in 0..MAX_FRAMES_IN_FLIGHT {
                 self.logical_device
-                    .destroy_semaphore(self.sync_objects.image_available_semaphores[i], None);
+                    .destroy_semaphore(self.sync.image_available_semaphores[i], None);
                 self.logical_device
-                    .destroy_semaphore(self.sync_objects.render_finished_semaphores[i], None);
+                    .destroy_semaphore(self.sync.render_finished_semaphores[i], None);
                 self.logical_device
-                    .destroy_fence(self.sync_objects.inflight_fences[i], None);
+                    .destroy_fence(self.sync.inflight_fences[i], None);
             }
 
-            self.logical_device
-                .destroy_command_pool(self.command_pool, None);
-            self.swapchain_container
-                .destroy_framebuffers(&self.logical_device);
-            self.logical_device.destroy_pipeline(self.pipeline, None);
-            self.logical_device
-                .destroy_pipeline_layout(self.pipeline_layout, None);
-            self.logical_device
-                .destroy_render_pass(self.render_pass, None);
-            self.swapchain_container.destroy(&self.logical_device);
+            //Swapchain
+            self.destroy_swapchain();
+
+            // Command pool
+            self.logical_device.destroy_command_pool(self.command_pool, None);
+
+            // Device
             self.logical_device.destroy_device(None);
 
             #[cfg(debug_assertions)]
-            self.debug_utils_loader
+                self.debug_utils_loader
                 .destroy_debug_utils_messenger(self.debug_utils_messenger, None);
 
             self.surface_container.destroy();
@@ -668,12 +787,12 @@ fn _create_instance(entry: &ash::Entry, layers: &Vec<&str>) -> ash::Instance {
         .for_each(|layer| log_debug!("Enabling layer:  {}", layer));
 
     #[cfg(debug_assertions)]
-    let debug_messenger_create_info = debug::create_debug_messenger_create_info();
+        let debug_messenger_create_info = debug::create_debug_messenger_create_info();
     #[cfg(debug_assertions)]
-    let p_next = &debug_messenger_create_info as *const vk::DebugUtilsMessengerCreateInfoEXT
+        let p_next = &debug_messenger_create_info as *const vk::DebugUtilsMessengerCreateInfoEXT
         as *const c_void;
     #[cfg(not(debug_assertions))]
-    let p_next = ptr::null();
+        let p_next = ptr::null();
 
     let create_info = vk::InstanceCreateInfo {
         s_type: vk::StructureType::INSTANCE_CREATE_INFO,
@@ -750,9 +869,9 @@ fn _create_logical_device(
         queue_families.graphics.unwrap(),
         queue_families.present.unwrap(),
     ]
-    .iter()
-    .cloned()
-    .collect();
+        .iter()
+        .cloned()
+        .collect();
     let mut queue_create_infos = Vec::new();
     let queue_priorities = [1.0_f32];
 
