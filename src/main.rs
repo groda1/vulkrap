@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate lazy_static;
 
+#[macro_use]
+extern crate memoffset;
+
 #[macro_export]
 macro_rules! log_info {
     () => (crate::console::logger::info(""));

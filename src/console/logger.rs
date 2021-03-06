@@ -18,11 +18,3 @@ pub fn warning(line: &str) {
     BUFFER.lock().unwrap().push(line.to_string());
     println!("[WARNING] {}", line);
 }
-
-pub fn print_last_10() {
-    let buffer = BUFFER.lock().unwrap();
-
-    for i in 0..buffer.len() {
-        println!("log: {}", buffer[i]);
-    }
-}

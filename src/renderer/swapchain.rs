@@ -2,11 +2,11 @@ use std::ptr;
 
 use ash::version::DeviceV1_0;
 use ash::vk;
-use ash::vk::{PhysicalDevice, Extent2D};
+use ash::vk::{Extent2D, PhysicalDevice};
 use num::clamp;
 
 use super::constants::USE_VSYNC;
-use super::context::QueueFamilyIndices;
+use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 
 pub struct SwapChainContainer {
@@ -29,8 +29,7 @@ pub fn create_swapchain(
     swapchain_support.log_info();
 
     let surface_format = _choose_swapchain_format(&swapchain_support.formats);
-    let present_mode =
-        _choose_swapchain_present_mode(&swapchain_support.present_modes, USE_VSYNC);
+    let present_mode = _choose_swapchain_present_mode(&swapchain_support.present_modes, USE_VSYNC);
     let extent = _choose_swapchain_extent(&swapchain_support.capabilities);
 
     let image_count = 2;
@@ -91,7 +90,6 @@ pub fn create_swapchain(
     };
 
     let image_views = _create_image_views(device, surface_format.format, &images);
-    let image_count = image_views.len();
 
     SwapChainContainer {
         loader: swapchain_loader,
@@ -100,14 +98,15 @@ pub fn create_swapchain(
         extent,
         images,
         image_views,
-
     }
 }
 
-pub fn create_framebuffers(device: &ash::Device,
-                           image_views: &Vec<vk::ImageView>,
-                           extent: Extent2D,
-                           render_pass: vk::RenderPass) -> Vec<vk::Framebuffer> {
+pub fn create_framebuffers(
+    device: &ash::Device,
+    image_views: &Vec<vk::ImageView>,
+    extent: Extent2D,
+    render_pass: vk::RenderPass,
+) -> Vec<vk::Framebuffer> {
     let mut framebuffers = Vec::with_capacity(image_views.len());
 
     for &image_view in image_views.iter() {

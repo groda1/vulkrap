@@ -1,25 +1,27 @@
 use std::collections::HashSet;
 use std::ffi::{c_void, CString};
-use std::fmt::Display;
 use std::path::Path;
-use std::{fmt, ptr};
+use std::ptr;
 
 use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
-use ash::vk::{PhysicalDevice, QueueFlags};
+use ash::vk::PhysicalDevice;
 use winit::window::Window;
 
 use crate::util::file;
-use crate::{ENGINE_NAME, WINDOW_WIDTH, WINDOW_HEIGHT};
+use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
 
 use super::constants;
 use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
+use super::datatypes::Vertex;
 use super::debug;
 use super::platform;
+use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
+use cgmath::Vector3;
 
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
@@ -30,7 +32,7 @@ struct SyncObjects {
 }
 
 pub struct Context {
-    entry: ash::Entry,
+    _entry: ash::Entry,
     instance: ash::Instance,
 
     physical_device: PhysicalDevice,
@@ -54,6 +56,9 @@ pub struct Context {
     pipeline: vk::Pipeline,
     pipeline_layout: vk::PipelineLayout,
 
+    vertex_buffer: vk::Buffer,
+    vertex_buffer_memory: vk::DeviceMemory,
+
     command_pool: vk::CommandPool,
     command_buffers: Vec<vk::CommandBuffer>,
 
@@ -67,6 +72,12 @@ pub struct Context {
 
 impl Context {
     pub fn new(window: &Window) -> Context {
+        let triangle: [Vertex; 3] = [
+            Vertex::new(Vector3::new(0.0, -0.5, 0.0), Vector3::new(1.0, 0.0, 0.0)),
+            Vertex::new(Vector3::new(0.8, 0.5, 0.0), Vector3::new(0.0, 1.0, 0.0)),
+            Vertex::new(Vector3::new(-0.5, 0.5, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+        ];
+
         let entry = ash::Entry::new().unwrap();
 
         debug::log_available_extension_properties(&entry);
@@ -123,9 +134,14 @@ impl Context {
         );
 
         let swapchain_framebuffers = swapchain::create_framebuffers(
-            &logical_device, &swapchain_container.image_views,
+            &logical_device,
+            &swapchain_container.image_views,
             swapchain_container.extent,
-            render_pass);
+            render_pass,
+        );
+
+        let (vertex_buffer, vertex_buffer_memory) =
+            _create_vertex_buffer(&instance, &logical_device, physical_device, &triangle);
 
         let command_pool = _create_command_pool(&logical_device, &queue_families);
         let command_buffers = _create_command_buffers(
@@ -135,12 +151,13 @@ impl Context {
             &swapchain_framebuffers,
             render_pass,
             swapchain_container.extent,
+            vertex_buffer,
         );
 
         let sync_objects = _create_sync_objects(&logical_device);
 
         Context {
-            entry,
+            _entry: entry,
             instance,
             physical_device,
             logical_device,
@@ -158,6 +175,8 @@ impl Context {
             render_pass,
             pipeline,
             pipeline_layout,
+            vertex_buffer,
+            vertex_buffer_memory,
             command_pool,
             command_buffers,
             sync: sync_objects,
@@ -176,16 +195,13 @@ impl Context {
                 .expect("Failed to wait for Fence!");
         }
 
-
         let (image_index, _is_sub_optimal) = unsafe {
-
-            let result = self.swapchain_loader
-                .acquire_next_image(
-                    self.swapchain,
-                    std::u64::MAX,
-                    self.sync.image_available_semaphores[self.n_frames],
-                    vk::Fence::null(),
-                );
+            let result = self.swapchain_loader.acquire_next_image(
+                self.swapchain,
+                std::u64::MAX,
+                self.sync.image_available_semaphores[self.n_frames],
+                vk::Fence::null(),
+            );
             match result {
                 Ok(image_index) => image_index,
                 Err(vk_result) => match vk_result {
@@ -243,7 +259,8 @@ impl Context {
         };
 
         unsafe {
-            let result = self.swapchain_loader
+            let result = self
+                .swapchain_loader
                 .queue_present(self.present_queue, &present_info);
 
             let is_resized = match result {
@@ -269,7 +286,8 @@ impl Context {
 
     fn destroy_swapchain(&mut self) {
         unsafe {
-            self.logical_device.free_command_buffers(self.command_pool, &self.command_buffers);
+            self.logical_device
+                .free_command_buffers(self.command_pool, &self.command_buffers);
             // Framebuffers
             for framebuffer in self.swapchain_framebuffers.iter() {
                 self.logical_device.destroy_framebuffer(*framebuffer, None);
@@ -287,16 +305,17 @@ impl Context {
             for image_view in self.swapchain_imageviews.iter() {
                 self.logical_device.destroy_image_view(*image_view, None);
             }
-            self.swapchain_loader.destroy_swapchain(self.swapchain, None);
+            self.swapchain_loader
+                .destroy_swapchain(self.swapchain, None);
         }
     }
 
     fn recreate_swapchain(&mut self) {
         // parameters -------------
-      let  surface_suff = SurfaceContainer {
-          loader: self.surface_container.loader.clone(),
+        let surface_suff = SurfaceContainer {
+            loader: self.surface_container.loader.clone(),
             surface: self.surface_container.surface,
-      };
+        };
 
         self.surface_container = surface_suff;
 
@@ -307,12 +326,12 @@ impl Context {
         };
         self.destroy_swapchain();
 
-        let swapchain_container  = swapchain::create_swapchain(
+        let swapchain_container = swapchain::create_swapchain(
             &self.instance,
             &self.logical_device,
             self.physical_device,
             &self.surface_container,
-            &self.queue_families
+            &self.queue_families,
         );
         self.swapchain_loader = swapchain_container.loader;
         self.swapchain = swapchain_container.swapchain;
@@ -320,7 +339,6 @@ impl Context {
         self.swapchain_format = swapchain_container.format;
         self.swapchain_extent = swapchain_container.extent;
         self.swapchain_imageviews = swapchain_container.image_views;
-
 
         self.render_pass = _create_render_pass(&self.logical_device, swapchain_container.format);
         let (pipeline, pipeline_layout) = _create_graphics_pipeline_layout(
@@ -332,9 +350,11 @@ impl Context {
         self.pipeline_layout = pipeline_layout;
 
         self.swapchain_framebuffers = swapchain::create_framebuffers(
-            &self.logical_device, &self.swapchain_imageviews,
+            &self.logical_device,
+            &self.swapchain_imageviews,
             swapchain_container.extent,
-            self.render_pass);
+            self.render_pass,
+        );
 
         self.command_buffers = _create_command_buffers(
             &self.logical_device,
@@ -343,6 +363,7 @@ impl Context {
             &self.swapchain_framebuffers,
             self.render_pass,
             self.swapchain_extent,
+            self.vertex_buffer,
         );
     }
 }
@@ -351,7 +372,6 @@ impl Drop for Context {
     fn drop(&mut self) {
         log_debug!("vulkan::Context: destroying instance");
         unsafe {
-
             // Synchronization objects
             for i in 0..MAX_FRAMES_IN_FLIGHT {
                 self.logical_device
@@ -365,20 +385,111 @@ impl Drop for Context {
             //Swapchain
             self.destroy_swapchain();
 
+            // Buffers and memory
+            self.logical_device.destroy_buffer(self.vertex_buffer, None);
+            self.logical_device
+                .free_memory(self.vertex_buffer_memory, None);
+
             // Command pool
-            self.logical_device.destroy_command_pool(self.command_pool, None);
+            self.logical_device
+                .destroy_command_pool(self.command_pool, None);
 
             // Device
             self.logical_device.destroy_device(None);
 
             #[cfg(debug_assertions)]
-                self.debug_utils_loader
+            self.debug_utils_loader
                 .destroy_debug_utils_messenger(self.debug_utils_messenger, None);
 
             self.surface_container.destroy();
             self.instance.destroy_instance(None);
         }
     }
+}
+
+fn _create_vertex_buffer(
+    instance: &ash::Instance,
+    device: &ash::Device,
+    physical_device: vk::PhysicalDevice,
+    triangle: &[Vertex],
+) -> (vk::Buffer, vk::DeviceMemory) {
+    log_info!("SIZE {}", std::mem::size_of_val(triangle) as u64);
+
+    let vertex_buffer_create_info = vk::BufferCreateInfo {
+        s_type: vk::StructureType::BUFFER_CREATE_INFO,
+        p_next: ptr::null(),
+        flags: vk::BufferCreateFlags::empty(),
+        size: std::mem::size_of_val(triangle) as u64,
+        usage: vk::BufferUsageFlags::VERTEX_BUFFER,
+        sharing_mode: vk::SharingMode::EXCLUSIVE,
+        queue_family_index_count: 0,
+        p_queue_family_indices: ptr::null(),
+    };
+
+    let vertex_buffer = unsafe {
+        device
+            .create_buffer(&vertex_buffer_create_info, None)
+            .expect("Failed to create Vertex Buffer")
+    };
+
+    let mem_requirements = unsafe { device.get_buffer_memory_requirements(vertex_buffer) };
+    let mem_properties = unsafe { instance.get_physical_device_memory_properties(physical_device) };
+    let required_memory_flags: vk::MemoryPropertyFlags =
+        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
+    let memory_type = _find_memory_type(
+        mem_requirements.memory_type_bits,
+        required_memory_flags,
+        mem_properties,
+    );
+
+    let allocate_info = vk::MemoryAllocateInfo {
+        s_type: vk::StructureType::MEMORY_ALLOCATE_INFO,
+        p_next: ptr::null(),
+        allocation_size: mem_requirements.size,
+        memory_type_index: memory_type,
+    };
+
+    let vertex_buffer_memory = unsafe {
+        device
+            .allocate_memory(&allocate_info, None)
+            .expect("Failed to allocate vertex buffer memory!")
+    };
+
+    unsafe {
+        device
+            .bind_buffer_memory(vertex_buffer, vertex_buffer_memory, 0)
+            .expect("Failed to bind Buffer");
+
+        let data_ptr = device
+            .map_memory(
+                vertex_buffer_memory,
+                0,
+                vertex_buffer_create_info.size,
+                vk::MemoryMapFlags::empty(),
+            )
+            .expect("Failed to Map Memory") as *mut Vertex;
+
+        data_ptr.copy_from_nonoverlapping(triangle.as_ptr(), triangle.len());
+
+        device.unmap_memory(vertex_buffer_memory);
+    }
+
+    (vertex_buffer, vertex_buffer_memory)
+}
+
+fn _find_memory_type(
+    type_filter: u32,
+    required_properties: vk::MemoryPropertyFlags,
+    mem_properties: vk::PhysicalDeviceMemoryProperties,
+) -> u32 {
+    for (i, memory_type) in mem_properties.memory_types.iter().enumerate() {
+        if (type_filter & (1 << i)) > 0 && memory_type.property_flags.contains(required_properties)
+        {
+            return i as u32;
+        }
+    }
+
+    panic!("Failed to find suitable memory type!")
 }
 
 fn _create_command_buffers(
@@ -388,6 +499,7 @@ fn _create_command_buffers(
     framebuffers: &Vec<vk::Framebuffer>,
     render_pass: vk::RenderPass,
     surface_extent: vk::Extent2D,
+    vertex_buffer: vk::Buffer,
 ) -> Vec<vk::CommandBuffer> {
     let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
         s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
@@ -447,6 +559,12 @@ fn _create_command_buffers(
                 vk::PipelineBindPoint::GRAPHICS,
                 graphics_pipeline,
             );
+
+            let vertex_buffers = [vertex_buffer];
+            let offsets = [0_u64];
+
+            device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, &offsets);
+
             device.cmd_draw(command_buffer, 3, 1, 0, 0);
             device.cmd_end_render_pass(command_buffer);
             device
@@ -514,14 +632,17 @@ fn _create_graphics_pipeline_layout(
         },
     ];
 
+    let vertex_attribute_descriptions = Vertex::get_attribute_descriptions();
+    let vertex_binding_descriptions = Vertex::get_binding_descriptions();
+
     let vertex_input_state_create_info = vk::PipelineVertexInputStateCreateInfo {
         s_type: vk::StructureType::PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         p_next: ptr::null(),
         flags: vk::PipelineVertexInputStateCreateFlags::empty(),
-        vertex_attribute_description_count: 0,
-        p_vertex_attribute_descriptions: ptr::null(),
-        vertex_binding_description_count: 0,
-        p_vertex_binding_descriptions: ptr::null(),
+        vertex_attribute_description_count: vertex_attribute_descriptions.len() as u32,
+        p_vertex_attribute_descriptions: vertex_attribute_descriptions.as_ptr(),
+        vertex_binding_description_count: vertex_binding_descriptions.len() as u32,
+        p_vertex_binding_descriptions: vertex_binding_descriptions.as_ptr(),
     };
 
     let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
@@ -787,12 +908,12 @@ fn _create_instance(entry: &ash::Entry, layers: &Vec<&str>) -> ash::Instance {
         .for_each(|layer| log_debug!("Enabling layer:  {}", layer));
 
     #[cfg(debug_assertions)]
-        let debug_messenger_create_info = debug::create_debug_messenger_create_info();
+    let debug_messenger_create_info = debug::create_debug_messenger_create_info();
     #[cfg(debug_assertions)]
-        let p_next = &debug_messenger_create_info as *const vk::DebugUtilsMessengerCreateInfoEXT
+    let p_next = &debug_messenger_create_info as *const vk::DebugUtilsMessengerCreateInfoEXT
         as *const c_void;
     #[cfg(not(debug_assertions))]
-        let p_next = ptr::null();
+    let p_next = ptr::null();
 
     let create_info = vk::InstanceCreateInfo {
         s_type: vk::StructureType::INSTANCE_CREATE_INFO,
@@ -869,9 +990,9 @@ fn _create_logical_device(
         queue_families.graphics.unwrap(),
         queue_families.present.unwrap(),
     ]
-        .iter()
-        .cloned()
-        .collect();
+    .iter()
+    .cloned()
+    .collect();
     let mut queue_create_infos = Vec::new();
     let queue_priorities = [1.0_f32];
 
@@ -918,83 +1039,6 @@ fn _create_logical_device(
     };
 
     device
-}
-
-pub struct QueueFamilyIndices {
-    pub(crate) graphics: Option<u32>,
-    pub(crate) present: Option<u32>,
-}
-
-impl QueueFamilyIndices {
-    fn new(
-        instance: &ash::Instance,
-        device: &PhysicalDevice,
-        surface_container: &SurfaceContainer,
-    ) -> QueueFamilyIndices {
-        let graphics = _pick_queue_families(instance, device);
-        let present = _pick_present_queue_family(instance, device, surface_container);
-
-        QueueFamilyIndices { graphics, present }
-    }
-
-    fn is_complete(&self) -> bool {
-        self.graphics.is_some() && self.present.is_some()
-    }
-}
-
-impl Display for QueueFamilyIndices {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "(gfx={}, present={})",
-            self.graphics.map(|g| g as i32).unwrap_or(-1),
-            self.present.map(|g| g as i32).unwrap_or(-1)
-        )
-    }
-}
-
-fn _pick_queue_families(instance: &ash::Instance, device: &PhysicalDevice) -> Option<u32> {
-    let queue_family_properties =
-        unsafe { instance.get_physical_device_queue_family_properties(*device) };
-
-    let mut index = 0;
-    for family_properties in queue_family_properties.iter() {
-        if family_properties.queue_flags.contains(QueueFlags::GRAPHICS) {
-            return Option::Some(index);
-        }
-        index += 1;
-    }
-
-    Option::None
-}
-
-fn _pick_present_queue_family(
-    instance: &ash::Instance,
-    physical_device: &PhysicalDevice,
-    surface_container: &SurfaceContainer,
-) -> Option<u32> {
-    let queue_family_properties =
-        unsafe { instance.get_physical_device_queue_family_properties(*physical_device) };
-
-    let mut index = 0;
-    for _family_properties in queue_family_properties.iter() {
-        let present_support = unsafe {
-            surface_container
-                .loader
-                .get_physical_device_surface_support(
-                    *physical_device,
-                    index as u32,
-                    surface_container.surface,
-                )
-        };
-
-        if present_support.unwrap_or(false) {
-            return Option::Some(index);
-        }
-        index += 1;
-    }
-
-    Option::None
 }
 
 fn _create_sync_objects(device: &ash::Device) -> SyncObjects {
