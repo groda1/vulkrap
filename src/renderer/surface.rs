@@ -9,14 +9,8 @@ pub struct SurfaceContainer {
 }
 
 impl SurfaceContainer {
-    pub fn new(
-        entry: &ash::Entry,
-        instance: &ash::Instance,
-        window: &winit::window::Window,
-    ) -> SurfaceContainer {
-        let surface = unsafe {
-            platform::create_surface(entry, instance, window).expect("Failed to create surface.")
-        };
+    pub fn new(entry: &ash::Entry, instance: &ash::Instance, window: &winit::window::Window) -> SurfaceContainer {
+        let surface = unsafe { platform::create_surface(entry, instance, window).expect("Failed to create surface.") };
         let surface_loader = ash::extensions::khr::Surface::new(entry, instance);
 
         SurfaceContainer {
@@ -29,10 +23,7 @@ impl SurfaceContainer {
         self.loader.destroy_surface(self.surface, None);
     }
 
-    pub fn query_swapchain_support(
-        &self,
-        physical_device: vk::PhysicalDevice,
-    ) -> SwapChainSupportDetail {
+    pub fn query_swapchain_support(&self, physical_device: vk::PhysicalDevice) -> SwapChainSupportDetail {
         unsafe {
             let capabilities = self
                 .loader

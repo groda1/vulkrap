@@ -98,8 +98,7 @@ pub fn log_physical_device(instance: &ash::Instance, device: &PhysicalDevice) {
 }
 
 pub fn log_device_queue_families(instance: &ash::Instance, device: &PhysicalDevice) {
-    let queue_family_properties =
-        unsafe { instance.get_physical_device_queue_family_properties(*device) };
+    let queue_family_properties = unsafe { instance.get_physical_device_queue_family_properties(*device) };
 
     log_info!("Available queue families:");
     let mut index = 0;
@@ -111,9 +110,7 @@ pub fn log_device_queue_families(instance: &ash::Instance, device: &PhysicalDevi
             family_properties.queue_flags.contains(QueueFlags::GRAPHICS),
             family_properties.queue_flags.contains(QueueFlags::COMPUTE),
             family_properties.queue_flags.contains(QueueFlags::TRANSFER),
-            family_properties
-                .queue_flags
-                .contains(QueueFlags::SPARSE_BINDING),
+            family_properties.queue_flags.contains(QueueFlags::SPARSE_BINDING),
         );
         index += 1;
     }
@@ -130,11 +127,7 @@ pub fn log_physical_device_extensions(instance: &ash::Instance, device: &Physica
     for extension in physical_device_extensions.iter() {
         let name_str = vk_cstr_to_str(&extension.extension_name);
 
-        log_info!(
-            " - {} [{}]",
-            name_str,
-            vk_format_version(extension.spec_version)
-        );
+        log_info!(" - {} [{}]", name_str, vk_format_version(extension.spec_version));
     }
 }
 
@@ -165,12 +158,7 @@ pub fn log_validation_layer_support(entry: &ash::Entry) {
             let str = vk_cstr_to_str(&layer.layer_name);
             let desc = vk_cstr_to_str(&layer.description);
 
-            log_info!(
-                " - {} [{}] - {}",
-                str,
-                vk_format_version(layer.spec_version),
-                desc
-            );
+            log_info!(" - {} [{}] - {}", str, vk_format_version(layer.spec_version), desc);
         }
     }
 }

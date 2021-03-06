@@ -33,25 +33,18 @@ pub fn create_swapchain(
     let extent = _choose_swapchain_extent(&swapchain_support.capabilities);
 
     let image_count = 2;
-    if swapchain_support.capabilities.min_image_count > 2
-        || swapchain_support.capabilities.max_image_count < 2
-    {
+    if swapchain_support.capabilities.min_image_count > 2 || swapchain_support.capabilities.max_image_count < 2 {
         panic!("Unsupported swapchain image count: {}", image_count)
     }
 
     let graphics_family = queue_families.graphics.unwrap();
     let present_family = queue_families.present.unwrap();
 
-    let (image_sharing_mode, queue_family_index_count, queue_family_indices) =
-        if graphics_family != present_family {
-            (
-                vk::SharingMode::EXCLUSIVE,
-                2,
-                vec![graphics_family, present_family],
-            )
-        } else {
-            (vk::SharingMode::CONCURRENT, 0, vec![])
-        };
+    let (image_sharing_mode, queue_family_index_count, queue_family_indices) = if graphics_family != present_family {
+        (vk::SharingMode::EXCLUSIVE, 2, vec![graphics_family, present_family])
+    } else {
+        (vk::SharingMode::CONCURRENT, 0, vec![])
+    };
 
     let swapchain_create_info = vk::SwapchainCreateInfoKHR {
         s_type: vk::StructureType::SWAPCHAIN_CREATE_INFO_KHR,

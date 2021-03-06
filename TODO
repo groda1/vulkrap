@@ -1,5 +1,10 @@
 Renderer:
     * vertex_input_assembly VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, (If you set the primitiveRestartEnable member to VK_TRUE, then it's possible to break up lines and triangles in the _STRIP topology modes by using a special index of 0xFFFF or 0xFFFFFFFF)
 
-    * Pipeline layout: pass uniforms?
     * Proper device picking
+
+    * Dont allocate buffer memory on every vertex/index buffer creation. This could be batched.
+
+    * Setup a usable API for a game
+
+    * Recreating swapchain should possibly recreate uniform buffers as the number of images could change.

@@ -4,12 +4,7 @@ use winit::window::Window;
 
 use crate::renderer::context::Context;
 
-pub fn init_window(
-    title: &'static str,
-    width: u32,
-    height: u32,
-    event_loop: &EventLoop<()>,
-) -> Window {
+pub fn init_window(title: &'static str, width: u32, height: u32, event_loop: &EventLoop<()>) -> Window {
     winit::window::WindowBuilder::new()
         .with_title(title)
         .with_inner_size(winit::dpi::LogicalSize::new(width, height))
@@ -18,19 +13,17 @@ pub fn init_window(
 }
 
 pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut rendering_context: Context) {
+    let mut foo: f32 = 0.0;
+
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                 WindowEvent::KeyboardInput { input, .. } => match input {
                     KeyboardInput {
-                        virtual_keycode,
-                        state,
-                        ..
+                        virtual_keycode, state, ..
                     } => match (virtual_keycode, state) {
-                        (Some(VirtualKeyCode::Escape), ElementState::Pressed) => {
-                            *control_flow = ControlFlow::Exit
-                        }
+                        (Some(VirtualKeyCode::Escape), ElementState::Pressed) => *control_flow = ControlFlow::Exit,
                         _ => {}
                     },
                 },
@@ -48,7 +41,8 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut rendering_contex
                 window.request_redraw();
             }
             Event::RedrawRequested(_window_id) => {
-                rendering_context.draw_frame();
+                foo += 0.0001;
+                rendering_context.draw_frame(foo);
                 //thread::sleep(time::Duration::from_millis(10));
             }
             Event::LoopDestroyed => unsafe {
