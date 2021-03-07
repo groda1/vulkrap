@@ -134,7 +134,7 @@ impl Context {
         let vert_shader_code = file::read_file(Path::new("./resources/shaders/simple_triangle_vert.spv"));
         let frag_shader_code = file::read_file(Path::new("./resources/shaders/simple_triangle_frag.spv"));
 
-        let mut pipeline_container = PipelineContainer::new(vert_shader_code, frag_shader_code);
+        let mut pipeline_container = PipelineContainer::new(&logical_device,vert_shader_code, frag_shader_code);
         pipeline_container.build(&logical_device, render_pass, swapchain_container.extent, ubo_layout);
 
         let pipelines = vec![pipeline_container];
@@ -349,7 +349,7 @@ impl Context {
 
             // Pipeline & render pass
             for pipeline_container in self.pipelines.iter_mut() {
-                pipeline_container.destroy(&self.logical_device);
+                pipeline_container.destroy_pipeline(&self.logical_device);
             }
             self.logical_device.destroy_render_pass(self.render_pass, None);
 
@@ -480,6 +480,10 @@ impl Drop for Context {
 
             //Swapchain
             self.destroy_swapchain();
+
+            for pipeline_container in self.pipelines.iter_mut() {
+                pipeline_container.destroy_shaders(&self.logical_device);
+            }
 
             // Descriptor pool
             self.logical_device.destroy_descriptor_pool(self.descriptor_pool, None);

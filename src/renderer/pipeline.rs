@@ -13,8 +13,8 @@ pub struct PipelineContainer {
     is_built: bool,
 
     // Shaders
-    vertex_shader: Vec<u8>,
-    fragment_shader: Vec<u8>,
+    vertex_shader: vk::ShaderModule,
+    fragment_shader: vk::ShaderModule,
 
     // Vulkan objects
     pub vk_pipeline: vk::Pipeline,
@@ -22,7 +22,10 @@ pub struct PipelineContainer {
 }
 
 impl PipelineContainer {
-    pub fn new(vertex_shader: Vec<u8>, fragment_shader: Vec<u8>) -> PipelineContainer {
+    pub fn new(logical_device : &ash::Device, vertex_shader: Vec<u8>, fragment_shader: Vec<u8>) -> PipelineContainer {
+        let vertex_shader = _create_shader_module(logical_device, &vertex_shader);
+        let fragment_shader = _create_shader_module(logical_device, &fragment_shader);
+
         PipelineContainer {
             is_built: false,
             vertex_shader,
@@ -44,10 +47,6 @@ impl PipelineContainer {
             panic! {"Pipeline already built."}
         }
 
-        // TODO: Test if we can create in constructor instead!
-        let vert_shader_module = _create_shader_module(device, &self.vertex_shader);
-        let frag_shader_module = _create_shader_module(device, &self.fragment_shader);
-
         let main_function_name = CString::new(SHADER_ENTRYPOINT).unwrap();
 
         let shader_stages = [
@@ -56,7 +55,7 @@ impl PipelineContainer {
                 s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
                 p_next: ptr::null(),
                 flags: vk::PipelineShaderStageCreateFlags::empty(),
-                module: vert_shader_module,
+                module: self.vertex_shader,
                 p_name: main_function_name.as_ptr(),
                 p_specialization_info: ptr::null(),
                 stage: vk::ShaderStageFlags::VERTEX,
@@ -66,7 +65,7 @@ impl PipelineContainer {
                 s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
                 p_next: ptr::null(),
                 flags: vk::PipelineShaderStageCreateFlags::empty(),
-                module: frag_shader_module,
+                module: self.fragment_shader,
                 p_name: main_function_name.as_ptr(),
                 p_specialization_info: ptr::null(),
                 stage: vk::ShaderStageFlags::FRAGMENT,
@@ -239,20 +238,20 @@ impl PipelineContainer {
                 .expect("Failed to create Graphics Pipeline!.")
         };
 
-        unsafe {
-            device.destroy_shader_module(vert_shader_module, None);
-            device.destroy_shader_module(frag_shader_module, None);
-        }
-
         self.vk_pipeline = graphics_pipelines[0];
         self.layout = pipeline_layout;
         self.is_built = true;
     }
 
-    pub unsafe fn destroy(&mut self, logical_device: &ash::Device) {
+    pub unsafe fn destroy_pipeline(&mut self, logical_device: &ash::Device) {
         logical_device.destroy_pipeline(self.vk_pipeline, None);
         logical_device.destroy_pipeline_layout(self.layout, None);
         self.is_built = false;
+    }
+
+    pub unsafe fn destroy_shaders(&mut self, logical_device: &ash::Device) {
+        logical_device.destroy_shader_module(self.vertex_shader, None);
+        logical_device.destroy_shader_module(self.fragment_shader, None);
     }
 }
 
