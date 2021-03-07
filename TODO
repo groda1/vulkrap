@@ -1,4 +1,5 @@
 Renderer:
+    [ ] what happens if i add an entity after rendering starts? need to sync that I think..
     [ ] vertex_input_assembly VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, (If you set the primitiveRestartEnable member to VK_TRUE, then it's possible to break up lines and triangles in the _STRIP topology modes by using a special index of 0xFFFF or 0xFFFFFFFF)
     [ ] Proper device picking
     [ ] Dont allocate buffer memory on every vertex/index buffer creation. This could be managed by an allocator.

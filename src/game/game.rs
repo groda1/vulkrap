@@ -23,8 +23,18 @@ impl VulkrapApplication {
         let indices = vec![0, 1, 2, 2, 1, 3];
         let entity = Entity::new(triangle, indices);
 
+        let triangle2 = vec![
+            Vertex::new(Vector3::new(0.5, -0.25, -2.0), Vector3::new(1.0, 0.0, 0.0)),
+            Vertex::new(Vector3::new(1.5, -0.25, -2.0), Vector3::new(1.0, 1.0, 0.0)),
+            Vertex::new(Vector3::new(0.5, 0.25, -2.0), Vector3::new(1.0, 0.0, 1.0)),
+            Vertex::new(Vector3::new(1.5, 0.25, -2.0), Vector3::new(1.0, 0.0, 1.0)),
+        ];
+        let indices2 = vec![0, 1, 2, 2, 1, 3];
+        let entity2 = Entity::new(triangle2, indices2);
+
         let mut context = Context::new(window);
         context.add_entity(entity);
+        context.add_entity(entity2);
 
         VulkrapApplication {
             context,
