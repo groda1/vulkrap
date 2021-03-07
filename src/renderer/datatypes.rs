@@ -17,6 +17,8 @@ pub struct Vertex {
     pub color: Vector3<f32>,
 }
 
+pub type Index = u32;
+
 impl Vertex {
     pub fn new(position: Vector3<f32>, color: Vector3<f32>) -> Vertex {
         Vertex { position, color }

@@ -3,11 +3,16 @@ Renderer:
 
     * Proper device picking
 
-    * Dont allocate buffer memory on every vertex/index buffer creation. This could be batched.
+    * Dont allocate buffer memory on every vertex/index buffer creation. This could be managed by an allocator.
+        See memory.rs
 
-    * Setup a usable API for a game
+    * Setup a usable API for a game structure
 
     * Recreating swapchain should possibly recreate uniform buffers as the number of images could change.
+
+
+Game:
+    * Setup game structure. Which holds the rendering context and is called from window
     * Include shaders in binary
 
 Window:

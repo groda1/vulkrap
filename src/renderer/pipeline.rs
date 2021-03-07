@@ -1,6 +1,8 @@
 use crate::renderer::datatypes::Vertex;
+use crate::renderer::entity::{Entity, EntityHandle};
 use ash::version::DeviceV1_0;
 use ash::vk;
+use ash::vk::Framebuffer;
 use std::ffi::CString;
 use std::ptr;
 
@@ -17,12 +19,22 @@ pub struct PipelineContainer {
     fragment_shader: vk::ShaderModule,
 
     // Vulkan objects
+    command_pool: vk::CommandPool,
     pub vk_pipeline: vk::Pipeline,
     pub layout: vk::PipelineLayout,
+    render_pass: vk::RenderPass,
+
+    // Entities
+    pub entities: Vec<Entity>,
 }
 
 impl PipelineContainer {
-    pub fn new(logical_device : &ash::Device, vertex_shader: Vec<u8>, fragment_shader: Vec<u8>) -> PipelineContainer {
+    pub fn new(
+        logical_device: &ash::Device,
+        command_pool: vk::CommandPool,
+        vertex_shader: Vec<u8>,
+        fragment_shader: Vec<u8>,
+    ) -> PipelineContainer {
         let vertex_shader = _create_shader_module(logical_device, &vertex_shader);
         let fragment_shader = _create_shader_module(logical_device, &fragment_shader);
 
@@ -31,8 +43,12 @@ impl PipelineContainer {
             vertex_shader,
             fragment_shader,
 
+            command_pool,
             vk_pipeline: vk::Pipeline::null(),
             layout: vk::PipelineLayout::null(),
+            render_pass: vk::RenderPass::null(),
+
+            entities: Vec::new(),
         }
     }
 
@@ -46,6 +62,8 @@ impl PipelineContainer {
         if self.is_built {
             panic! {"Pipeline already built."}
         }
+
+        self.render_pass = render_pass;
 
         let main_function_name = CString::new(SHADER_ENTRYPOINT).unwrap();
 
@@ -246,12 +264,73 @@ impl PipelineContainer {
     pub unsafe fn destroy_pipeline(&mut self, logical_device: &ash::Device) {
         logical_device.destroy_pipeline(self.vk_pipeline, None);
         logical_device.destroy_pipeline_layout(self.layout, None);
+        self.render_pass = vk::RenderPass::null();
         self.is_built = false;
     }
 
     pub unsafe fn destroy_shaders(&mut self, logical_device: &ash::Device) {
         logical_device.destroy_shader_module(self.vertex_shader, None);
         logical_device.destroy_shader_module(self.fragment_shader, None);
+    }
+
+    pub unsafe fn destroy_entities(&mut self, logical_device: &ash::Device) {
+        for entity in self.entities.iter_mut() {
+            entity.destroy_data_buffers(logical_device);
+        }
+    }
+
+    pub fn add_entity(&mut self, entity: Entity) -> EntityHandle {
+        let handle = self.entities.len();
+        self.entities.push(entity);
+
+        handle
+    }
+
+    pub fn build_command_buffers_for_entity(
+        &mut self,
+        entity: EntityHandle,
+        logical_device: &ash::Device,
+        framebuffers: &Vec<Framebuffer>,
+        surface_extent: vk::Extent2D,
+        descriptor_sets: &Vec<vk::DescriptorSet>,
+    ) {
+        self.entities[entity].build_command_buffers(
+            logical_device,
+            self.command_pool,
+            self.vk_pipeline,
+            framebuffers,
+            self.render_pass,
+            surface_extent,
+            self.layout,
+            descriptor_sets,
+        );
+    }
+
+    pub fn build_all_command_buffers(
+        &mut self,
+        logical_device: &ash::Device,
+        framebuffers: &Vec<Framebuffer>,
+        surface_extent: vk::Extent2D,
+        descriptor_sets: &Vec<vk::DescriptorSet>,
+    ) {
+        for entity in self.entities.iter_mut() {
+            entity.build_command_buffers(
+                logical_device,
+                self.command_pool,
+                self.vk_pipeline,
+                framebuffers,
+                self.render_pass,
+                surface_extent,
+                self.layout,
+                descriptor_sets,
+            );
+        }
+    }
+
+    pub unsafe fn destroy_all_command_buffers(&mut self, logical_device: &ash::Device) {
+        for entity in self.entities.iter_mut() {
+            entity.destroy_command_buffers(logical_device, self.command_pool);
+        }
     }
 }
 
