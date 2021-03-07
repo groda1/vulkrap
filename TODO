@@ -8,3 +8,8 @@ Renderer:
     * Setup a usable API for a game
 
     * Recreating swapchain should possibly recreate uniform buffers as the number of images could change.
+    * Include shaders in binary
+
+Window:
+    * Handle resize events
+    * Measure delta time properly

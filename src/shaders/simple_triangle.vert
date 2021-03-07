@@ -22,8 +22,8 @@ vec3(0.0, 0.0, 1.0)
 
 void main() {
 
-    float wobble_x = sin(mvp.wobble + gl_VertexIndex) * 0.1;
-    float wobble_y = cos(mvp.wobble + gl_VertexIndex) * 0.1;
+    float wobble_x = cos(mvp.wobble + gl_VertexIndex) * 0.1;
+    float wobble_y = sin(mvp.wobble + gl_VertexIndex) * 0.1;
 
     vec3 derp = vec3(inPosition.x + wobble_x, inPosition.y + wobble_y, inPosition.z);
 
