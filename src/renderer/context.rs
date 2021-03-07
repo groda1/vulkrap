@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::ffi::{CString, c_void};
+use std::ffi::{c_void, CString};
 use std::path::Path;
 use std::ptr;
 
@@ -10,7 +10,7 @@ use cgmath::{Deg, Matrix4, Point3, Vector3};
 use winit::window::Window;
 
 use crate::renderer::constants::MAX_FRAMES_IN_FLIGHT;
-use crate::renderer::datatypes::{MvpUniformBufferObject};
+use crate::renderer::datatypes::MvpUniformBufferObject;
 use crate::renderer::entity::{Entity, EntityHandle};
 use crate::renderer::memory;
 use crate::renderer::pipeline::PipelineContainer;

@@ -1,6 +1,6 @@
 use super::memory;
 use crate::renderer::datatypes::{Index, Vertex};
-use ash::version::{DeviceV1_0};
+use ash::version::DeviceV1_0;
 use ash::vk;
 use ash::vk::PhysicalDeviceMemoryProperties;
 use cgmath::{Matrix4, SquareMatrix};

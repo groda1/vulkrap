@@ -47,7 +47,7 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut vulkrap_app: Vul
             }
             Event::LoopDestroyed => {
                 vulkrap_app.exit();
-            },
+            }
             _ => (),
         }
     })
