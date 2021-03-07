@@ -1,20 +1,16 @@
 Renderer:
-    * vertex_input_assembly VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, (If you set the primitiveRestartEnable member to VK_TRUE, then it's possible to break up lines and triangles in the _STRIP topology modes by using a special index of 0xFFFF or 0xFFFFFFFF)
-
-    * Proper device picking
-
-    * Dont allocate buffer memory on every vertex/index buffer creation. This could be managed by an allocator.
+    [ ] vertex_input_assembly VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, (If you set the primitiveRestartEnable member to VK_TRUE, then it's possible to break up lines and triangles in the _STRIP topology modes by using a special index of 0xFFFF or 0xFFFFFFFF)
+    [ ] Proper device picking
+    [ ] Dont allocate buffer memory on every vertex/index buffer creation. This could be managed by an allocator.
         See memory.rs
-
-    * Setup a usable API for a game structure
-
-    * Recreating swapchain should possibly recreate uniform buffers as the number of images could change.
+    [ ] Setup a usable API for a game structure
+    [ ] Recreating swapchain should possibly recreate uniform buffers as the number of images could change.
 
 
 Game:
-    * Setup game structure. Which holds the rendering context and is called from window
-    * Include shaders in binary
+    [ ] Setup game structure. Which holds the rendering context and is called from window
+    [ ] Include shaders in binary
 
 Window:
-    * Handle resize events
-    * Measure delta time properly
+    [ ] Handle resize events
+    [x] Measure delta time properly

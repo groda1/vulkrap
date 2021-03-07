@@ -1,15 +1,19 @@
 use std::collections::HashSet;
-use std::ffi::{c_void, CString};
+use std::ffi::{CString, c_void};
 use std::path::Path;
 use std::ptr;
 
 use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
 use ash::vk::{PhysicalDevice, PhysicalDeviceMemoryProperties};
-use cgmath::{Deg, Matrix4, Point3, SquareMatrix, Vector3};
+use cgmath::{Deg, Matrix4, Point3, Vector3};
 use winit::window::Window;
 
-use crate::renderer::datatypes::{Index, MvpUniformBufferObject};
+use crate::renderer::constants::MAX_FRAMES_IN_FLIGHT;
+use crate::renderer::datatypes::{MvpUniformBufferObject};
+use crate::renderer::entity::{Entity, EntityHandle};
+use crate::renderer::memory;
+use crate::renderer::pipeline::PipelineContainer;
 use crate::util::file;
 use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
@@ -19,18 +23,11 @@ use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
 use super::datatypes::Vertex;
 use super::debug;
 use super::entity;
-use super::pipeline;
 use super::platform;
 use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
-use crate::renderer::constants::MAX_FRAMES_IN_FLIGHT;
-use crate::renderer::entity::EntityHandle;
-use crate::renderer::memory;
-use crate::renderer::pipeline::PipelineContainer;
-
-const COMMAND_BUFFER_DRAWBUFFER_SIZE: usize = 10;
 
 struct SyncObjects {
     image_available_semaphores: Vec<vk::Semaphore>,
@@ -43,6 +40,7 @@ pub struct Context {
     instance: ash::Instance,
 
     physical_device: PhysicalDevice,
+    physical_device_memory_properties: PhysicalDeviceMemoryProperties,
     logical_device: ash::Device,
 
     queue_families: QueueFamilyIndices,
@@ -72,8 +70,7 @@ pub struct Context {
 
     command_pool: vk::CommandPool,
 
-    command_buffers_drawbuffer: Vec<[vk::CommandBuffer; COMMAND_BUFFER_DRAWBUFFER_SIZE]>,
-    command_buffers_drawbuffer_index: Vec<u32>,
+    entities: Vec<Entity>,
 
     sync: SyncObjects,
 
@@ -159,7 +156,6 @@ impl Context {
         ];
         let indices = vec![0, 1, 2, 2, 1, 3];
         let mut crazy_quad = entity::Entity::new(triangle, indices);
-
         crazy_quad.construct_data_buffers(
             &logical_device,
             &physical_device_memory_properties,
@@ -182,14 +178,10 @@ impl Context {
             swapchain_container.images.len(),
         );
 
-        pipelines[0].add_entity(crazy_quad);
+        let mut entities = Vec::new();
+        entities.push(crazy_quad);
 
-        pipelines[0].build_all_command_buffers(
-            &logical_device,
-            &swapchain_framebuffers,
-            swapchain_container.extent,
-            &descriptor_sets,
-        );
+        pipelines[0].create_command_buffers(&logical_device, command_pool, swapchain_container.image_views.len());
 
         let sync_objects = _create_sync_objects(&logical_device);
 
@@ -197,6 +189,7 @@ impl Context {
             _entry: entry,
             instance,
             physical_device,
+            physical_device_memory_properties,
             logical_device,
             queue_families,
             graphics_queue,
@@ -217,11 +210,7 @@ impl Context {
             descriptor_pool,
             descriptor_sets,
             command_pool,
-            command_buffers_drawbuffer: vec![
-                [vk::CommandBuffer::null(); COMMAND_BUFFER_DRAWBUFFER_SIZE];
-                MAX_FRAMES_IN_FLIGHT
-            ],
-            command_buffers_drawbuffer_index: vec![0; MAX_FRAMES_IN_FLIGHT],
+            entities,
             sync: sync_objects,
             debug_utils_loader,
             debug_utils_messenger,
@@ -229,16 +218,23 @@ impl Context {
         }
     }
 
-    pub fn _build_drawbuffer(&mut self, image_index: usize) -> Vec<vk::CommandBuffer> {
-        // TODO: This should not be built in heap. Make a constant array
-        self.pipelines
-            .iter()
-            .flat_map(|pipeline| pipeline.entities.iter())
-            .map(|entity| entity.fetch_command_buffer(image_index))
-            .collect()
+    pub fn add_entity(&mut self, mut entity: Entity) -> EntityHandle {
+        // This sucks!
+        let handle = self.entities.len();
+
+        entity.construct_data_buffers(
+            &self.logical_device,
+            &self.physical_device_memory_properties,
+            self.command_pool,
+            self.graphics_queue,
+        );
+
+        self.entities.push(entity);
+
+        handle
     }
 
-    pub fn draw_frame(&mut self, delta_time: f32) {
+    pub fn draw_frame(&mut self, delta_time_s: f32) {
         let wait_fences = [self.sync.inflight_fences[self.n_frames]];
 
         unsafe {
@@ -267,8 +263,18 @@ impl Context {
             }
         };
 
-        let command_buffers = self._build_drawbuffer(image_index as usize);
-        self.update_uniform_buffer(image_index as usize, delta_time);
+        let command_buffer = self.pipelines[0].bake_command_buffer(
+            &self.logical_device,
+            image_index,
+            self.swapchain_framebuffers[image_index as usize],
+            self.swapchain_extent,
+            &self.entities,
+            self.descriptor_sets[image_index as usize],
+        );
+
+        let command_buffers = [command_buffer];
+
+        self.update_uniform_buffer(image_index as usize, delta_time_s);
 
         let wait_semaphores = [self.sync.image_available_semaphores[self.n_frames]];
         let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
@@ -340,7 +346,7 @@ impl Context {
     fn destroy_swapchain(&mut self) {
         unsafe {
             for pipeline_container in self.pipelines.iter_mut() {
-                pipeline_container.destroy_all_command_buffers(&self.logical_device);
+                pipeline_container.destroy_command_buffers(&self.logical_device);
             }
 
             // Framebuffers
@@ -364,14 +370,6 @@ impl Context {
     }
 
     fn recreate_swapchain(&mut self) {
-        // parameters -------------
-        // let surface_suff = SurfaceContainer {
-        //     loader: self.surface_container.loader.clone(),
-        //     surface: self.surface_container.surface,
-        // };
-
-        //self.surface_container = surface_suff;
-
         unsafe {
             self.logical_device
                 .device_wait_idle()
@@ -412,31 +410,17 @@ impl Context {
         );
 
         for pipeline_container in self.pipelines.iter_mut() {
-            pipeline_container.build_all_command_buffers(
+            pipeline_container.create_command_buffers(
                 &self.logical_device,
-                &self.swapchain_framebuffers,
-                self.swapchain_extent,
-                &self.descriptor_sets,
+                self.command_pool,
+                self.swapchain_framebuffers.len(),
             );
         }
-
-        // self.command_buffers = _create_command_buffers(
-        //     &self.logical_device,
-        //     self.command_pool,
-        //     self.pipelines[0].vk_pipeline,
-        //     &self.swapchain_framebuffers,
-        //     self.render_pass,
-        //     self.swapchain_extent,
-        //     self.vertex_buffer,
-        //     self.index_buffer,
-        //     self.pipelines[0].layout,
-        //     &self.descriptor_sets,
-        // );
     }
 
     fn update_uniform_buffer(&self, current_image: usize, delta_time: f32) {
-        let rot_speed = delta_time * 0.5;
-        let wobble = delta_time * 10.0;
+        let rot_speed = delta_time * 0.25;
+        let wobble = delta_time * 7.0;
 
         let ubos = [MvpUniformBufferObject {
             model: Matrix4::from_angle_z(Deg(90.0 * rot_speed)),
@@ -504,10 +488,13 @@ impl Drop for Context {
                 self.logical_device.free_memory(self.uniform_buffers_memory[i], None);
             }
 
+            for entity in self.entities.iter_mut() {
+                entity.destroy_data_buffers(&self.logical_device);
+            }
+
             // Pipeline shaders & entities
             for pipeline_container in self.pipelines.iter_mut() {
                 pipeline_container.destroy_shaders(&self.logical_device);
-                pipeline_container.destroy_entities(&self.logical_device);
             }
 
             // Command pool
@@ -744,7 +731,7 @@ fn _create_command_pool(device: &ash::Device, queue_families: &QueueFamilyIndice
     let command_pool_create_info = vk::CommandPoolCreateInfo {
         s_type: vk::StructureType::COMMAND_POOL_CREATE_INFO,
         p_next: ptr::null(),
-        flags: vk::CommandPoolCreateFlags::empty(),
+        flags: vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
         queue_family_index: queue_families.graphics.unwrap(),
     };
 

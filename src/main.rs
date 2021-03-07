@@ -26,15 +26,16 @@ macro_rules! log_debug {
     })
 }
 
+use crate::game::game::VulkrapApplication;
 use winit::event_loop::EventLoop;
 
 mod console;
+mod game;
 mod renderer;
 mod util;
 mod window;
 
 const ENGINE_NAME: &'static str = "vulkrap";
-
 const APPLICATION_VERSION: (u32, u32, u32) = (1, 0, 0);
 const ENGINE_VERSION: (u32, u32, u32) = (1, 0, 0);
 
@@ -47,9 +48,9 @@ fn main() {
 
     let event_loop = EventLoop::new();
     let window = window::winit::init_window(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, &event_loop);
-    let vulkan_context = renderer::context::Context::new(&window);
 
-    window::winit::main_loop(event_loop, window, vulkan_context);
+    let vulkan_app = VulkrapApplication::new(&window);
+    window::winit::main_loop(event_loop, window, vulkan_app);
 
     log_info!("Exiting");
 }

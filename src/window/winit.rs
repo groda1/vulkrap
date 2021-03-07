@@ -2,7 +2,8 @@ use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCo
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
-use crate::renderer::context::Context;
+use crate::game::game::VulkrapApplication;
+use crate::util::frametimer::FrameTimer;
 
 pub fn init_window(title: &'static str, width: u32, height: u32, event_loop: &EventLoop<()>) -> Window {
     winit::window::WindowBuilder::new()
@@ -12,8 +13,8 @@ pub fn init_window(title: &'static str, width: u32, height: u32, event_loop: &Ev
         .expect("Failed to create window.")
 }
 
-pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut rendering_context: Context) {
-    let mut foo: f32 = 0.0;
+pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut vulkrap_app: VulkrapApplication) {
+    let mut frame_timer = FrameTimer::new();
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -41,12 +42,11 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut rendering_contex
                 window.request_redraw();
             }
             Event::RedrawRequested(_window_id) => {
-                foo += 0.0001;
-                rendering_context.draw_frame(foo);
-                //thread::sleep(time::Duration::from_millis(10));
+                vulkrap_app.update(frame_timer.delta_time_sec());
+                frame_timer.tick_frame();
             }
-            Event::LoopDestroyed => unsafe {
-                rendering_context.wait_idle();
+            Event::LoopDestroyed => {
+                vulkrap_app.exit();
             },
             _ => (),
         }

@@ -1,5 +1,5 @@
 use std::alloc::{alloc, Layout};
-pub fn raw_alloc<T>() -> Box<T> {
+pub fn _raw_alloc<T>() -> Box<T> {
     let layout = Layout::new::<T>();
     let buf = unsafe {
         let ptr = alloc(layout) as *mut T;
@@ -11,7 +11,7 @@ pub fn raw_alloc<T>() -> Box<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::util::mem::raw_alloc;
+    use crate::util::mem::_raw_alloc;
     use stopwatch::Stopwatch;
 
     const SIZE: usize = 5_000_000;
@@ -28,7 +28,7 @@ mod tests {
     #[test]
     fn allocing() {
         let sw = Stopwatch::start_new();
-        let mut mem = raw_alloc::<[u32; SIZE]>();
+        let mut mem = _raw_alloc::<[u32; SIZE]>();
         mem.iter_mut().for_each(|v| *v = 1);
         let sum: u32 = mem.iter().sum();
         println!("sum: {}", sum);

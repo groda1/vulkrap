@@ -1,9 +1,9 @@
 pub mod context;
+pub mod datatypes;
+pub mod entity;
 
 mod constants;
-mod datatypes;
 mod debug;
-mod entity;
 mod memory;
 mod pipeline;
 mod platform;
