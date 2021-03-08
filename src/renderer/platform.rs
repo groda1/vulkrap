@@ -7,8 +7,18 @@ use ash::extensions::khr::Win32Surface;
 use ash::extensions::khr::XlibSurface;
 #[cfg(target_os = "macos")]
 use ash::extensions::mvk::MacOSSurface;
+
 use ash::version::{EntryV1_0, InstanceV1_0};
 use ash::vk;
+
+#[cfg(target_os = "macos")]
+use cocoa::appkit::{NSView, NSWindow};
+#[cfg(target_os = "macos")]
+use cocoa::base::id as cocoa_id;
+#[cfg(target_os = "macos")]
+use metal::CoreAnimationLayer;
+#[cfg(target_os = "macos")]
+use objc::runtime::YES;
 
 #[cfg(target_os = "macos")]
 pub fn required_extension_names() -> Vec<*const i8> {
