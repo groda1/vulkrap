@@ -235,14 +235,6 @@ impl Context {
     }
 
     pub fn draw_frame(&mut self, delta_time_s: f32) {
-        let wait_fences = [self.sync.inflight_fences[self.n_frames]];
-
-        unsafe {
-            self.logical_device
-                .wait_for_fences(&wait_fences, true, std::u64::MAX)
-                .expect("Failed to wait for Fence!");
-        }
-
         let (image_index, _is_sub_optimal) = unsafe {
             let result = self.swapchain_loader.acquire_next_image(
                 self.swapchain,
@@ -262,6 +254,16 @@ impl Context {
                 },
             }
         };
+
+        let wait_fences = [self.sync.inflight_fences[image_index as usize]];
+        unsafe {
+            self.logical_device
+                .wait_for_fences(&wait_fences, true, std::u64::MAX)
+                .expect("Failed to wait for Fence!");
+            self.logical_device
+                .reset_fences(&wait_fences)
+                .expect("Failed to reset Fence!");
+        }
 
         let command_buffer = self.pipelines[0].bake_command_buffer(
             &self.logical_device,
@@ -294,14 +296,10 @@ impl Context {
 
         unsafe {
             self.logical_device
-                .reset_fences(&wait_fences)
-                .expect("Failed to reset Fence!");
-
-            self.logical_device
                 .queue_submit(
                     self.graphics_queue,
                     &submit_infos,
-                    self.sync.inflight_fences[self.n_frames],
+                    self.sync.inflight_fences[image_index as usize],
                 )
                 .expect("Failed to execute queue submit.");
         }

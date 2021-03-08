@@ -332,7 +332,7 @@ impl PipelineContainer {
 
         let command_buffer = self.command_buffers[index as usize];
         unsafe {
-            //device.reset_command_buffer(command_buffer, vk::CommandBufferResetFlags::empty());  is this needed?
+            device.reset_command_buffer(command_buffer, vk::CommandBufferResetFlags::empty());
             device
                 .begin_command_buffer(command_buffer, &command_buffer_begin_info)
                 .expect("Failed to begin recording Command Buffer at beginning!");
