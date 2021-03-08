@@ -1,6 +1,21 @@
 #!/bin/sh
 
-echo "Building shaders"
+echo "Compiling shaders..."
 
-glslc src/shaders/simple_triangle.vert -o resources/shaders/simple_triangle_vert.spv
-glslc src/shaders/simple_triangle.frag -o resources/shaders/simple_triangle_frag.spv
+for file in src/shaders/*.vert
+do
+	base=`basename $file`
+	output="resources/shaders/${base%%.*}_vert.spv"
+	echo "Compiling $file to $output"
+	glslc $file -o $output
+done
+
+for file in src/shaders/*.frag
+do
+	base=`basename $file`
+	output="resources/shaders/${base%%.*}_frag.spv"
+	echo "Compiling $file to $output"
+	glslc $file -o $output
+done
+
+echo "Compilation done."
