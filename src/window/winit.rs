@@ -2,7 +2,7 @@ use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCo
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
-use crate::game::game::VulkrapApplication;
+use crate::engine::game::VulkrapApplication;
 use crate::util::frametimer::FrameTimer;
 
 pub fn init_window(title: &'static str, width: u32, height: u32, event_loop: &EventLoop<()>) -> Window {

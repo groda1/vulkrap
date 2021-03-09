@@ -1,46 +1,125 @@
-use crate::renderer::datatypes::{Index, Vertex};
+use std::ptr;
+
 use ash::version::DeviceV1_0;
 use ash::vk;
-use std::ptr;
+
+use crate::renderer::datatypes::{Index, MvpUniformBufferObject, Vertex};
+use std::collections::HashMap;
 
 //  TODO: make it possible allocate a buffer on preexisting memory.
 //  TODO: Maybe create an allocator that can handle the memory allocation completety separate from buffer allocation
 
-pub fn create_vertex_buffer(
-    device: &ash::Device,
-    device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
-    command_pool: vk::CommandPool,
-    submit_queue: vk::Queue,
-    vertices: &[Vertex],
-) -> (vk::Buffer, vk::DeviceMemory) {
-    _create_device_local_buffer(
-        device,
-        device_memory_properties,
-        command_pool,
-        submit_queue,
-        vk::BufferUsageFlags::VERTEX_BUFFER,
-        vertices,
-    )
+const BUFFER_LIST_INTIAL_CAPACITY: usize = 100;
+
+pub struct MemoryManager {
+    physical_device_memory_properties: vk::PhysicalDeviceMemoryProperties,
+
+    buffers: Vec<vk::Buffer>,
+    buffer_memory_chunks: Vec<vk::DeviceMemory>,
+
+    buffer_to_chunk_map: HashMap<vk::Buffer, vk::DeviceMemory>,
 }
 
-pub fn create_index_buffer(
-    device: &ash::Device,
-    device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
-    command_pool: vk::CommandPool,
-    submit_queue: vk::Queue,
-    vertices: &[Index],
-) -> (vk::Buffer, vk::DeviceMemory) {
-    _create_device_local_buffer(
-        device,
-        device_memory_properties,
-        command_pool,
-        submit_queue,
-        vk::BufferUsageFlags::INDEX_BUFFER,
-        vertices,
-    )
+impl MemoryManager {
+    pub fn new(physical_device_memory_properties: vk::PhysicalDeviceMemoryProperties) -> MemoryManager {
+        MemoryManager {
+            physical_device_memory_properties,
+            buffers: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
+            buffer_memory_chunks: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
+            // vertex_buffers: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
+            // vertex_buffer_memory_chunks: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
+            // index_buffers: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
+            // index_buffer_memory_chunks: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
+            // uniform_buffers: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
+            // uniform_buffers_memory_chunks: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
+            buffer_to_chunk_map: HashMap::new(),
+        }
+    }
+
+    pub fn get_device_memory(&self, buffer: vk::Buffer) -> vk::DeviceMemory {
+        *self.buffer_to_chunk_map.get(&buffer).expect("Unknown buffer memory!")
+    }
+
+    pub fn create_vertex_buffer(
+        &mut self,
+        device: &ash::Device,
+        command_pool: vk::CommandPool,
+        submit_queue: vk::Queue,
+        vertices: &[Vertex],
+    ) -> vk::Buffer {
+        let (buffer, device_memory) = create_device_local_buffer(
+            device,
+            &self.physical_device_memory_properties,
+            command_pool,
+            submit_queue,
+            vk::BufferUsageFlags::VERTEX_BUFFER,
+            vertices,
+        );
+
+        self.buffers.push(buffer);
+        self.buffer_memory_chunks.push(device_memory);
+        self.buffer_to_chunk_map.insert(buffer, device_memory);
+
+        buffer
+    }
+
+    pub fn create_index_buffer(
+        &mut self,
+        device: &ash::Device,
+        command_pool: vk::CommandPool,
+        submit_queue: vk::Queue,
+        indicies: &[Index],
+    ) -> vk::Buffer {
+        let (buffer, device_memory) = create_device_local_buffer(
+            device,
+            &self.physical_device_memory_properties,
+            command_pool,
+            submit_queue,
+            vk::BufferUsageFlags::INDEX_BUFFER,
+            indicies,
+        );
+
+        self.buffers.push(buffer);
+        self.buffer_memory_chunks.push(device_memory);
+        self.buffer_to_chunk_map.insert(buffer, device_memory);
+
+        buffer
+    }
+
+    pub fn create_uniform_buffers(&mut self, device: &ash::Device, swapchain_image_count: usize) -> Vec<vk::Buffer> {
+        let buffer_size = std::mem::size_of::<MvpUniformBufferObject>();
+
+        let mut uniform_buffers = Vec::with_capacity(swapchain_image_count);
+        //let mut uniform_buffers_memory = Vec::with_capacity(swapchain_image_count);
+
+        for _ in 0..swapchain_image_count {
+            let (uniform_buffer, uniform_buffer_memory) = create_buffer(
+                device,
+                buffer_size as u64,
+                vk::BufferUsageFlags::UNIFORM_BUFFER,
+                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+                &self.physical_device_memory_properties,
+            );
+            uniform_buffers.push(uniform_buffer);
+            self.buffers.push(uniform_buffer);
+            self.buffer_memory_chunks.push(uniform_buffer_memory);
+            self.buffer_to_chunk_map.insert(uniform_buffer, uniform_buffer_memory);
+        }
+
+        uniform_buffers
+    }
+
+    pub unsafe fn destroy(&mut self, logical_device: &ash::Device) {
+        for buffer in self.buffers.iter() {
+            logical_device.destroy_buffer(*buffer, None);
+        }
+        for mem in self.buffer_memory_chunks.iter() {
+            logical_device.free_memory(*mem, None);
+        }
+    }
 }
 
-fn _create_device_local_buffer<T>(
+fn create_device_local_buffer<T>(
     device: &ash::Device,
     device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
     command_pool: vk::CommandPool,
@@ -93,7 +172,7 @@ fn _create_device_local_buffer<T>(
     (device_local_buffer, device_local_buffer_memory)
 }
 
-pub fn create_buffer(
+fn create_buffer(
     device: &ash::Device,
     size: vk::DeviceSize,
     usage: vk::BufferUsageFlags,
@@ -118,7 +197,7 @@ pub fn create_buffer(
     };
 
     let mem_requirements = unsafe { device.get_buffer_memory_requirements(buffer) };
-    let memory_type = _find_memory_type(
+    let memory_type = find_memory_type(
         mem_requirements.memory_type_bits,
         required_memory_properties,
         device_memory_properties,
@@ -146,7 +225,7 @@ pub fn create_buffer(
     (buffer, buffer_memory)
 }
 
-fn _find_memory_type(
+fn find_memory_type(
     type_filter: u32,
     required_properties: vk::MemoryPropertyFlags,
     mem_properties: &vk::PhysicalDeviceMemoryProperties,
@@ -160,7 +239,7 @@ fn _find_memory_type(
     panic!("Failed to find suitable memory type!")
 }
 
-pub fn copy_buffer_device_blocking(
+fn copy_buffer_device_blocking(
     device: &ash::Device,
     submit_queue: vk::Queue,
     command_pool: vk::CommandPool,

@@ -26,11 +26,11 @@ macro_rules! log_debug {
     })
 }
 
-use crate::game::game::VulkrapApplication;
+use crate::engine::game::VulkrapApplication;
 use winit::event_loop::EventLoop;
 
 mod console;
-mod game;
+mod engine;
 mod renderer;
 mod util;
 mod window;

@@ -1,13 +1,14 @@
-use crate::renderer::datatypes::Vertex;
-use crate::renderer::entity::Entity;
-use ash::version::DeviceV1_0;
-use ash::vk;
 use std::ffi::CString;
 use std::ptr;
 
+use ash::version::DeviceV1_0;
+use ash::vk;
+
+use crate::renderer::datatypes::Vertex;
+
 const SHADER_ENTRYPOINT: &str = "main";
 
-//type PilelineHandle = usize;
+pub type PipelineHandle = usize;
 
 pub struct PipelineContainer {
     // Configuration
@@ -18,22 +19,16 @@ pub struct PipelineContainer {
     fragment_shader: vk::ShaderModule,
 
     // Vulkan objects
-    command_pool: vk::CommandPool,
-    vk_pipeline: vk::Pipeline,
-    layout: vk::PipelineLayout,
+    pub(super) vk_pipeline: vk::Pipeline,
+    pub(super) layout: vk::PipelineLayout,
     render_pass: vk::RenderPass,
-
     // Command buffers
-    pub command_buffers: Vec<vk::CommandBuffer>,
+
+    // MOVE uniform buffer to here!
 }
 
 impl PipelineContainer {
-    pub fn new(
-        logical_device: &ash::Device,
-        command_pool: vk::CommandPool,
-        vertex_shader: Vec<u8>,
-        fragment_shader: Vec<u8>,
-    ) -> PipelineContainer {
+    pub fn new(logical_device: &ash::Device, vertex_shader: Vec<u8>, fragment_shader: Vec<u8>) -> PipelineContainer {
         let vertex_shader = _create_shader_module(logical_device, &vertex_shader);
         let fragment_shader = _create_shader_module(logical_device, &fragment_shader);
 
@@ -42,12 +37,9 @@ impl PipelineContainer {
             vertex_shader,
             fragment_shader,
 
-            command_pool,
             vk_pipeline: vk::Pipeline::null(),
             layout: vk::PipelineLayout::null(),
             render_pass: vk::RenderPass::null(),
-
-            command_buffers: Vec::new(),
         }
     }
 
@@ -270,100 +262,6 @@ impl PipelineContainer {
     pub unsafe fn destroy_shaders(&mut self, logical_device: &ash::Device) {
         logical_device.destroy_shader_module(self.vertex_shader, None);
         logical_device.destroy_shader_module(self.fragment_shader, None);
-    }
-
-    pub fn create_command_buffers(
-        &mut self,
-        device: &ash::Device,
-        command_pool: vk::CommandPool,
-        framebuffer_count: usize,
-    ) {
-        let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
-            s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
-            p_next: ptr::null(),
-            command_buffer_count: framebuffer_count as u32,
-            command_pool,
-            level: vk::CommandBufferLevel::PRIMARY,
-        };
-        self.command_buffers = unsafe {
-            device
-                .allocate_command_buffers(&command_buffer_allocate_info)
-                .expect("Failed to allocate Command Buffers!")
-        };
-    }
-
-    pub unsafe fn destroy_command_buffers(&mut self, logical_device: &ash::Device) {
-        logical_device.free_command_buffers(self.command_pool, &self.command_buffers);
-        self.command_buffers.clear();
-    }
-
-    pub fn bake_command_buffer(
-        &self,
-        device: &ash::Device,
-        index: u32,
-        framebuffer: vk::Framebuffer,
-        surface_extent: vk::Extent2D,
-        entities: &Vec<Entity>,
-        descriptor_set: vk::DescriptorSet,
-    ) -> vk::CommandBuffer {
-        let command_buffer_begin_info = vk::CommandBufferBeginInfo {
-            s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
-            p_next: ptr::null(),
-            p_inheritance_info: ptr::null(),
-            flags: vk::CommandBufferUsageFlags::SIMULTANEOUS_USE,
-        };
-        let clear_values = [vk::ClearValue {
-            color: vk::ClearColorValue {
-                float32: [0.1, 0.1, 0.1, 1.0],
-            },
-        }];
-        let render_pass_begin_info = vk::RenderPassBeginInfo {
-            s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
-            p_next: ptr::null(),
-            render_pass: self.render_pass,
-            framebuffer,
-            render_area: vk::Rect2D {
-                offset: vk::Offset2D { x: 0, y: 0 },
-                extent: surface_extent,
-            },
-            clear_value_count: clear_values.len() as u32,
-            p_clear_values: clear_values.as_ptr(),
-        };
-
-        let command_buffer = self.command_buffers[index as usize];
-        unsafe {
-            device.reset_command_buffer(command_buffer, vk::CommandBufferResetFlags::empty());
-            device
-                .begin_command_buffer(command_buffer, &command_buffer_begin_info)
-                .expect("Failed to begin recording Command Buffer at beginning!");
-
-            device.cmd_begin_render_pass(command_buffer, &render_pass_begin_info, vk::SubpassContents::INLINE);
-            device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.vk_pipeline);
-
-            for entity in entities.iter() {
-                let vertex_buffers = [entity.vertex_buffer];
-                let offsets = [0_u64];
-                let descriptor_sets_to_bind = [descriptor_set];
-
-                device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, &offsets);
-                device.cmd_bind_index_buffer(command_buffer, entity.index_buffer, 0, vk::IndexType::UINT32);
-                device.cmd_bind_descriptor_sets(
-                    command_buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    self.layout,
-                    0,
-                    &descriptor_sets_to_bind,
-                    &[],
-                );
-                device.cmd_draw_indexed(command_buffer, 6, 1, 0, 0, 0);
-            }
-            device.cmd_end_render_pass(command_buffer);
-            device
-                .end_command_buffer(command_buffer)
-                .expect("Failed to record Command Buffer at Ending!");
-        }
-
-        command_buffer
     }
 }
 

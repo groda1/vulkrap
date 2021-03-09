@@ -1,6 +1,5 @@
 pub mod context;
 pub mod datatypes;
-pub mod entity;
 
 mod constants;
 mod debug;
@@ -10,4 +9,5 @@ mod platform;
 mod queue;
 mod surface;
 mod swapchain;
+mod synchronization;
 mod vulkan_util;

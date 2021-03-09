@@ -6,6 +6,7 @@ Renderer:
         See memory.rs
     [ ] Setup a usable API for a game structure
     [ ] Recreating swapchain should possibly recreate uniform buffers as the number of images could change.
+    [ ] Maybe create a separate queue for transfering data instead of graphics_queue for everything?
 
 
 Game:

@@ -5,15 +5,14 @@ use std::ptr;
 
 use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
-use ash::vk::{PhysicalDevice, PhysicalDeviceMemoryProperties};
+use ash::vk::PhysicalDevice;
 use cgmath::{Deg, Matrix4, Point3, Vector3};
 use winit::window::Window;
 
-use crate::renderer::constants::MAX_FRAMES_IN_FLIGHT;
-use crate::renderer::datatypes::MvpUniformBufferObject;
-use crate::renderer::entity::{Entity, EntityHandle};
-use crate::renderer::memory;
-use crate::renderer::pipeline::PipelineContainer;
+use crate::renderer::datatypes::{Index, MvpUniformBufferObject};
+use crate::renderer::memory::MemoryManager;
+use crate::renderer::pipeline::{PipelineContainer, PipelineHandle};
+use crate::renderer::synchronization::SynchronizationHandler;
 use crate::util::file;
 use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
@@ -22,25 +21,17 @@ use super::constants;
 use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
 use super::datatypes::Vertex;
 use super::debug;
-use super::entity;
 use super::platform;
 use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
 
-struct SyncObjects {
-    image_available_semaphores: Vec<vk::Semaphore>,
-    render_finished_semaphores: Vec<vk::Semaphore>,
-    inflight_fences: Vec<vk::Fence>,
-}
-
 pub struct Context {
     _entry: ash::Entry,
     instance: ash::Instance,
 
     physical_device: PhysicalDevice,
-    physical_device_memory_properties: PhysicalDeviceMemoryProperties,
     logical_device: ash::Device,
 
     queue_families: QueueFamilyIndices,
@@ -62,22 +53,38 @@ pub struct Context {
 
     pipelines: Vec<PipelineContainer>,
 
+    memory_manager: MemoryManager,
+
     uniform_buffers: Vec<vk::Buffer>,
-    uniform_buffers_memory: Vec<vk::DeviceMemory>,
 
     descriptor_pool: vk::DescriptorPool,
-    descriptor_sets: Vec<vk::DescriptorSet>,
+    descriptor_sets: Vec<vk::DescriptorSet>, // TODO SHOULD BE IN PIPELINE
 
     command_pool: vk::CommandPool,
+    command_buffers: Vec<vk::CommandBuffer>,
 
-    entities: Vec<Entity>,
-
-    sync: SyncObjects,
+    sync_handler: SynchronizationHandler,
 
     debug_utils_loader: ash::extensions::ext::DebugUtils,
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
+}
 
-    n_frames: usize,
+// TODO make a proper type of the fucken tuple
+pub type RenderJob = Vec<(PipelineHandle, Vec<PipelineRenderJob>)>;
+pub struct PipelineRenderJob {
+    vertex_buffer: vk::Buffer,
+    index_buffer: vk::Buffer,
+    index_count: u32,
+}
+
+impl PipelineRenderJob {
+    pub fn new(vertex_buffer: vk::Buffer, index_buffer: vk::Buffer, index_count: u32) -> PipelineRenderJob {
+        PipelineRenderJob {
+            vertex_buffer,
+            index_buffer,
+            index_count,
+        }
+    }
 }
 
 impl Context {
@@ -115,7 +122,7 @@ impl Context {
             panic!("Missing queue family!");
         }
 
-        let logical_device = _create_logical_device(&instance, &physical_device, &layers, &queue_families);
+        let logical_device = create_logical_device(&instance, &physical_device, &layers, &queue_families);
         let graphics_queue = unsafe { logical_device.get_device_queue(queue_families.graphics.unwrap(), 0) };
         let present_queue = unsafe { logical_device.get_device_queue(queue_families.present.unwrap(), 0) };
 
@@ -135,11 +142,11 @@ impl Context {
         let vert_shader_code = file::read_file(Path::new("./resources/shaders/simple_triangle_vert.spv"));
         let frag_shader_code = file::read_file(Path::new("./resources/shaders/simple_triangle_frag.spv"));
 
-        let mut pipeline_container =
-            PipelineContainer::new(&logical_device, command_pool, vert_shader_code, frag_shader_code);
+        // TODO REMOVE. PIPELINES SHOULD NOT BE CREATED BY THIS CONSTRUCTOR
+        let mut pipeline_container = PipelineContainer::new(&logical_device, vert_shader_code, frag_shader_code);
         pipeline_container.build(&logical_device, render_pass, swapchain_container.extent, ubo_layout);
 
-        let mut pipelines = vec![pipeline_container];
+        let pipelines = vec![pipeline_container];
 
         let swapchain_framebuffers = swapchain::create_framebuffers(
             &logical_device,
@@ -148,48 +155,28 @@ impl Context {
             render_pass,
         );
 
-        let triangle = vec![
-            Vertex::new(Vector3::new(-0.5, -0.5, -1.0), Vector3::new(1.0, 0.0, 0.0)),
-            Vertex::new(Vector3::new(0.5, -0.5, -1.0), Vector3::new(0.0, 1.0, 0.0)),
-            Vertex::new(Vector3::new(-0.5, 0.5, -1.0), Vector3::new(0.0, 0.0, 1.0)),
-            Vertex::new(Vector3::new(0.5, 0.5, -1.0), Vector3::new(1.0, 0.0, 1.0)),
-        ];
-        let indices = vec![0, 1, 2, 2, 1, 3];
-        let mut crazy_quad = entity::Entity::new(triangle, indices);
-        crazy_quad.construct_data_buffers(
-            &logical_device,
-            &physical_device_memory_properties,
-            command_pool,
-            graphics_queue,
-        );
+        let image_count = swapchain_container.image_views.len();
 
-        let (uniform_buffers, uniform_buffers_memory) = _create_uniform_buffers(
-            &logical_device,
-            &physical_device_memory_properties,
-            swapchain_container.images.len(),
-        );
+        let mut memory_manager = MemoryManager::new(physical_device_memory_properties);
+        let uniform_buffers = memory_manager.create_uniform_buffers(&logical_device, image_count);
 
-        let descriptor_pool = _create_descriptor_pool(&logical_device, swapchain_container.images.len());
+        let descriptor_pool = _create_descriptor_pool(&logical_device, image_count);
         let descriptor_sets = _create_descriptor_sets(
             &logical_device,
             descriptor_pool,
             ubo_layout,
             &uniform_buffers,
-            swapchain_container.images.len(),
+            image_count,
         );
 
-        let mut entities = Vec::new();
-        entities.push(crazy_quad);
+        let command_buffers = create_command_buffers(&logical_device, command_pool, image_count);
 
-        pipelines[0].create_command_buffers(&logical_device, command_pool, swapchain_container.image_views.len());
-
-        let sync_objects = _create_sync_objects(&logical_device);
+        let sync_handler = SynchronizationHandler::new(&logical_device);
 
         Context {
             _entry: entry,
             instance,
             physical_device,
-            physical_device_memory_properties,
             logical_device,
             queue_families,
             graphics_queue,
@@ -205,41 +192,24 @@ impl Context {
             render_pass,
             ubo_layout,
             pipelines,
+            memory_manager,
             uniform_buffers,
-            uniform_buffers_memory,
             descriptor_pool,
             descriptor_sets,
             command_pool,
-            entities,
-            sync: sync_objects,
+            command_buffers,
+            sync_handler,
             debug_utils_loader,
             debug_utils_messenger,
-            n_frames: 0,
         }
     }
 
-    pub fn add_entity(&mut self, mut entity: Entity) -> EntityHandle {
-        // This sucks!
-        let handle = self.entities.len();
-
-        entity.construct_data_buffers(
-            &self.logical_device,
-            &self.physical_device_memory_properties,
-            self.command_pool,
-            self.graphics_queue,
-        );
-
-        self.entities.push(entity);
-
-        handle
-    }
-
-    pub fn draw_frame(&mut self, delta_time_s: f32) {
+    pub fn draw_frame(&mut self, delta_time_s: f32, render_job: &RenderJob) {
         let (image_index, _is_sub_optimal) = unsafe {
             let result = self.swapchain_loader.acquire_next_image(
                 self.swapchain,
                 std::u64::MAX,
-                self.sync.image_available_semaphores[self.n_frames],
+                self.sync_handler.image_available_semaphore(),
                 vk::Fence::null(),
             );
             match result {
@@ -255,7 +225,7 @@ impl Context {
             }
         };
 
-        let wait_fences = [self.sync.inflight_fences[image_index as usize]];
+        let wait_fences = [self.sync_handler.inflight_fence(image_index)];
         unsafe {
             self.logical_device
                 .wait_for_fences(&wait_fences, true, std::u64::MAX)
@@ -265,22 +235,20 @@ impl Context {
                 .expect("Failed to reset Fence!");
         }
 
-        let command_buffer = self.pipelines[0].bake_command_buffer(
-            &self.logical_device,
-            image_index,
+        let command_buffer = self.command_buffers[image_index as usize];
+        self.bake_command_buffer(
+            command_buffer,
             self.swapchain_framebuffers[image_index as usize],
-            self.swapchain_extent,
-            &self.entities,
             self.descriptor_sets[image_index as usize],
+            render_job,
         );
-
         let command_buffers = [command_buffer];
 
         self.update_uniform_buffer(image_index as usize, delta_time_s);
 
-        let wait_semaphores = [self.sync.image_available_semaphores[self.n_frames]];
+        let wait_semaphores = [self.sync_handler.image_available_semaphore()];
         let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-        let signal_semaphores = [self.sync.render_finished_semaphores[self.n_frames]];
+        let signal_semaphores = [self.sync_handler.render_finished_semaphore()];
 
         let submit_infos = [vk::SubmitInfo {
             s_type: vk::StructureType::SUBMIT_INFO,
@@ -299,7 +267,7 @@ impl Context {
                 .queue_submit(
                     self.graphics_queue,
                     &submit_infos,
-                    self.sync.inflight_fences[image_index as usize],
+                    self.sync_handler.inflight_fence(image_index),
                 )
                 .expect("Failed to execute queue submit.");
         }
@@ -332,7 +300,17 @@ impl Context {
             }
         }
 
-        self.n_frames = (self.n_frames + 1) % MAX_FRAMES_IN_FLIGHT;
+        self.sync_handler.step();
+    }
+
+    pub fn allocate_vertex_buffer(&mut self, vertices: &Vec<Vertex>) -> vk::Buffer {
+        self.memory_manager
+            .create_vertex_buffer(&self.logical_device, self.command_pool, self.graphics_queue, vertices)
+    }
+
+    pub fn allocate_index_buffer(&mut self, indices: &Vec<Index>) -> vk::Buffer {
+        self.memory_manager
+            .create_index_buffer(&self.logical_device, self.command_pool, self.graphics_queue, indices)
     }
 
     pub unsafe fn wait_idle(&self) {
@@ -343,9 +321,8 @@ impl Context {
 
     fn destroy_swapchain(&mut self) {
         unsafe {
-            for pipeline_container in self.pipelines.iter_mut() {
-                pipeline_container.destroy_command_buffers(&self.logical_device);
-            }
+            self.logical_device
+                .free_command_buffers(self.command_pool, &self.command_buffers);
 
             // Framebuffers
             for framebuffer in self.swapchain_framebuffers.iter() {
@@ -407,13 +384,11 @@ impl Context {
             self.render_pass,
         );
 
-        for pipeline_container in self.pipelines.iter_mut() {
-            pipeline_container.create_command_buffers(
-                &self.logical_device,
-                self.command_pool,
-                self.swapchain_framebuffers.len(),
-            );
-        }
+        self.command_buffers = create_command_buffers(
+            &self.logical_device,
+            self.command_pool,
+            self.swapchain_framebuffers.len(),
+        );
     }
 
     fn update_uniform_buffer(&self, current_image: usize, delta_time: f32) {
@@ -439,22 +414,108 @@ impl Context {
 
         let buffer_size = (std::mem::size_of::<MvpUniformBufferObject>()) as u64;
 
+        // TODO: this should be precalculated in the pipeline. No need to search it up every frame.
+        let memory = self
+            .memory_manager
+            .get_device_memory(self.uniform_buffers[current_image]);
+
         unsafe {
             let data_ptr = self
                 .logical_device
-                .map_memory(
-                    self.uniform_buffers_memory[current_image],
-                    0,
-                    buffer_size,
-                    vk::MemoryMapFlags::empty(),
-                )
+                .map_memory(memory, 0, buffer_size, vk::MemoryMapFlags::empty())
                 .expect("Failed to Map Memory") as *mut MvpUniformBufferObject;
 
             data_ptr.copy_from_nonoverlapping(ubos.as_ptr(), ubos.len());
 
-            self.logical_device
-                .unmap_memory(self.uniform_buffers_memory[current_image]);
+            self.logical_device.unmap_memory(memory);
         }
+    }
+
+    pub fn bake_command_buffer(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        framebuffer: vk::Framebuffer,
+        descriptor_set: vk::DescriptorSet,
+        render_job: &RenderJob,
+    ) -> bool {
+        let command_buffer_begin_info = vk::CommandBufferBeginInfo {
+            s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
+            p_next: ptr::null(),
+            p_inheritance_info: ptr::null(),
+            flags: vk::CommandBufferUsageFlags::SIMULTANEOUS_USE,
+        };
+        let clear_values = [vk::ClearValue {
+            color: vk::ClearColorValue {
+                float32: [0.1, 0.1, 0.1, 1.0],
+            },
+        }];
+        let render_pass_begin_info = vk::RenderPassBeginInfo {
+            s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
+            p_next: ptr::null(),
+            render_pass: self.render_pass,
+            framebuffer,
+            render_area: vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent: self.swapchain_extent,
+            },
+            clear_value_count: clear_values.len() as u32,
+            p_clear_values: clear_values.as_ptr(),
+        };
+
+        unsafe {
+            self.logical_device
+                .reset_command_buffer(command_buffer, vk::CommandBufferResetFlags::empty())
+                .expect("Failed to reset command buffer!");
+            self.logical_device
+                .begin_command_buffer(command_buffer, &command_buffer_begin_info)
+                .expect("Failed to begin recording Command Buffer at beginning!");
+
+            self.logical_device.cmd_begin_render_pass(
+                command_buffer,
+                &render_pass_begin_info,
+                vk::SubpassContents::INLINE,
+            );
+
+            for (pipeline_handle, pipeline_jobs) in render_job.iter() {
+                self.logical_device.cmd_bind_pipeline(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.pipelines[*pipeline_handle].vk_pipeline,
+                );
+
+                for pipeline_job in pipeline_jobs.iter() {
+                    let vertex_buffers = [pipeline_job.vertex_buffer];
+                    let offsets = [0_u64];
+                    let descriptor_sets_to_bind = [descriptor_set];
+
+                    self.logical_device
+                        .cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, &offsets);
+                    self.logical_device.cmd_bind_index_buffer(
+                        command_buffer,
+                        pipeline_job.index_buffer,
+                        0,
+                        vk::IndexType::UINT32,
+                    );
+                    self.logical_device.cmd_bind_descriptor_sets(
+                        command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.pipelines[*pipeline_handle].layout,
+                        0,
+                        &descriptor_sets_to_bind,
+                        &[],
+                    );
+
+                    self.logical_device
+                        .cmd_draw_indexed(command_buffer, pipeline_job.index_count, 1, 0, 0, 0);
+                }
+            }
+            self.logical_device.cmd_end_render_pass(command_buffer);
+            self.logical_device
+                .end_command_buffer(command_buffer)
+                .expect("Failed to record Command Buffer at Ending!");
+        }
+
+        true
     }
 }
 
@@ -463,13 +524,7 @@ impl Drop for Context {
         log_debug!("{}: destroying instance", module_path!());
         unsafe {
             // Synchronization objects
-            for i in 0..MAX_FRAMES_IN_FLIGHT {
-                self.logical_device
-                    .destroy_semaphore(self.sync.image_available_semaphores[i], None);
-                self.logical_device
-                    .destroy_semaphore(self.sync.render_finished_semaphores[i], None);
-                self.logical_device.destroy_fence(self.sync.inflight_fences[i], None);
-            }
+            self.sync_handler.destroy(&self.logical_device);
 
             //Swapchain
             self.destroy_swapchain();
@@ -481,14 +536,7 @@ impl Drop for Context {
             self.logical_device.destroy_descriptor_set_layout(self.ubo_layout, None);
 
             // Buffers and memory
-            for i in 0..self.uniform_buffers.len() {
-                self.logical_device.destroy_buffer(self.uniform_buffers[i], None);
-                self.logical_device.free_memory(self.uniform_buffers_memory[i], None);
-            }
-
-            for entity in self.entities.iter_mut() {
-                entity.destroy_data_buffers(&self.logical_device);
-            }
+            self.memory_manager.destroy(&self.logical_device);
 
             // Pipeline shaders & entities
             for pipeline_container in self.pipelines.iter_mut() {
@@ -509,31 +557,6 @@ impl Drop for Context {
             self.instance.destroy_instance(None);
         }
     }
-}
-
-fn _create_uniform_buffers(
-    device: &ash::Device,
-    device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
-    swapchain_image_count: usize,
-) -> (Vec<vk::Buffer>, Vec<vk::DeviceMemory>) {
-    let buffer_size = std::mem::size_of::<MvpUniformBufferObject>();
-
-    let mut uniform_buffers = vec![];
-    let mut uniform_buffers_memory = vec![];
-
-    for _ in 0..swapchain_image_count {
-        let (uniform_buffer, uniform_buffer_memory) = memory::create_buffer(
-            device,
-            buffer_size as u64,
-            vk::BufferUsageFlags::UNIFORM_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-            device_memory_properties,
-        );
-        uniform_buffers.push(uniform_buffer);
-        uniform_buffers_memory.push(uniform_buffer_memory);
-    }
-
-    (uniform_buffers, uniform_buffers_memory)
 }
 
 fn _create_descriptor_pool(device: &ash::Device, swapchain_images_size: usize) -> vk::DescriptorPool {
@@ -634,95 +657,6 @@ fn _create_descriptor_set_layout(device: &ash::Device) -> vk::DescriptorSetLayou
             .create_descriptor_set_layout(&ubo_layout_create_info, None)
             .expect("Failed to create Descriptor Set Layout!")
     }
-}
-
-fn _create_command_buffers(
-    device: &ash::Device,
-    command_pool: vk::CommandPool,
-    graphics_pipeline: vk::Pipeline,
-    framebuffers: &Vec<vk::Framebuffer>,
-    render_pass: vk::RenderPass,
-    surface_extent: vk::Extent2D,
-    vertex_buffer: vk::Buffer,
-    index_buffer: vk::Buffer,
-    pipeline_layout: vk::PipelineLayout,
-    descriptor_sets: &Vec<vk::DescriptorSet>,
-) -> Vec<vk::CommandBuffer> {
-    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
-        s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
-        p_next: ptr::null(),
-        command_buffer_count: framebuffers.len() as u32,
-        command_pool,
-        level: vk::CommandBufferLevel::PRIMARY,
-    };
-
-    let command_buffers = unsafe {
-        device
-            .allocate_command_buffers(&command_buffer_allocate_info)
-            .expect("Failed to allocate Command Buffers!")
-    };
-
-    for (i, &command_buffer) in command_buffers.iter().enumerate() {
-        let command_buffer_begin_info = vk::CommandBufferBeginInfo {
-            s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
-            p_next: ptr::null(),
-            p_inheritance_info: ptr::null(),
-            flags: vk::CommandBufferUsageFlags::SIMULTANEOUS_USE,
-        };
-
-        unsafe {
-            device
-                .begin_command_buffer(command_buffer, &command_buffer_begin_info)
-                .expect("Failed to begin recording Command Buffer at beginning!");
-        }
-
-        let clear_values = [vk::ClearValue {
-            color: vk::ClearColorValue {
-                float32: [0.1, 0.1, 0.1, 1.0],
-            },
-        }];
-
-        let render_pass_begin_info = vk::RenderPassBeginInfo {
-            s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
-            p_next: ptr::null(),
-            render_pass,
-            framebuffer: framebuffers[i],
-            render_area: vk::Rect2D {
-                offset: vk::Offset2D { x: 0, y: 0 },
-                extent: surface_extent,
-            },
-            clear_value_count: clear_values.len() as u32,
-            p_clear_values: clear_values.as_ptr(),
-        };
-
-        unsafe {
-            device.cmd_begin_render_pass(command_buffer, &render_pass_begin_info, vk::SubpassContents::INLINE);
-            device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipeline);
-
-            let vertex_buffers = [vertex_buffer];
-            let offsets = [0_u64];
-            let descriptor_sets_to_bind = [descriptor_sets[i]];
-
-            device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, &offsets);
-            device.cmd_bind_index_buffer(command_buffer, index_buffer, 0, vk::IndexType::UINT32);
-            device.cmd_bind_descriptor_sets(
-                command_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                pipeline_layout,
-                0,
-                &descriptor_sets_to_bind,
-                &[],
-            );
-
-            device.cmd_draw_indexed(command_buffer, 6, 1, 0, 0, 0);
-            device.cmd_end_render_pass(command_buffer);
-            device
-                .end_command_buffer(command_buffer)
-                .expect("Failed to record Command Buffer at Ending!");
-        }
-    }
-
-    command_buffers
 }
 
 fn _create_command_pool(device: &ash::Device, queue_families: &QueueFamilyIndices) -> vk::CommandPool {
@@ -893,7 +827,7 @@ fn _check_instance_layer_support(entry: &ash::Entry, layer_name: &str) -> bool {
     false
 }
 
-fn _create_logical_device(
+fn create_logical_device(
     instance: &ash::Instance,
     physical_device: &vk::PhysicalDevice,
     layers: &Vec<&str>,
@@ -950,41 +884,21 @@ fn _create_logical_device(
     device
 }
 
-fn _create_sync_objects(device: &ash::Device) -> SyncObjects {
-    let mut sync_objects = SyncObjects {
-        image_available_semaphores: vec![],
-        render_finished_semaphores: vec![],
-        inflight_fences: vec![],
-    };
-
-    let semaphore_create_info = vk::SemaphoreCreateInfo {
-        s_type: vk::StructureType::SEMAPHORE_CREATE_INFO,
+fn create_command_buffers(
+    device: &ash::Device,
+    command_pool: vk::CommandPool,
+    framebuffer_count: usize,
+) -> Vec<vk::CommandBuffer> {
+    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
+        s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
         p_next: ptr::null(),
-        flags: vk::SemaphoreCreateFlags::empty(),
+        command_buffer_count: framebuffer_count as u32,
+        command_pool,
+        level: vk::CommandBufferLevel::PRIMARY,
     };
-
-    let fence_create_info = vk::FenceCreateInfo {
-        s_type: vk::StructureType::FENCE_CREATE_INFO,
-        p_next: ptr::null(),
-        flags: vk::FenceCreateFlags::SIGNALED,
-    };
-
-    for _ in 0..MAX_FRAMES_IN_FLIGHT {
-        unsafe {
-            let image_available_semaphore = device
-                .create_semaphore(&semaphore_create_info, None)
-                .expect("Failed to create Semaphore Object!");
-            let render_finished_semaphore = device
-                .create_semaphore(&semaphore_create_info, None)
-                .expect("Failed to create Semaphore Object!");
-            let inflight_fence = device
-                .create_fence(&fence_create_info, None)
-                .expect("Failed to create Fence Object!");
-
-            sync_objects.image_available_semaphores.push(image_available_semaphore);
-            sync_objects.render_finished_semaphores.push(render_finished_semaphore);
-            sync_objects.inflight_fences.push(inflight_fence);
-        }
+    unsafe {
+        device
+            .allocate_command_buffers(&command_buffer_allocate_info)
+            .expect("Failed to allocate Command Buffers!")
     }
-    sync_objects
 }
