@@ -4,7 +4,6 @@ use std::ptr;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::renderer::constants::MAX_FRAMES_IN_FLIGHT;
 use crate::renderer::datatypes::{MvpUniformBufferObject, Vertex};
 use crate::renderer::memory::MemoryManager;
 use cgmath::{Deg, Matrix4, Point3, Vector3};
@@ -70,7 +69,6 @@ impl PipelineContainer {
         logical_device: &ash::Device,
         vertex_shader: Vec<u8>,
         fragment_shader: Vec<u8>,
-        descriptor_pool: vk::DescriptorPool,
     ) -> PipelineContainer {
         let vertex_shader = _create_shader_module(logical_device, &vertex_shader);
         let fragment_shader = _create_shader_module(logical_device, &fragment_shader);
@@ -387,7 +385,7 @@ impl PipelineContainer {
         }
     }
 
-    pub unsafe fn destroy_pipeline(&mut self, logical_device: &ash::Device, memory_manager: &mut MemoryManager) {
+    pub unsafe fn destroy_pipeline(&mut self, logical_device: &ash::Device, _memory_manager: &mut MemoryManager) {
         logical_device.destroy_pipeline(self.vk_pipeline, None);
         logical_device.destroy_pipeline_layout(self.layout, None);
 

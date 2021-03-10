@@ -150,7 +150,7 @@ pub fn log_validation_layer_support(entry: &ash::Entry) {
         .enumerate_instance_layer_properties()
         .expect("Failed to enumerate Instance Layers Properties!");
 
-    if layer_properties.len() <= 0 {
+    if layer_properties.is_empty() {
         log_warning!("No available layers.");
     } else {
         log_info!("Available Instance layers: ");

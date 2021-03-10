@@ -6,15 +6,14 @@ use std::ptr;
 use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
 use ash::vk::PhysicalDevice;
-use cgmath::{Deg, Matrix4, Point3, Vector3};
 use winit::window::Window;
 
-use crate::renderer::datatypes::{Index, MvpUniformBufferObject};
+use crate::ENGINE_NAME;
+use crate::renderer::datatypes::Index;
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::{PipelineContainer, PipelineHandle, PipelineJob};
+use crate::renderer::pipeline::{PipelineContainer, PipelineJob};
 use crate::renderer::synchronization::SynchronizationHandler;
 use crate::util::file;
-use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
 
 use super::constants;
@@ -125,7 +124,7 @@ impl Context {
         );
 
         let image_count = swapchain_container.image_views.len();
-        let mut memory_manager = MemoryManager::new(physical_device_memory_properties);
+        let memory_manager = MemoryManager::new(physical_device_memory_properties);
         let descriptor_pool = _create_descriptor_pool(&logical_device, image_count);
         let command_buffers = create_command_buffers(&logical_device, command_pool, image_count);
         let sync_handler = SynchronizationHandler::new(&logical_device);
@@ -279,7 +278,6 @@ impl Context {
             &self.logical_device,
             vert_shader_code,
             frag_shader_code,
-            self.descriptor_pool,
         );
         pipeline_container.build(
             &self.logical_device,
@@ -625,7 +623,7 @@ fn _pick_physical_device(instance: &ash::Instance) -> PhysicalDevice {
             .enumerate_physical_devices()
             .expect("Failed to enumerate Physical devices!");
 
-        if physical_devices.len() <= 0 {
+        if physical_devices.is_empty() {
             panic!("No available physical device.");
         }
 
