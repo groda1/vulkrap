@@ -128,11 +128,7 @@ pub fn create_framebuffers(
     framebuffers
 }
 
-fn _create_image_views(
-    device: &ash::Device,
-    surface_format: vk::Format,
-    images: &[vk::Image],
-) -> Vec<vk::ImageView> {
+fn _create_image_views(device: &ash::Device, surface_format: vk::Format, images: &[vk::Image]) -> Vec<vk::ImageView> {
     let mut swapchain_imageviews = vec![];
 
     for &image in images.iter() {
@@ -181,10 +177,7 @@ fn _choose_swapchain_format(available_formats: &[vk::SurfaceFormatKHR]) -> vk::S
     *available_formats.first().unwrap()
 }
 
-fn _choose_swapchain_present_mode(
-    available_present_modes: &[vk::PresentModeKHR],
-    vsync: bool,
-) -> vk::PresentModeKHR {
+fn _choose_swapchain_present_mode(available_present_modes: &[vk::PresentModeKHR], vsync: bool) -> vk::PresentModeKHR {
     if !vsync {
         for &available_present_mode in available_present_modes.iter() {
             if available_present_mode == vk::PresentModeKHR::IMMEDIATE {

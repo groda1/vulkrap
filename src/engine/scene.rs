@@ -1,18 +1,20 @@
 use crate::engine::entity::{Entity, EntityHandle};
-use crate::renderer::context::{Context, PipelineRenderJob, RenderJob};
+use crate::renderer::context::Context;
+use crate::renderer::pipeline::{PipelineDrawCommand, PipelineJob};
 
 pub struct Scene {
     // TODO replace with entity content system ( specs? )
     entities: Vec<Entity>,
 
     // Static terrain system. Quadtree with static terrain +  entity links?
-    render_job_buffer: RenderJob,
+    render_job_buffer: Vec<PipelineJob>,
 }
 
 impl Scene {
     pub fn new() -> Scene {
         let mut render_job_buffer = Vec::with_capacity(10);
-        render_job_buffer.push((0, Vec::with_capacity(100)));
+
+        render_job_buffer.push(PipelineJob::new(0));
 
         Scene {
             entities: Vec::with_capacity(100),
@@ -32,11 +34,13 @@ impl Scene {
         handle
     }
 
-    pub fn get_render_job(&mut self) -> &RenderJob {
-        self.render_job_buffer[0].1.clear();
+    pub fn get_render_job(&mut self) -> &Vec<PipelineJob> {
+        // TODO This sucks!
+
+        self.render_job_buffer[0].draw_commands.clear();
 
         for entity in self.entities.iter() {
-            self.render_job_buffer[0].1.push(PipelineRenderJob::new(
+            self.render_job_buffer[0].draw_commands.push(PipelineDrawCommand::new(
                 entity.vertex_buffer,
                 entity.index_buffer,
                 entity.indices.len() as u32,

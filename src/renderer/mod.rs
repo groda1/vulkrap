@@ -4,7 +4,7 @@ pub mod datatypes;
 mod constants;
 mod debug;
 mod memory;
-mod pipeline;
+pub(crate) mod pipeline;
 mod platform;
 mod queue;
 mod surface;

@@ -16,6 +16,10 @@ pub struct VulkrapApplication {
 impl VulkrapApplication {
     pub fn new(window: &Window) -> VulkrapApplication {
         let mut context = Context::new(window);
+
+        // TODO
+        context.add_pipeline();
+
         let mut scene = Scene::new();
 
         for entity in _create_static_entities() {
@@ -32,8 +36,8 @@ impl VulkrapApplication {
     pub fn update(&mut self, delta_time_s: f32) {
         self.elapsed_time_s += delta_time_s;
 
-        self.context
-            .draw_frame(self.elapsed_time_s, self.scene.get_render_job());
+        let render_job = self.scene.get_render_job();
+        self.context.draw_frame(self.elapsed_time_s, render_job);
     }
 
     pub fn exit(&self) {
