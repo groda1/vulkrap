@@ -409,7 +409,7 @@ impl Context {
                 0.1,
                 10.0,
             ),
-            wobble: wobble,
+            wobble
         }];
 
         let buffer_size = (std::mem::size_of::<MvpUniformBufferObject>()) as u64;

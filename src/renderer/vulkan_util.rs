@@ -29,5 +29,5 @@ pub fn copy_str_arr_to_cstring_vec(str_arr: &[&str]) -> Vec<CString> {
 }
 
 pub fn cstring_vec_to_vk_vec(cstring_vec: &Vec<CString>) -> Vec<*const i8> {
-    return cstring_vec.iter().map(|layer_name| layer_name.as_ptr()).collect();
+    cstring_vec.iter().map(|layer_name| layer_name.as_ptr()).collect()
 }

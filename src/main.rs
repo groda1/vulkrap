@@ -35,11 +35,11 @@ mod renderer;
 mod util;
 mod window;
 
-const ENGINE_NAME: &'static str = "vulkrap";
+const ENGINE_NAME: &str = "vulkrap";
 const APPLICATION_VERSION: (u32, u32, u32) = (1, 0, 0);
 const ENGINE_VERSION: (u32, u32, u32) = (1, 0, 0);
 
-const WINDOW_TITLE: &'static str = "vulkrap";
+const WINDOW_TITLE: &str = "vulkrap";
 const WINDOW_WIDTH: u32 = 1920;
 const WINDOW_HEIGHT: u32 = 1080;
 

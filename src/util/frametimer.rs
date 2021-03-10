@@ -34,7 +34,7 @@ impl FrameTimer {
             sum += val;
         });
 
-        1000_000.0_f32 / (sum as f32 / SAMPLE_COUNT as f32)
+        1_000_000.0_f32 / (sum as f32 / SAMPLE_COUNT as f32)
     }
 
     pub fn _get_frametime_ms(&self) -> f32 {
@@ -43,6 +43,6 @@ impl FrameTimer {
     }
 
     pub fn delta_time_sec(&self) -> f32 {
-        self.delta_frame as f32 / 1000_000.0_f32 // time in second
+        self.delta_frame as f32 / 1_000_000.0_f32
     }
 }

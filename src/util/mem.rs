@@ -1,12 +1,10 @@
 use std::alloc::{alloc, Layout};
 pub fn _raw_alloc<T>() -> Box<T> {
     let layout = Layout::new::<T>();
-    let buf = unsafe {
+    unsafe {
         let ptr = alloc(layout) as *mut T;
         Box::from_raw(ptr)
-    };
-
-    buf
+    }
 }
 
 #[cfg(test)]
