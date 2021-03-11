@@ -4,7 +4,7 @@ use winit::window::Window;
 use crate::engine::entity::Entity;
 use crate::engine::scene::Scene;
 use crate::renderer::context::Context;
-use crate::renderer::datatypes::{ColoredVertex, MvpUniformBufferObject};
+use crate::engine::datatypes::{ColoredVertex, MvpUniformBufferObject};
 use crate::renderer::pipeline::PipelineHandle;
 
 pub struct VulkrapApplication {

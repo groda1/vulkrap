@@ -3,7 +3,7 @@ use std::ptr;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::renderer::datatypes::{ColoredVertex, Index, MvpUniformBufferObject};
+use crate::engine::datatypes::{ColoredVertex, Index, MvpUniformBufferObject};
 use std::collections::HashMap;
 
 //  TODO: make it possible allocate a buffer on preexisting memory.

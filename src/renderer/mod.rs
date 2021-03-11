@@ -1,5 +1,4 @@
 pub mod context;
-pub mod datatypes;
 
 mod constants;
 mod debug;

@@ -1,4 +1,4 @@
-use crate::renderer::datatypes::{ColoredVertex, Index};
+use crate::engine::datatypes::{ColoredVertex, Index};
 use ash::vk;
 use cgmath::{Matrix4, SquareMatrix};
 

@@ -4,7 +4,7 @@ use std::ptr;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::renderer::datatypes::{MvpUniformBufferObject, Vertex};
+use crate::engine::datatypes::{MvpUniformBufferObject, Vertex};
 use crate::renderer::memory::MemoryManager;
 use ash::vk::{VertexInputAttributeDescription, VertexInputBindingDescription};
 

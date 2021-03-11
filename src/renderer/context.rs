@@ -8,7 +8,7 @@ use ash::vk;
 use ash::vk::PhysicalDevice;
 use winit::window::Window;
 
-use crate::renderer::datatypes::{Index, MvpUniformBufferObject, Vertex};
+use crate::engine::datatypes::{Index, MvpUniformBufferObject, Vertex};
 use crate::renderer::memory::MemoryManager;
 use crate::renderer::pipeline::{PipelineContainer, PipelineHandle, PipelineJob};
 use crate::renderer::synchronization::SynchronizationHandler;
@@ -18,7 +18,7 @@ use crate::WINDOW_TITLE;
 
 use super::constants;
 use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
-use super::datatypes::ColoredVertex;
+use crate::engine::datatypes::ColoredVertex;
 use super::debug;
 use super::platform;
 use super::queue::QueueFamilyIndices;
