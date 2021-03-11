@@ -11,7 +11,7 @@ pub fn vk_cstr_to_str(c_str: &[c_char]) -> &str {
     }
 }
 
-pub fn vk_format_version<'a>(version: u32) -> String {
+pub fn vk_format_version(version: u32) -> String {
     format!(
         "{}.{}.{}",
         version_major(version),
@@ -20,7 +20,7 @@ pub fn vk_format_version<'a>(version: u32) -> String {
     )
 }
 
-pub fn copy_str_vec_to_cstring_vec(str_vec: &Vec<&str>) -> Vec<CString> {
+pub fn copy_str_vec_to_cstring_vec(str_vec: &[&str]) -> Vec<CString> {
     str_vec.iter().map(|layer| CString::new(*layer).unwrap()).collect()
 }
 

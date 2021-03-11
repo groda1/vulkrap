@@ -4,8 +4,9 @@ use std::ptr;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::renderer::datatypes::{ColoredVertex, MvpUniformBufferObject, Vertex};
+use crate::renderer::datatypes::{MvpUniformBufferObject, Vertex};
 use crate::renderer::memory::MemoryManager;
+use ash::vk::{VertexInputAttributeDescription, VertexInputBindingDescription};
 
 const SHADER_ENTRYPOINT: &str = "main";
 
@@ -33,10 +34,13 @@ pub(super) struct PipelineContainer {
     descriptor_pool: vk::DescriptorPool,
     descriptor_sets: Vec<vk::DescriptorSet>,
     descriptor_set_layout: vk::DescriptorSetLayout,
+
+    vertex_attribute_descriptions: [VertexInputAttributeDescription; 2],
+    vertex_binding_descriptions: [VertexInputBindingDescription; 1],
 }
 
 impl PipelineContainer {
-    pub(super) fn new(
+    pub(super) fn new<T: Vertex>(
         logical_device: &ash::Device,
         vertex_shader: Vec<u8>,
         fragment_shader: Vec<u8>,
@@ -45,6 +49,9 @@ impl PipelineContainer {
         let fragment_shader = _create_shader_module(logical_device, &fragment_shader);
 
         let descriptor_set_layout = _create_descriptor_set_layout(logical_device);
+
+        let vertex_attribute_descriptions = T::get_attribute_descriptions();
+        let vertex_binding_descriptions = T::get_binding_descriptions();
 
         PipelineContainer {
             is_built: false,
@@ -60,6 +67,8 @@ impl PipelineContainer {
             descriptor_sets: Vec::with_capacity(0),
             descriptor_set_layout,
             descriptor_pool: vk::DescriptorPool::null(),
+            vertex_attribute_descriptions,
+            vertex_binding_descriptions,
         }
     }
 
@@ -104,17 +113,14 @@ impl PipelineContainer {
             },
         ];
 
-        let vertex_attribute_descriptions = ColoredVertex::get_attribute_descriptions();
-        let vertex_binding_descriptions = ColoredVertex::get_binding_descriptions();
-
         let vertex_input_state_create_info = vk::PipelineVertexInputStateCreateInfo {
             s_type: vk::StructureType::PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
             p_next: ptr::null(),
             flags: vk::PipelineVertexInputStateCreateFlags::empty(),
-            vertex_attribute_description_count: vertex_attribute_descriptions.len() as u32,
-            p_vertex_attribute_descriptions: vertex_attribute_descriptions.as_ptr(),
-            vertex_binding_description_count: vertex_binding_descriptions.len() as u32,
-            p_vertex_binding_descriptions: vertex_binding_descriptions.as_ptr(),
+            vertex_attribute_description_count: self.vertex_attribute_descriptions.len() as u32,
+            p_vertex_attribute_descriptions: self.vertex_attribute_descriptions.as_ptr(),
+            vertex_binding_description_count: self.vertex_binding_descriptions.len() as u32,
+            p_vertex_binding_descriptions: self.vertex_binding_descriptions.as_ptr(),
         };
 
         let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
@@ -398,7 +404,7 @@ fn _create_descriptor_sets(
     device: &ash::Device,
     descriptor_pool: vk::DescriptorPool,
     descriptor_set_layout: vk::DescriptorSetLayout,
-    uniforms_buffers: &Vec<vk::Buffer>,
+    uniforms_buffers: &[vk::Buffer],
     swapchain_images_size: usize,
 ) -> Vec<vk::DescriptorSet> {
     let mut layouts: Vec<vk::DescriptorSetLayout> = vec![];

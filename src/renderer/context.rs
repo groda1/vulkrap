@@ -274,7 +274,8 @@ impl Context {
         let vert_shader_code = file::read_file(Path::new("./resources/shaders/simple_triangle_vert.spv"));
         let frag_shader_code = file::read_file(Path::new("./resources/shaders/simple_triangle_frag.spv"));
 
-        let mut pipeline_container = PipelineContainer::new(&self.logical_device, vert_shader_code, frag_shader_code);
+        let mut pipeline_container =
+            PipelineContainer::new::<T>(&self.logical_device, vert_shader_code, frag_shader_code);
         pipeline_container.build(
             &self.logical_device,
             self.descriptor_pool,
@@ -578,7 +579,7 @@ fn _create_render_pass(device: &ash::Device, surface_format: vk::Format) -> vk::
     }
 }
 
-fn _create_instance(entry: &ash::Entry, layers: &Vec<&str>) -> ash::Instance {
+fn _create_instance(entry: &ash::Entry, layers: &[&str]) -> ash::Instance {
     let app_name = CString::new(WINDOW_TITLE).unwrap();
     let engine_name = CString::new(ENGINE_NAME).unwrap();
     let app_info = vk::ApplicationInfo {
@@ -672,7 +673,7 @@ fn _check_instance_layer_support(entry: &ash::Entry, layer_name: &str) -> bool {
 fn create_logical_device(
     instance: &ash::Instance,
     physical_device: &vk::PhysicalDevice,
-    layers: &Vec<&str>,
+    layers: &[&str],
     queue_families: &QueueFamilyIndices,
 ) -> ash::Device {
     let distinct_queue_familes: HashSet<u32> = [queue_families.graphics.unwrap(), queue_families.present.unwrap()]

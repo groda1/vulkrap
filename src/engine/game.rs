@@ -6,7 +6,6 @@ use crate::engine::scene::Scene;
 use crate::renderer::context::Context;
 use crate::renderer::datatypes::{ColoredVertex, MvpUniformBufferObject};
 use crate::renderer::pipeline::PipelineHandle;
-use winapi::um::wingdi::ColorCorrectPalette;
 
 pub struct VulkrapApplication {
     context: Context,

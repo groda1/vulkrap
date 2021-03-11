@@ -40,12 +40,10 @@ impl Display for QueueFamilyIndices {
 fn _pick_queue_families(instance: &ash::Instance, device: &PhysicalDevice) -> Option<u32> {
     let queue_family_properties = unsafe { instance.get_physical_device_queue_family_properties(*device) };
 
-    let mut index = 0;
-    for family_properties in queue_family_properties.iter() {
+    for (index, family_properties) in queue_family_properties.iter().enumerate() {
         if family_properties.queue_flags.contains(QueueFlags::GRAPHICS) {
-            return Option::Some(index);
+            return Option::Some(index as u32);
         }
-        index += 1;
     }
 
     Option::None
@@ -58,8 +56,7 @@ fn _pick_present_queue_family(
 ) -> Option<u32> {
     let queue_family_properties = unsafe { instance.get_physical_device_queue_family_properties(*physical_device) };
 
-    let mut index = 0;
-    for _family_properties in queue_family_properties.iter() {
+    for (index, _family_properties) in queue_family_properties.iter().enumerate() {
         let present_support = unsafe {
             surface_container.loader.get_physical_device_surface_support(
                 *physical_device,
@@ -69,9 +66,8 @@ fn _pick_present_queue_family(
         };
 
         if present_support.unwrap_or(false) {
-            return Option::Some(index);
+            return Option::Some(index as u32);
         }
-        index += 1;
     }
 
     Option::None

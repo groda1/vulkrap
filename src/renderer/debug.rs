@@ -78,7 +78,7 @@ pub fn log_physical_devices(instance: &ash::Instance) {
             .expect("Failed to enumerate Physical devices!")
     };
 
-    if physical_devices.len() > 0 {
+    if !physical_devices.is_empty() {
         log_info!("Available Physical devices: ");
         for device in physical_devices.iter() {
             log_physical_device(instance, device);
@@ -101,8 +101,7 @@ pub fn log_device_queue_families(instance: &ash::Instance, device: &PhysicalDevi
     let queue_family_properties = unsafe { instance.get_physical_device_queue_family_properties(*device) };
 
     log_info!("Available queue families:");
-    let mut index = 0;
-    for family_properties in queue_family_properties.iter() {
+    for (index, family_properties) in queue_family_properties.iter().enumerate() {
         log_info!(
             " - {}: count={} gfx={}, compute={}, transfer={}, sparse_binding={}",
             index,
@@ -112,7 +111,6 @@ pub fn log_device_queue_families(instance: &ash::Instance, device: &PhysicalDevi
             family_properties.queue_flags.contains(QueueFlags::TRANSFER),
             family_properties.queue_flags.contains(QueueFlags::SPARSE_BINDING),
         );
-        index += 1;
     }
 }
 

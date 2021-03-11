@@ -90,10 +90,11 @@ impl MemoryManager {
     }
 
     pub unsafe fn destroy_buffer(&mut self, logical_device: &ash::Device, buffer: vk::Buffer) {
-        let memory = self.buffer_to_chunk_map.remove(&buffer);
-        if memory.is_some() {
+        let memory_option = self.buffer_to_chunk_map.remove(&buffer);
+
+        if let Some(memory) = memory_option {
             logical_device.destroy_buffer(buffer, None);
-            logical_device.free_memory(memory.unwrap(), None);
+            logical_device.free_memory(memory, None);
         }
     }
 
