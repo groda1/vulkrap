@@ -1,11 +1,11 @@
-use crate::renderer::datatypes::{Index, Vertex};
+use crate::renderer::datatypes::{ColoredVertex, Index};
 use ash::vk;
 use cgmath::{Matrix4, SquareMatrix};
 
 pub type EntityHandle = usize;
 
 pub struct Entity {
-    pub vertices: Vec<Vertex>,
+    pub vertices: Vec<ColoredVertex>,
     pub indices: Vec<Index>,
 
     model_transform: Matrix4<f32>,
@@ -15,7 +15,7 @@ pub struct Entity {
 }
 
 impl Entity {
-    pub fn new(vertices: Vec<Vertex>, indices: Vec<Index>) -> Entity {
+    pub fn new(vertices: Vec<ColoredVertex>, indices: Vec<Index>) -> Entity {
         Entity {
             vertices,
             indices,

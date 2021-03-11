@@ -8,17 +8,17 @@ use ash::vk;
 use ash::vk::PhysicalDevice;
 use winit::window::Window;
 
-use crate::ENGINE_NAME;
-use crate::renderer::datatypes::Index;
+use crate::renderer::datatypes::{Index, MvpUniformBufferObject, Vertex};
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::{PipelineContainer, PipelineJob};
+use crate::renderer::pipeline::{PipelineContainer, PipelineHandle, PipelineJob};
 use crate::renderer::synchronization::SynchronizationHandler;
 use crate::util::file;
+use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
 
 use super::constants;
 use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
-use super::datatypes::Vertex;
+use super::datatypes::ColoredVertex;
 use super::debug;
 use super::platform;
 use super::queue::QueueFamilyIndices;
@@ -157,7 +157,7 @@ impl Context {
         }
     }
 
-    pub fn draw_frame(&mut self, delta_time_s: f32, render_job: &[PipelineJob]) {
+    pub fn draw_frame(&mut self, render_job: &[PipelineJob]) {
         let (image_index, _is_sub_optimal) = unsafe {
             let result = self.swapchain_loader.acquire_next_image(
                 self.swapchain,
@@ -200,7 +200,7 @@ impl Context {
         let command_buffers = [command_buffer];
 
         for pipeline in self.pipelines.iter_mut() {
-            pipeline.update_uniform_buffer(&self.logical_device, image_index_usize, delta_time_s);
+            pipeline.update_uniform_buffer(&self.logical_device, image_index_usize);
         }
 
         let wait_semaphores = [self.sync_handler.image_available_semaphore()];
@@ -260,25 +260,21 @@ impl Context {
         self.sync_handler.step();
     }
 
-    pub fn allocate_vertex_buffer(&mut self, vertices: &Vec<Vertex>) -> vk::Buffer {
+    pub fn allocate_vertex_buffer(&mut self, vertices: &[ColoredVertex]) -> vk::Buffer {
         self.memory_manager
             .create_vertex_buffer(&self.logical_device, self.command_pool, self.graphics_queue, vertices)
     }
 
-    pub fn allocate_index_buffer(&mut self, indices: &Vec<Index>) -> vk::Buffer {
+    pub fn allocate_index_buffer(&mut self, indices: &[Index]) -> vk::Buffer {
         self.memory_manager
             .create_index_buffer(&self.logical_device, self.command_pool, self.graphics_queue, indices)
     }
 
-    pub fn add_pipeline(&mut self) {
+    pub fn add_pipeline<T: Vertex>(&mut self) -> PipelineHandle {
         let vert_shader_code = file::read_file(Path::new("./resources/shaders/simple_triangle_vert.spv"));
         let frag_shader_code = file::read_file(Path::new("./resources/shaders/simple_triangle_frag.spv"));
 
-        let mut pipeline_container = PipelineContainer::new(
-            &self.logical_device,
-            vert_shader_code,
-            frag_shader_code,
-        );
+        let mut pipeline_container = PipelineContainer::new(&self.logical_device, vert_shader_code, frag_shader_code);
         pipeline_container.build(
             &self.logical_device,
             self.descriptor_pool,
@@ -288,7 +284,14 @@ impl Context {
             self.swapchain_imageviews.len(),
         );
 
+        let handle = self.pipelines.len();
         self.pipelines.push(pipeline_container);
+
+        handle
+    }
+
+    pub fn update_pipeline_uniform_data(&mut self, handle: PipelineHandle, data: MvpUniformBufferObject) {
+        self.pipelines[handle].set_uniform_data(data);
     }
 
     pub unsafe fn wait_idle(&self) {
@@ -319,6 +322,9 @@ impl Context {
                 self.logical_device.destroy_image_view(*image_view, None);
             }
             self.swapchain_loader.destroy_swapchain(self.swapchain, None);
+
+            // Descriptor pool
+            self.logical_device.destroy_descriptor_pool(self.descriptor_pool, None);
         }
     }
 
@@ -432,6 +438,10 @@ impl Context {
 
         true
     }
+
+    pub fn get_aspect_ratio(&self) -> f32 {
+        self.swapchain_extent.width as f32 / self.swapchain_extent.height as f32
+    }
 }
 
 impl Drop for Context {
@@ -443,9 +453,6 @@ impl Drop for Context {
 
             //Swapchain
             self.destroy_swapchain();
-
-            // Descriptor pool
-            self.logical_device.destroy_descriptor_pool(self.descriptor_pool, None);
 
             // Buffers and memory
             self.memory_manager.destroy(&self.logical_device);

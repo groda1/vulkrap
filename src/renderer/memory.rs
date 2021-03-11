@@ -3,19 +3,13 @@ use std::ptr;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::renderer::datatypes::{Index, MvpUniformBufferObject, Vertex};
+use crate::renderer::datatypes::{ColoredVertex, Index, MvpUniformBufferObject};
 use std::collections::HashMap;
 
 //  TODO: make it possible allocate a buffer on preexisting memory.
 //  TODO: Maybe create an allocator that can handle the memory allocation completety separate from buffer allocation
-
-const BUFFER_LIST_INTIAL_CAPACITY: usize = 100;
-
 pub struct MemoryManager {
     physical_device_memory_properties: vk::PhysicalDeviceMemoryProperties,
-
-    buffers: Vec<vk::Buffer>,
-    buffer_memory_chunks: Vec<vk::DeviceMemory>,
 
     buffer_to_chunk_map: HashMap<vk::Buffer, vk::DeviceMemory>,
 }
@@ -24,14 +18,6 @@ impl MemoryManager {
     pub fn new(physical_device_memory_properties: vk::PhysicalDeviceMemoryProperties) -> MemoryManager {
         MemoryManager {
             physical_device_memory_properties,
-            buffers: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
-            buffer_memory_chunks: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
-            // vertex_buffers: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
-            // vertex_buffer_memory_chunks: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
-            // index_buffers: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
-            // index_buffer_memory_chunks: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
-            // uniform_buffers: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
-            // uniform_buffers_memory_chunks: Vec::with_capacity(BUFFER_LIST_INTIAL_CAPACITY),
             buffer_to_chunk_map: HashMap::new(),
         }
     }
@@ -45,7 +31,7 @@ impl MemoryManager {
         device: &ash::Device,
         command_pool: vk::CommandPool,
         submit_queue: vk::Queue,
-        vertices: &[Vertex],
+        vertices: &[ColoredVertex],
     ) -> vk::Buffer {
         let (buffer, device_memory) = create_device_local_buffer(
             device,
@@ -56,8 +42,6 @@ impl MemoryManager {
             vertices,
         );
 
-        self.buffers.push(buffer);
-        self.buffer_memory_chunks.push(device_memory);
         self.buffer_to_chunk_map.insert(buffer, device_memory);
 
         buffer
@@ -79,8 +63,6 @@ impl MemoryManager {
             indicies,
         );
 
-        self.buffers.push(buffer);
-        self.buffer_memory_chunks.push(device_memory);
         self.buffer_to_chunk_map.insert(buffer, device_memory);
 
         buffer
@@ -101,20 +83,24 @@ impl MemoryManager {
                 &self.physical_device_memory_properties,
             );
             uniform_buffers.push(uniform_buffer);
-            self.buffers.push(uniform_buffer);
-            self.buffer_memory_chunks.push(uniform_buffer_memory);
             self.buffer_to_chunk_map.insert(uniform_buffer, uniform_buffer_memory);
         }
 
         uniform_buffers
     }
 
-    pub unsafe fn destroy(&mut self, logical_device: &ash::Device) {
-        for buffer in self.buffers.iter() {
-            logical_device.destroy_buffer(*buffer, None);
+    pub unsafe fn destroy_buffer(&mut self, logical_device: &ash::Device, buffer: vk::Buffer) {
+        let memory = self.buffer_to_chunk_map.remove(&buffer);
+        if memory.is_some() {
+            logical_device.destroy_buffer(buffer, None);
+            logical_device.free_memory(memory.unwrap(), None);
         }
-        for mem in self.buffer_memory_chunks.iter() {
-            logical_device.free_memory(*mem, None);
+    }
+
+    pub unsafe fn destroy(&mut self, logical_device: &ash::Device) {
+        for (buffer, memory) in self.buffer_to_chunk_map.iter() {
+            logical_device.destroy_buffer(*buffer, None);
+            logical_device.free_memory(*memory, None);
         }
     }
 }

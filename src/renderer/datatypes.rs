@@ -10,21 +10,28 @@ pub struct MvpUniformBufferObject {
     pub(crate) wobble: f32,
 }
 
+pub type Index = u32;
+
+pub trait Vertex {
+    fn get_binding_descriptions() -> [vk::VertexInputBindingDescription; 1];
+    fn get_attribute_descriptions() -> [vk::VertexInputAttributeDescription; 2];
+}
+
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
-pub struct Vertex {
+pub struct ColoredVertex {
     pub position: Vector3<f32>,
     pub color: Vector3<f32>,
 }
 
-pub type Index = u32;
-
-impl Vertex {
-    pub fn new(position: Vector3<f32>, color: Vector3<f32>) -> Vertex {
-        Vertex { position, color }
+impl ColoredVertex {
+    pub fn new(position: Vector3<f32>, color: Vector3<f32>) -> ColoredVertex {
+        ColoredVertex { position, color }
     }
+}
 
-    pub fn get_binding_descriptions() -> [vk::VertexInputBindingDescription; 1] {
+impl Vertex for ColoredVertex {
+    fn get_binding_descriptions() -> [vk::VertexInputBindingDescription; 1] {
         [vk::VertexInputBindingDescription {
             binding: 0,
             stride: std::mem::size_of::<Self>() as u32,
@@ -32,7 +39,7 @@ impl Vertex {
         }]
     }
 
-    pub fn get_attribute_descriptions() -> [vk::VertexInputAttributeDescription; 2] {
+    fn get_attribute_descriptions() -> [vk::VertexInputAttributeDescription; 2] {
         [
             vk::VertexInputAttributeDescription {
                 binding: 0,

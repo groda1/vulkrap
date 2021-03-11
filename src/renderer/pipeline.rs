@@ -4,42 +4,10 @@ use std::ptr;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::renderer::datatypes::{MvpUniformBufferObject, Vertex};
+use crate::renderer::datatypes::{ColoredVertex, MvpUniformBufferObject, Vertex};
 use crate::renderer::memory::MemoryManager;
-use cgmath::{Deg, Matrix4, Point3, Vector3};
 
 const SHADER_ENTRYPOINT: &str = "main";
-
-pub struct PipelineJob {
-    pub(crate) handle: PipelineHandle,
-    pub(crate) draw_commands: Vec<PipelineDrawCommand>,
-}
-
-impl PipelineJob {
-    pub fn new(handle: PipelineHandle /*uniform_data: Option<Box<dyn Sized>> , */) -> PipelineJob {
-        PipelineJob {
-            handle,
-            /*uniform_data,*/
-            draw_commands: Vec::new(),
-        }
-    }
-}
-
-pub struct PipelineDrawCommand {
-    vertex_buffer: vk::Buffer,
-    index_buffer: vk::Buffer,
-    index_count: u32,
-}
-
-impl PipelineDrawCommand {
-    pub fn new(vertex_buffer: vk::Buffer, index_buffer: vk::Buffer, index_count: u32) -> PipelineDrawCommand {
-        PipelineDrawCommand {
-            vertex_buffer,
-            index_buffer,
-            index_count,
-        }
-    }
-}
 
 pub type PipelineHandle = usize;
 
@@ -47,15 +15,18 @@ pub(super) struct PipelineContainer {
     // Configuration
     is_built: bool,
 
+    // Vulkan objects
+    vk_pipeline: vk::Pipeline,
+    layout: vk::PipelineLayout,
+    render_pass: vk::RenderPass,
+
     // Shaders
     vertex_shader: vk::ShaderModule,
     fragment_shader: vk::ShaderModule,
 
-    // Vulkan objects
-    pub(super) vk_pipeline: vk::Pipeline,
-    pub(super) layout: vk::PipelineLayout,
-    render_pass: vk::RenderPass,
-
+    // Shader data
+    uniform_data: Option<MvpUniformBufferObject>,
+    dirty_uniform: Vec<bool>,
     uniform_buffers: Vec<vk::Buffer>,
     uniform_memory: Vec<vk::DeviceMemory>,
 
@@ -77,15 +48,16 @@ impl PipelineContainer {
 
         PipelineContainer {
             is_built: false,
-            vertex_shader,
-            fragment_shader,
-
             vk_pipeline: vk::Pipeline::null(),
             layout: vk::PipelineLayout::null(),
             render_pass: vk::RenderPass::null(),
-            uniform_buffers: Vec::new(),
-            uniform_memory: Vec::new(),
-            descriptor_sets: Vec::new(),
+            vertex_shader,
+            fragment_shader,
+            uniform_data: Option::None,
+            dirty_uniform: Vec::with_capacity(0),
+            uniform_buffers: Vec::with_capacity(0),
+            uniform_memory: Vec::with_capacity(0),
+            descriptor_sets: Vec::with_capacity(0),
             descriptor_set_layout,
             descriptor_pool: vk::DescriptorPool::null(),
         }
@@ -132,8 +104,8 @@ impl PipelineContainer {
             },
         ];
 
-        let vertex_attribute_descriptions = Vertex::get_attribute_descriptions();
-        let vertex_binding_descriptions = Vertex::get_binding_descriptions();
+        let vertex_attribute_descriptions = ColoredVertex::get_attribute_descriptions();
+        let vertex_binding_descriptions = ColoredVertex::get_binding_descriptions();
 
         let vertex_input_state_create_info = vk::PipelineVertexInputStateCreateInfo {
             s_type: vk::StructureType::PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -301,6 +273,7 @@ impl PipelineContainer {
         self.vk_pipeline = graphics_pipelines[0];
         self.layout = pipeline_layout;
 
+        self.dirty_uniform = vec![false; image_count];
         self.uniform_buffers = memory_manager.create_uniform_buffers(logical_device, image_count);
         self.uniform_memory = self
             .uniform_buffers
@@ -350,47 +323,42 @@ impl PipelineContainer {
         }
     }
 
-    pub fn update_uniform_buffer(&self, logical_device: &ash::Device, image_index: usize, delta_time: f32) {
-        let rot_speed = delta_time * 0.25;
-        let wobble = delta_time * 7.0;
-
-        let ubos = [MvpUniformBufferObject {
-            model: Matrix4::from_angle_z(Deg(90.0 * rot_speed)),
-            // model: Matrix4::identity(),
-            view: Matrix4::look_at_rh(
-                Point3::new(0.0, -0.1, 2.0),
-                Point3::new(0.0, 0.0, 0.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
-            proj: cgmath::perspective(
-                Deg(45.0),
-                1920 as f32 / 1080 as f32, // TODO
-                0.1,
-                10.0,
-            ),
-            wobble,
-        }];
-
-        let buffer_size = (std::mem::size_of::<MvpUniformBufferObject>()) as u64;
-
-        let memory = self.uniform_memory[image_index];
-        unsafe {
-            let data_ptr = logical_device
-                .map_memory(memory, 0, buffer_size, vk::MemoryMapFlags::empty())
-                .expect("Failed to Map Memory") as *mut MvpUniformBufferObject;
-
-            data_ptr.copy_from_nonoverlapping(ubos.as_ptr(), ubos.len());
-
-            logical_device.unmap_memory(memory);
+    pub fn set_uniform_data(&mut self, data: MvpUniformBufferObject) {
+        self.uniform_data = Some(data);
+        for i in 0..self.dirty_uniform.len() {
+            self.dirty_uniform[i] = true;
         }
     }
 
-    pub unsafe fn destroy_pipeline(&mut self, logical_device: &ash::Device, _memory_manager: &mut MemoryManager) {
+    pub fn update_uniform_buffer(&mut self, logical_device: &ash::Device, image_index: usize) {
+        if self.dirty_uniform[image_index] {
+            let data = [self.uniform_data.expect("Unset uniform data")];
+
+            let buffer_size = (std::mem::size_of::<MvpUniformBufferObject>()) as u64;
+
+            let memory = self.uniform_memory[image_index];
+            unsafe {
+                let data_ptr = logical_device
+                    .map_memory(memory, 0, buffer_size, vk::MemoryMapFlags::empty())
+                    .expect("Failed to Map Memory") as *mut MvpUniformBufferObject;
+
+                data_ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
+
+                logical_device.unmap_memory(memory);
+            }
+
+            self.dirty_uniform[image_index] = false;
+        }
+    }
+
+    pub unsafe fn destroy_pipeline(&mut self, logical_device: &ash::Device, memory_manager: &mut MemoryManager) {
         logical_device.destroy_pipeline(self.vk_pipeline, None);
         logical_device.destroy_pipeline_layout(self.layout, None);
 
-        // TODO free uniform buffers
         self.uniform_memory.clear();
+        for buffer in self.uniform_buffers.iter() {
+            memory_manager.destroy_buffer(logical_device, *buffer);
+        }
         self.uniform_buffers.clear();
 
         self.descriptor_sets.clear();
@@ -445,8 +413,6 @@ fn _create_descriptor_sets(
         descriptor_set_count: swapchain_images_size as u32,
         p_set_layouts: layouts.as_ptr(),
     };
-
-    log_info!("ALLOTACTING DESCRIPTOR SETS: {:?}", descriptor_set_allocate_info);
 
     let descriptor_sets = unsafe {
         device
@@ -503,5 +469,35 @@ fn _create_descriptor_set_layout(device: &ash::Device) -> vk::DescriptorSetLayou
         device
             .create_descriptor_set_layout(&ubo_layout_create_info, None)
             .expect("Failed to create Descriptor Set Layout!")
+    }
+}
+
+pub struct PipelineJob {
+    pub(crate) handle: PipelineHandle,
+    pub(crate) draw_commands: Vec<PipelineDrawCommand>,
+}
+
+impl PipelineJob {
+    pub fn new(handle: PipelineHandle) -> PipelineJob {
+        PipelineJob {
+            handle,
+            draw_commands: Vec::new(),
+        }
+    }
+}
+
+pub struct PipelineDrawCommand {
+    vertex_buffer: vk::Buffer,
+    index_buffer: vk::Buffer,
+    index_count: u32,
+}
+
+impl PipelineDrawCommand {
+    pub fn new(vertex_buffer: vk::Buffer, index_buffer: vk::Buffer, index_count: u32) -> PipelineDrawCommand {
+        PipelineDrawCommand {
+            vertex_buffer,
+            index_buffer,
+            index_count,
+        }
     }
 }
