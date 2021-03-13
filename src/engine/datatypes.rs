@@ -3,8 +3,7 @@ use cgmath::{Matrix4, Vector3};
 
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
-pub struct MvpUniformBufferObject {
-    pub(crate) model: Matrix4<f32>,
+pub struct ViewProjectionUniform {
     pub(crate) view: Matrix4<f32>,
     pub(crate) proj: Matrix4<f32>,
     pub(crate) wobble: f32,

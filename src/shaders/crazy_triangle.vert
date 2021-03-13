@@ -1,8 +1,11 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+layout (push_constant) uniform pushConstants {
+    mat4 transform;
+} model;
+
 layout(binding = 0) uniform UniformBufferObject {
-    mat4 model;
     mat4 view;
     mat4 proj;
     float wobble;
@@ -24,10 +27,9 @@ void main() {
 
     float wobble_x = cos(mvp.wobble + gl_VertexIndex) * 0.1;
     float wobble_y = sin(mvp.wobble + gl_VertexIndex) * 0.1;
+    vec3 wobbled_position = vec3(inPosition.x + wobble_x, inPosition.y + wobble_y, inPosition.z);
 
-    vec3 derp = vec3(inPosition.x + wobble_x, inPosition.y + wobble_y, inPosition.z);
-
-    gl_Position = mvp.proj * mvp.view * mvp.model * vec4(derp, 1.0);
+    gl_Position = mvp.proj * mvp.view * model.transform * vec4(wobbled_position, 1.0);
     fragColor = inColor;
     edgePosition = edge[gl_VertexIndex % 3];
 }

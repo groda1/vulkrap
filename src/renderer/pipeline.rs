@@ -4,9 +4,14 @@ use std::ptr;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::engine::datatypes::{MvpUniformBufferObject, Vertex};
+use crate::engine::datatypes::{Vertex, ViewProjectionUniform};
 use crate::renderer::memory::MemoryManager;
-use ash::vk::{VertexInputAttributeDescription, VertexInputBindingDescription};
+use ash::vk::{
+    PushConstantRange, PushConstantRangeBuilder, ShaderStageFlags, VertexInputAttributeDescription,
+    VertexInputBindingDescription,
+};
+use cgmath::{Matrix, Matrix4, SquareMatrix};
+use std::borrow::Borrow;
 
 const SHADER_ENTRYPOINT: &str = "main";
 
@@ -26,10 +31,11 @@ pub(super) struct PipelineContainer {
     fragment_shader: vk::ShaderModule,
 
     // Shader data
-    uniform_data: Option<MvpUniformBufferObject>,
+    uniform_data: Option<ViewProjectionUniform>,
     dirty_uniform: Vec<bool>,
     uniform_buffers: Vec<vk::Buffer>,
     uniform_memory: Vec<vk::DeviceMemory>,
+    push_constant_size: u32,
 
     descriptor_pool: vk::DescriptorPool,
     descriptor_sets: Vec<vk::DescriptorSet>,
@@ -40,13 +46,9 @@ pub(super) struct PipelineContainer {
 }
 
 impl PipelineContainer {
-    pub(super) fn new<T: Vertex>(
-        logical_device: &ash::Device,
-        vertex_shader: Vec<u8>,
-        fragment_shader: Vec<u8>,
-    ) -> PipelineContainer {
-        let vertex_shader = _create_shader_module(logical_device, &vertex_shader);
-        let fragment_shader = _create_shader_module(logical_device, &fragment_shader);
+    pub(super) fn new<T: Vertex>(logical_device: &ash::Device, config: PipelineConfiguration) -> PipelineContainer {
+        let vertex_shader = _create_shader_module(logical_device, &config.vertex_shader_code);
+        let fragment_shader = _create_shader_module(logical_device, &config.fragment_shader_code);
 
         let descriptor_set_layout = _create_descriptor_set_layout(logical_device);
 
@@ -69,6 +71,7 @@ impl PipelineContainer {
             descriptor_pool: vk::DescriptorPool::null(),
             vertex_attribute_descriptions,
             vertex_binding_descriptions,
+            push_constant_size: 0,
         }
     }
 
@@ -232,14 +235,21 @@ impl PipelineContainer {
 
         let set_layouts = [self.descriptor_set_layout];
 
+        self.push_constant_size = std::mem::size_of::<Matrix4<f32>>() as u32;
+        let push_constant_ranges = [vk::PushConstantRange::builder()
+            .stage_flags(ShaderStageFlags::VERTEX)
+            .size(self.push_constant_size)
+            .offset(0)
+            .build()];
+
         let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo {
             s_type: vk::StructureType::PIPELINE_LAYOUT_CREATE_INFO,
             p_next: ptr::null(),
             flags: vk::PipelineLayoutCreateFlags::empty(),
             set_layout_count: set_layouts.len() as u32,
             p_set_layouts: set_layouts.as_ptr(),
-            push_constant_range_count: 0,
-            p_push_constant_ranges: ptr::null(),
+            push_constant_range_count: push_constant_ranges.len() as u32,
+            p_push_constant_ranges: push_constant_ranges.as_ptr(),
         };
 
         let pipeline_layout = unsafe {
@@ -313,6 +323,17 @@ impl PipelineContainer {
             let offsets = [0_u64];
             let descriptor_sets_to_bind = [self.descriptor_sets[image_index]];
 
+            let push_constant_data = std::slice::from_raw_parts(
+                draw_command.transform.as_ptr() as *const u8,
+                self.push_constant_size as usize,
+            );
+            logical_device.cmd_push_constants(
+                command_buffer,
+                self.layout,
+                ShaderStageFlags::VERTEX,
+                0,
+                push_constant_data,
+            );
             logical_device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, &offsets);
             logical_device.cmd_bind_index_buffer(command_buffer, draw_command.index_buffer, 0, vk::IndexType::UINT32);
 
@@ -329,7 +350,7 @@ impl PipelineContainer {
         }
     }
 
-    pub fn set_uniform_data(&mut self, data: MvpUniformBufferObject) {
+    pub fn set_uniform_data(&mut self, data: ViewProjectionUniform) {
         self.uniform_data = Some(data);
         for i in 0..self.dirty_uniform.len() {
             self.dirty_uniform[i] = true;
@@ -339,14 +360,13 @@ impl PipelineContainer {
     pub fn update_uniform_buffer(&mut self, logical_device: &ash::Device, image_index: usize) {
         if self.dirty_uniform[image_index] {
             let data = [self.uniform_data.expect("Unset uniform data")];
-
-            let buffer_size = (std::mem::size_of::<MvpUniformBufferObject>()) as u64;
+            let buffer_size = (std::mem::size_of::<ViewProjectionUniform>()) as u64;
 
             let memory = self.uniform_memory[image_index];
             unsafe {
                 let data_ptr = logical_device
                     .map_memory(memory, 0, buffer_size, vk::MemoryMapFlags::empty())
-                    .expect("Failed to Map Memory") as *mut MvpUniformBufferObject;
+                    .expect("Failed to Map Memory") as *mut ViewProjectionUniform;
 
                 data_ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
 
@@ -430,7 +450,7 @@ fn _create_descriptor_sets(
         let descriptor_buffer_info = [vk::DescriptorBufferInfo {
             buffer: uniforms_buffers[i],
             offset: 0,
-            range: std::mem::size_of::<MvpUniformBufferObject>() as u64,
+            range: std::mem::size_of::<ViewProjectionUniform>() as u64,
         }];
 
         let descriptor_write_sets = [vk::WriteDescriptorSet {
@@ -496,14 +516,66 @@ pub struct PipelineDrawCommand {
     vertex_buffer: vk::Buffer,
     index_buffer: vk::Buffer,
     index_count: u32,
+    transform: Matrix4<f32>,
+    // pc_extra_data
 }
 
 impl PipelineDrawCommand {
-    pub fn new(vertex_buffer: vk::Buffer, index_buffer: vk::Buffer, index_count: u32) -> PipelineDrawCommand {
+    pub fn new(
+        vertex_buffer: vk::Buffer,
+        index_buffer: vk::Buffer,
+        index_count: u32,
+        transform: Matrix4<f32>,
+    ) -> PipelineDrawCommand {
         PipelineDrawCommand {
             vertex_buffer,
             index_buffer,
             index_count,
+            transform,
+        }
+    }
+}
+
+pub struct PipelineConfiguration {
+    vertex_shader_code: Vec<u8>,
+    fragment_shader_code: Vec<u8>,
+}
+
+impl PipelineConfiguration {
+    pub fn builder() -> PipelineConfigurationBuilder {
+        PipelineConfigurationBuilder {
+            vertex_shader_code: Option::None,
+            fragment_shader_code: Option::None,
+        }
+    }
+}
+
+pub struct PipelineConfigurationBuilder {
+    vertex_shader_code: Option<Vec<u8>>,
+    fragment_shader_code: Option<Vec<u8>>,
+}
+
+impl PipelineConfigurationBuilder {
+    pub fn with_fragment_shader(&mut self, code: Vec<u8>) -> &mut PipelineConfigurationBuilder {
+        self.fragment_shader_code = Some(code);
+
+        self
+    }
+
+    pub fn with_vertex_shader(&mut self, code: Vec<u8>) -> &mut PipelineConfigurationBuilder {
+        self.vertex_shader_code = Some(code);
+
+        self
+    }
+
+    pub fn build(&self) -> PipelineConfiguration {
+        // TODO Load default shader if not present
+        let vertex_shader_code = self.vertex_shader_code.borrow().as_ref().expect("error").clone();
+        let fragment_shader_code = self.fragment_shader_code.borrow().as_ref().expect("error").clone();
+
+        PipelineConfiguration {
+            vertex_shader_code,
+            fragment_shader_code,
         }
     }
 }

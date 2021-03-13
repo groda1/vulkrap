@@ -8,9 +8,9 @@ use ash::vk;
 use ash::vk::PhysicalDevice;
 use winit::window::Window;
 
-use crate::engine::datatypes::{Index, MvpUniformBufferObject, Vertex};
+use crate::engine::datatypes::{Index, Vertex, ViewProjectionUniform};
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::{PipelineContainer, PipelineHandle, PipelineJob};
+use crate::renderer::pipeline::{PipelineConfiguration, PipelineContainer, PipelineHandle, PipelineJob};
 use crate::renderer::synchronization::SynchronizationHandler;
 use crate::util::file;
 use crate::ENGINE_NAME;
@@ -18,13 +18,13 @@ use crate::WINDOW_TITLE;
 
 use super::constants;
 use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
-use crate::engine::datatypes::ColoredVertex;
 use super::debug;
 use super::platform;
 use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
+use crate::engine::datatypes::ColoredVertex;
 
 pub struct Context {
     _entry: ash::Entry,
@@ -270,12 +270,8 @@ impl Context {
             .create_index_buffer(&self.logical_device, self.command_pool, self.graphics_queue, indices)
     }
 
-    pub fn add_pipeline<T: Vertex>(&mut self) -> PipelineHandle {
-        let vert_shader_code = file::read_file(Path::new("./resources/shaders/simple_triangle_vert.spv"));
-        let frag_shader_code = file::read_file(Path::new("./resources/shaders/simple_triangle_frag.spv"));
-
-        let mut pipeline_container =
-            PipelineContainer::new::<T>(&self.logical_device, vert_shader_code, frag_shader_code);
+    pub fn add_pipeline<T: Vertex>(&mut self, config: PipelineConfiguration) -> PipelineHandle {
+        let mut pipeline_container = PipelineContainer::new::<T>(&self.logical_device, config);
         pipeline_container.build(
             &self.logical_device,
             self.descriptor_pool,
@@ -291,7 +287,7 @@ impl Context {
         handle
     }
 
-    pub fn update_pipeline_uniform_data(&mut self, handle: PipelineHandle, data: MvpUniformBufferObject) {
+    pub fn update_pipeline_uniform_data(&mut self, handle: PipelineHandle, data: ViewProjectionUniform) {
         self.pipelines[handle].set_uniform_data(data);
     }
 

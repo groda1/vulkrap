@@ -3,7 +3,7 @@ use std::ptr;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::engine::datatypes::{ColoredVertex, Index, MvpUniformBufferObject};
+use crate::engine::datatypes::{ColoredVertex, Index, ViewProjectionUniform};
 use std::collections::HashMap;
 
 //  TODO: make it possible allocate a buffer on preexisting memory.
@@ -69,7 +69,7 @@ impl MemoryManager {
     }
 
     pub fn create_uniform_buffers(&mut self, device: &ash::Device, swapchain_image_count: usize) -> Vec<vk::Buffer> {
-        let buffer_size = std::mem::size_of::<MvpUniformBufferObject>();
+        let buffer_size = std::mem::size_of::<ViewProjectionUniform>();
 
         let mut uniform_buffers = Vec::with_capacity(swapchain_image_count);
         //let mut uniform_buffers_memory = Vec::with_capacity(swapchain_image_count);

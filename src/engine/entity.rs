@@ -1,27 +1,22 @@
 use crate::engine::datatypes::{ColoredVertex, Index};
+use crate::engine::mesh::Mesh;
 use ash::vk;
-use cgmath::{Matrix4, SquareMatrix};
+use cgmath::{Matrix4, One, Quaternion, SquareMatrix, Vector3, Zero};
 
 pub type EntityHandle = usize;
 
 pub struct Entity {
-    pub vertices: Vec<ColoredVertex>,
-    pub indices: Vec<Index>,
-
-    model_transform: Matrix4<f32>,
-
-    pub vertex_buffer: vk::Buffer,
-    pub index_buffer: vk::Buffer,
+    pub position: Vector3<f32>,
+    pub orientation: Quaternion<f32>,
+    pub mesh: Mesh,
 }
 
 impl Entity {
-    pub fn new(vertices: Vec<ColoredVertex>, indices: Vec<Index>) -> Entity {
+    pub fn new(position: Vector3<f32>, orientation: Quaternion<f32>, mesh: Mesh) -> Entity {
         Entity {
-            vertices,
-            indices,
-            model_transform: Matrix4::identity(),
-            vertex_buffer: vk::Buffer::null(),
-            index_buffer: vk::Buffer::null(),
+            position: Vector3::zero(),
+            orientation: Quaternion::one(),
+            mesh,
         }
     }
 }
