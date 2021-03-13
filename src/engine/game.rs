@@ -73,7 +73,7 @@ impl VulkrapApplication {
 
         let data = ViewProjectionUniform {
             view: Matrix4::look_at_rh(
-                Point3::new(0.0, -0.1, 2.0),
+                Point3::new(0.0, -0.1, -2.0),
                 Point3::new(0.0, 0.0, 0.0),
                 Vector3::new(0.0, -1.0, 0.0),
             ),
@@ -86,42 +86,21 @@ impl VulkrapApplication {
 
 fn create_entities(mesh_manager: &MeshManager) -> Vec<Entity> {
     let quad1 = Entity::new(
-        Vector3::new(0.0, 0.0, -1.0),
+        Vector3::new(0.0, 0.0, 1.0),
         Quaternion::from_angle_z(Deg(0.0)),
         *mesh_manager.get_predefined_mesh(PredefinedMesh::QUAD),
     );
 
-    // let triangle3 = vec![
-    //     ColoredVertex::new(Vector3::new(-0.5, -0.5, -1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     ColoredVertex::new(Vector3::new(0.5, -0.5, -1.0), Vector3::new(0.0, 1.0, 0.0)),
-    //     ColoredVertex::new(Vector3::new(-0.5, 0.5, -1.0), Vector3::new(0.0, 0.0, 1.0)),
-    //     ColoredVertex::new(Vector3::new(0.5, 0.5, -1.0), Vector3::new(1.0, 0.0, 1.0)),
-    // ];
-    // let indices3 = vec![0, 1, 2, 2, 1, 3];
-    // let crazy_quad = Entity::new(triangle3, indices3);
-    //
-    // let triangle = vec![
-    //     ColoredVertex::new(Vector3::new(-1.0, -0.25, -2.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     ColoredVertex::new(Vector3::new(0.0, -0.25, -2.0), Vector3::new(0.0, 1.0, 0.0)),
-    //     ColoredVertex::new(Vector3::new(-1.0, 0.25, -2.0), Vector3::new(0.0, 0.0, 1.0)),
-    //     ColoredVertex::new(Vector3::new(0.0, 0.25, -2.0), Vector3::new(1.0, 0.0, 1.0)),
-    // ];
-    // let indices = vec![0, 1, 2, 2, 1, 3];
-    // let entity = Entity::new(triangle, indices);
-    //
-    // let triangle2 = vec![
-    //     ColoredVertex::new(Vector3::new(0.5, -0.25, -2.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     ColoredVertex::new(Vector3::new(1.5, -0.25, -2.0), Vector3::new(1.0, 1.0, 0.0)),
-    //     ColoredVertex::new(Vector3::new(0.5, 0.25, -2.0), Vector3::new(1.0, 0.0, 1.0)),
-    //     ColoredVertex::new(Vector3::new(1.5, 0.25, -2.0), Vector3::new(1.0, 0.0, 1.0)),
-    // ];
-    // let indices2 = vec![0, 1, 2, 2, 1, 3];
-    // let entity2 = Entity::new(triangle2, indices2);
-    //
+    let quad2 = Entity::new(
+        Vector3::new(0.5, 0.0, 2.0),
+        Quaternion::from_angle_z(Deg(0.0)),
+        *mesh_manager.get_predefined_mesh(PredefinedMesh::QUAD),
+    );
+
     let mut entities = Vec::with_capacity(10);
     entities.push(quad1);
-    // entities.push(entity);
-    // entities.push(entity2);
+    entities.push(quad2);
+
 
     entities
 }

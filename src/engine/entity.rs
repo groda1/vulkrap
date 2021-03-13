@@ -7,6 +7,7 @@ pub type EntityHandle = usize;
 pub struct Entity {
     pub position: Vector3<f32>,
     pub orientation: Quaternion<f32>,
+    //pub scale: f32,
     pub mesh: Mesh,
 }
 
