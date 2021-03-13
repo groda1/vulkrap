@@ -3,12 +3,12 @@
 
 layout (push_constant) uniform pushConstants {
     mat4 transform;
+    float wobble;
 } model;
 
 layout(binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
-    float wobble;
 } mvp;
 
 layout(location = 0) in vec3 inPosition;
@@ -25,8 +25,9 @@ vec3(0.0, 0.0, 1.0)
 
 void main() {
 
-    float wobble_x = cos(mvp.wobble + gl_VertexIndex) * 0.1;
-    float wobble_y = sin(mvp.wobble + gl_VertexIndex) * 0.1;
+    float wobble_x = cos(model.wobble + gl_VertexIndex) * 0.1;
+    float wobble_y = sin(model.wobble + gl_VertexIndex) * 0.1;
+
     vec3 wobbled_position = vec3(inPosition.x + wobble_x, inPosition.y + wobble_y, inPosition.z);
 
     gl_Position = mvp.proj * mvp.view * model.transform * vec4(wobbled_position, 1.0);

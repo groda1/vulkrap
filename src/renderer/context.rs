@@ -11,7 +11,7 @@ use crate::engine::datatypes::{Index, Vertex, ViewProjectionUniform};
 use crate::engine::datatypes::ColoredVertex;
 use crate::ENGINE_NAME;
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::{PipelineConfiguration, PipelineContainer, PipelineHandle, PipelineJob};
+use crate::renderer::pipeline::{PipelineConfiguration, PipelineContainer, PipelineHandle, PushConstantData, PipelineJob};
 use crate::renderer::synchronization::SynchronizationHandler;
 use crate::WINDOW_TITLE;
 
@@ -155,7 +155,7 @@ impl Context {
         }
     }
 
-    pub fn draw_frame(&mut self, render_job: &[PipelineJob]) {
+    pub fn draw_frame<T>(&mut self, render_job: &[PipelineJob<T>]) where T:PushConstantData {
         let (image_index, _is_sub_optimal) = unsafe {
             let result = self.swapchain_loader.acquire_next_image(
                 self.swapchain,
@@ -371,13 +371,13 @@ impl Context {
         }
     }
 
-    pub fn bake_command_buffer(
+    pub fn bake_command_buffer<T>(
         &self,
         command_buffer: vk::CommandBuffer,
         framebuffer: vk::Framebuffer,
         image_index: usize,
-        render_job: &[PipelineJob],
-    ) -> bool {
+        render_job: &[PipelineJob<T>],
+    ) -> bool  where T:PushConstantData{
         let command_buffer_begin_info = vk::CommandBufferBeginInfo {
             s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
             p_next: ptr::null(),

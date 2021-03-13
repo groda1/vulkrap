@@ -47,9 +47,9 @@ impl MeshManager {
 
     fn load_predefined_meshes(&mut self, context: &mut Context) {
         let vertices = vec![
-            ColoredVertex::new(Vector3::new(-0.5, -0.5, 0.0), Vector3::new(1.0, 0.0, 0.0)),
-            ColoredVertex::new(Vector3::new(0.5, -0.5, 0.0), Vector3::new(0.0, 1.0, 0.0)),
-            ColoredVertex::new(Vector3::new(-0.5, 0.5, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+            ColoredVertex::new(Vector3::new(-0.5, 0.5, 0.0), Vector3::new(1.0, 0.0, 0.0)),
+            ColoredVertex::new(Vector3::new(0.5, 0.5, 0.0), Vector3::new(0.0, 1.0, 0.0)),
+            ColoredVertex::new(Vector3::new(-0.5, -0.5, 0.0), Vector3::new(0.0, 0.0, 1.0)),
         ];
         let indices = vec![0, 1, 2];
         let vertex_buffer = context.allocate_vertex_buffer(&vertices);
@@ -63,10 +63,10 @@ impl MeshManager {
         self.meshes.insert(TRIANGLE as MeshHandle, mesh);
 
         let vertices = vec![
-            ColoredVertex::new(Vector3::new(-0.5, -0.5, 0.0), Vector3::new(1.0, 0.0, 0.0)),
-            ColoredVertex::new(Vector3::new(0.5, -0.5, 0.0), Vector3::new(0.0, 1.0, 0.0)),
-            ColoredVertex::new(Vector3::new(-0.5, 0.5, 0.0), Vector3::new(0.0, 0.0, 1.0)),
-            ColoredVertex::new(Vector3::new(0.5, 0.5, 0.0), Vector3::new(1.0, 0.0, 1.0)),
+            ColoredVertex::new(Vector3::new(-0.5, 0.5, 0.0), Vector3::new(1.0, 0.0, 0.0)),
+            ColoredVertex::new(Vector3::new(0.5, 0.5, 0.0), Vector3::new(0.0, 1.0, 0.0)),
+            ColoredVertex::new(Vector3::new(-0.5, -0.5, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+            ColoredVertex::new(Vector3::new(0.5, -0.5, 0.0), Vector3::new(1.0, 0.0, 1.0)),
         ];
         let indices = vec![0, 1, 2, 2, 1, 3];
         let vertex_buffer = context.allocate_vertex_buffer(&vertices);

@@ -4,7 +4,7 @@ use cgmath::{Deg, Matrix4, Point3, Quaternion, Rotation3, Vector3};
 use winit::window::Window;
 
 use crate::engine::datatypes::{ColoredVertex, ViewProjectionUniform};
-use crate::engine::entity::Entity;
+use crate::engine::entity::WobblyEntity;
 use crate::engine::mesh::{MeshManager, PredefinedMesh};
 use crate::engine::scene::Scene;
 use crate::renderer::context::Context;
@@ -13,7 +13,7 @@ use crate::util::file;
 
 pub struct VulkrapApplication {
     context: Context,
-    _mesh_manager: MeshManager,
+    mesh_manager: MeshManager,
     scene: Scene,
 
     main_pipeline: PipelineHandle,
@@ -33,23 +33,23 @@ impl VulkrapApplication {
             .with_fragment_shader(file::read_file(Path::new(
                 "./resources/shaders/crazy_triangle_frag.spv",
             )))
+            .with_push_constant(68)
             .build();
 
         let main_pipeline = context.add_pipeline::<ColoredVertex>(pipeline_config);
 
         let mut scene = Scene::new(main_pipeline);
 
-        for entity in create_entities(&mesh_manager) {
-            scene.add_entity(entity);
-        }
-
-        VulkrapApplication {
+         let mut app = VulkrapApplication {
             context,
-            _mesh_manager: mesh_manager,
+            mesh_manager,
             scene,
             main_pipeline,
             elapsed_time_s: 0.0,
-        }
+        };
+        app.create_entities();
+
+        app
     }
 
     pub fn update(&mut self, delta_time_s: f32) {
@@ -69,8 +69,6 @@ impl VulkrapApplication {
     }
 
     fn update_uniform_data(&mut self, _delta_time_s: f32) {
-        let wobble = self.elapsed_time_s * 5.0;
-
         let data = ViewProjectionUniform {
             view: Matrix4::look_at_rh(
                 Point3::new(0.0, -0.1, -2.0),
@@ -78,29 +76,29 @@ impl VulkrapApplication {
                 Vector3::new(0.0, -1.0, 0.0),
             ),
             proj: cgmath::perspective(Deg(45.0), self.context.get_aspect_ratio(), 0.1, 10.0),
-            wobble,
         };
         self.context.update_pipeline_uniform_data(self.main_pipeline, data);
     }
+
+    fn create_entities(&mut self) {
+        let quad1 = WobblyEntity::new(
+            Vector3::new(0.0, 0.0, 1.0),
+            Quaternion::from_angle_z(Deg(0.0)),
+            *self.mesh_manager.get_predefined_mesh(PredefinedMesh::QUAD),
+            0.0,
+        );
+
+        let quad2 = WobblyEntity::new(
+            Vector3::new(0.5, 1.0, 2.0),
+            Quaternion::from_angle_z(Deg(0.0)),
+            *self.mesh_manager.get_predefined_mesh(PredefinedMesh::QUAD),
+            0.0,
+        );
+
+        self.scene.add_wobbly_entity(quad1);
+        self.scene.add_wobbly_entity(quad2);
+
+    }
+
 }
 
-fn create_entities(mesh_manager: &MeshManager) -> Vec<Entity> {
-    let quad1 = Entity::new(
-        Vector3::new(0.0, 0.0, 1.0),
-        Quaternion::from_angle_z(Deg(0.0)),
-        *mesh_manager.get_predefined_mesh(PredefinedMesh::QUAD),
-    );
-
-    let quad2 = Entity::new(
-        Vector3::new(0.5, 0.0, 2.0),
-        Quaternion::from_angle_z(Deg(0.0)),
-        *mesh_manager.get_predefined_mesh(PredefinedMesh::QUAD),
-    );
-
-    let mut entities = Vec::with_capacity(10);
-    entities.push(quad1);
-    entities.push(quad2);
-
-
-    entities
-}

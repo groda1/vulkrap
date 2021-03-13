@@ -6,7 +6,6 @@ use cgmath::{Matrix4, Vector3};
 pub struct ViewProjectionUniform {
     pub(crate) view: Matrix4<f32>,
     pub(crate) proj: Matrix4<f32>,
-    pub(crate) wobble: f32,
 }
 
 pub type Index = u32;
