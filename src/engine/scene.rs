@@ -1,33 +1,31 @@
-use crate::engine::entity::{Entity, EntityHandle};
-use crate::renderer::context::Context;
-use crate::renderer::pipeline::{PipelineDrawCommand, PipelineHandle, PipelineJob};
 use cgmath::{Deg, Matrix4, Quaternion, Rotation3};
+
+use crate::engine::entity::{Entity, EntityHandle};
+use crate::renderer::pipeline::{PipelineDrawCommand, PipelineHandle, PipelineJob};
 
 const STATIC_OBJECTS_INDEX: usize = 0;
 
 pub struct Scene {
     // TODO replace with entity content system ( specs? )
     static_objects: Vec<Entity>,
-    static_objects_handle: PipelineHandle,
 
     // Static terrain system. Quadtree with static terrain +  entity links?
     render_job_buffer: Vec<PipelineJob>,
 }
 
 impl Scene {
-    pub fn new(static_objects_handle: PipelineHandle) -> Scene {
+    pub fn new(static_objects_pipeline: PipelineHandle) -> Scene {
         let mut render_job_buffer = Vec::with_capacity(10);
 
-        render_job_buffer.push(PipelineJob::new(static_objects_handle));
+        render_job_buffer.push(PipelineJob::new(static_objects_pipeline));
 
         Scene {
             static_objects: Vec::with_capacity(100),
-            static_objects_handle,
             render_job_buffer,
         }
     }
 
-    pub fn add_entity(&mut self, context: &mut Context, mut entity: Entity) -> EntityHandle {
+    pub fn add_entity(&mut self, entity: Entity) -> EntityHandle {
         // This sucks!
         let handle = self.static_objects.len();
         self.static_objects.push(entity);
@@ -35,7 +33,7 @@ impl Scene {
         handle
     }
 
-    pub fn update(&mut self, delta_time_s: f32, elapsed_time_s: f32) {
+    pub fn update(&mut self, delta_time_s: f32) {
         const ROT_SPEED: f32 = 25.0;
         for entity in self.static_objects.iter_mut() {
             entity.orientation = entity.orientation * Quaternion::from_angle_z(Deg(delta_time_s * ROT_SPEED));

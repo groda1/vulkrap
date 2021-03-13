@@ -1,17 +1,17 @@
+use std::borrow::Borrow;
 use std::ffi::CString;
 use std::ptr;
 
 use ash::version::DeviceV1_0;
 use ash::vk;
+use ash::vk::{
+    ShaderStageFlags, VertexInputAttributeDescription,
+    VertexInputBindingDescription,
+};
+use cgmath::{Matrix, Matrix4};
 
 use crate::engine::datatypes::{Vertex, ViewProjectionUniform};
 use crate::renderer::memory::MemoryManager;
-use ash::vk::{
-    PushConstantRange, PushConstantRangeBuilder, ShaderStageFlags, VertexInputAttributeDescription,
-    VertexInputBindingDescription,
-};
-use cgmath::{Matrix, Matrix4, SquareMatrix};
-use std::borrow::Borrow;
 
 const SHADER_ENTRYPOINT: &str = "main";
 
@@ -404,7 +404,7 @@ impl PipelineContainer {
     }
 }
 
-fn _create_shader_module(device: &ash::Device, code: &Vec<u8>) -> vk::ShaderModule {
+fn _create_shader_module(device: &ash::Device, code: &[u8]) -> vk::ShaderModule {
     let shader_module_create_info = vk::ShaderModuleCreateInfo {
         s_type: vk::StructureType::SHADER_MODULE_CREATE_INFO,
         p_next: ptr::null(),

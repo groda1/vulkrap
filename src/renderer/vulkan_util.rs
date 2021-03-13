@@ -28,6 +28,6 @@ pub fn copy_str_arr_to_cstring_vec(str_arr: &[&str]) -> Vec<CString> {
     str_arr.iter().map(|layer| CString::new(*layer).unwrap()).collect()
 }
 
-pub fn cstring_vec_to_vk_vec(cstring_vec: &Vec<CString>) -> Vec<*const i8> {
+pub fn cstring_vec_to_vk_vec(cstring_vec: &[CString]) -> Vec<*const i8> {
     cstring_vec.iter().map(|layer_name| layer_name.as_ptr()).collect()
 }

@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 use std::ffi::{c_void, CString};
-use std::path::Path;
 use std::ptr;
 
 use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
@@ -9,11 +8,11 @@ use ash::vk::PhysicalDevice;
 use winit::window::Window;
 
 use crate::engine::datatypes::{Index, Vertex, ViewProjectionUniform};
+use crate::engine::datatypes::ColoredVertex;
+use crate::ENGINE_NAME;
 use crate::renderer::memory::MemoryManager;
 use crate::renderer::pipeline::{PipelineConfiguration, PipelineContainer, PipelineHandle, PipelineJob};
 use crate::renderer::synchronization::SynchronizationHandler;
-use crate::util::file;
-use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
 
 use super::constants;
@@ -24,7 +23,6 @@ use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
-use crate::engine::datatypes::ColoredVertex;
 
 pub struct Context {
     _entry: ash::Entry,

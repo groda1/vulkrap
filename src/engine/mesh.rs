@@ -16,13 +16,12 @@ pub struct Mesh {
 pub enum PredefinedMesh {
     TRIANGLE = 0,
     QUAD = 1,
-    CUBE = 2,
+    //CUBE = 2,
 }
 
 type MeshHandle = u32;
-const PREDEFINED_MESH_QUAD: MeshHandle = 0;
 
-const START_HANDLE: MeshHandle = 1000;
+const _START_HANDLE: MeshHandle = 1000;
 
 pub struct MeshManager {
     meshes: HashMap<MeshHandle, Mesh>,
@@ -36,7 +35,7 @@ impl MeshManager {
         mesh_manager
     }
 
-    pub fn get_mesh(&self, handle: MeshHandle) -> Option<&Mesh> {
+    pub fn _get_mesh(&self, handle: MeshHandle) -> Option<&Mesh> {
         self.meshes.get(&handle)
     }
 

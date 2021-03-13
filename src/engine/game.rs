@@ -1,4 +1,6 @@
-use cgmath::{Deg, Matrix4, One, Point3, Quaternion, Rotation3, Vector3};
+use std::path::Path;
+
+use cgmath::{Deg, Matrix4, Point3, Quaternion, Rotation3, Vector3};
 use winit::window::Window;
 
 use crate::engine::datatypes::{ColoredVertex, ViewProjectionUniform};
@@ -8,11 +10,10 @@ use crate::engine::scene::Scene;
 use crate::renderer::context::Context;
 use crate::renderer::pipeline::{PipelineConfiguration, PipelineHandle};
 use crate::util::file;
-use std::path::Path;
 
 pub struct VulkrapApplication {
     context: Context,
-    mesh_manager: MeshManager,
+    _mesh_manager: MeshManager,
     scene: Scene,
 
     main_pipeline: PipelineHandle,
@@ -39,12 +40,12 @@ impl VulkrapApplication {
         let mut scene = Scene::new(main_pipeline);
 
         for entity in create_entities(&mesh_manager) {
-            scene.add_entity(&mut context, entity);
+            scene.add_entity(entity);
         }
 
         VulkrapApplication {
             context,
-            mesh_manager,
+            _mesh_manager: mesh_manager,
             scene,
             main_pipeline,
             elapsed_time_s: 0.0,
@@ -54,7 +55,7 @@ impl VulkrapApplication {
     pub fn update(&mut self, delta_time_s: f32) {
         self.elapsed_time_s += delta_time_s;
 
-        self.scene.update(delta_time_s, self.elapsed_time_s);
+        self.scene.update(delta_time_s);
         self.update_uniform_data(delta_time_s);
 
         let render_job = self.scene.get_render_job();
