@@ -4,8 +4,8 @@ Renderer:
     [ ] Proper device picking
     [ ] Dont allocate buffer memory on every vertex/index buffer creation. This could be managed by an allocator.
         See memory.rs
-    [ ] Setup a usable API for a game structure
     [ ] Maybe create a separate queue for transfering data instead of graphics_queue for everything?
+    [x] Setup a usable API for a game structure
     [x] Recreating swapchain should possibly recreate uniform buffers as the number of images could change.
 
 Game:

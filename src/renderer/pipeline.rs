@@ -4,15 +4,10 @@ use std::ptr;
 
 use ash::version::DeviceV1_0;
 use ash::vk;
-use ash::vk::{
-    ShaderStageFlags, VertexInputAttributeDescription,
-    VertexInputBindingDescription,
-};
-use cgmath::{Matrix, Matrix4};
+use ash::vk::{ShaderStageFlags, VertexInputAttributeDescription, VertexInputBindingDescription};
 
 use crate::engine::datatypes::{Vertex, ViewProjectionUniform};
 use crate::renderer::memory::MemoryManager;
-use std::mem::take;
 
 const SHADER_ENTRYPOINT: &str = "main";
 
@@ -37,14 +32,14 @@ pub(super) struct PipelineContainer {
     uniform_buffers: Vec<vk::Buffer>,
     uniform_memory: Vec<vk::DeviceMemory>,
 
-    push_constant_size: u32,
+    push_constant_size: u8,
 
     descriptor_pool: vk::DescriptorPool,
     descriptor_sets: Vec<vk::DescriptorSet>,
     descriptor_set_layout: vk::DescriptorSetLayout,
 
-    vertex_attribute_descriptions: [VertexInputAttributeDescription; 2],
-    vertex_binding_descriptions: [VertexInputBindingDescription; 1],
+    vertex_attribute_descriptions: Vec<VertexInputAttributeDescription>,
+    vertex_binding_descriptions: Vec<VertexInputBindingDescription>,
 }
 
 impl PipelineContainer {
@@ -238,9 +233,9 @@ impl PipelineContainer {
 
         let set_layouts = [self.descriptor_set_layout];
 
-        let  push_constant_ranges = [vk::PushConstantRange::builder()
+        let push_constant_ranges = [vk::PushConstantRange::builder()
             .stage_flags(ShaderStageFlags::VERTEX)
-            .size(self.push_constant_size)
+            .size(self.push_constant_size as u32)
             .offset(0)
             .build()];
 
@@ -311,11 +306,11 @@ impl PipelineContainer {
         self.is_built = true;
     }
 
-    pub unsafe fn bake_command_buffer<T: PushConstantData>(
+    pub unsafe fn bake_command_buffer(
         &self,
         logical_device: &ash::Device,
         command_buffer: vk::CommandBuffer,
-        draw_commands: &[PipelineDrawCommand<T>],
+        draw_commands: &[PipelineDrawCommand],
         image_index: usize,
     ) {
         logical_device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.vk_pipeline);
@@ -325,18 +320,12 @@ impl PipelineContainer {
             let offsets = [0_u64];
             let descriptor_sets_to_bind = [self.descriptor_sets[image_index]];
 
-            // let push_constant_data = std::slice::from_raw_parts(
-            //     draw_command.transform.as_ptr() as *const u8,
-            //     self.push_constant_size as usize,
-            // );
-
-            //println!("{}", self.push_constant_size);
             logical_device.cmd_push_constants(
                 command_buffer,
                 self.layout,
                 ShaderStageFlags::VERTEX,
                 0,
-                draw_command.push_constant.get_bytes(),
+                std::slice::from_raw_parts(draw_command.push_constant_ptr, self.push_constant_size as usize),
             );
 
             logical_device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, &offsets);
@@ -503,9 +492,8 @@ fn _create_descriptor_set_layout(device: &ash::Device) -> vk::DescriptorSetLayou
     }
 }
 
-
-impl <T: PushConstantData> PipelineJob<T> {
-    pub fn new(handle: PipelineHandle) -> PipelineJob<T> {
+impl PipelineJob {
+    pub fn new(handle: PipelineHandle) -> PipelineJob {
         PipelineJob {
             handle,
             draw_commands: Vec::new(),
@@ -513,44 +501,38 @@ impl <T: PushConstantData> PipelineJob<T> {
     }
 }
 
-pub trait PushConstantData {
-    fn get_bytes(&self) -> &[u8];
-}
-
-pub struct PipelineDrawCommand<T: PushConstantData> {
+pub struct PipelineDrawCommand {
     vertex_buffer: vk::Buffer,
     index_buffer: vk::Buffer,
     index_count: u32,
-    push_constant: T
+    push_constant_ptr: *const u8,
 }
 
-impl <T> PipelineDrawCommand<T>  where
-    T: PushConstantData {
+impl PipelineDrawCommand {
     pub fn new(
         vertex_buffer: vk::Buffer,
         index_buffer: vk::Buffer,
         index_count: u32,
-        push_constant: T,
-    ) -> PipelineDrawCommand<T> {
+        push_constant_ptr: *const u8,
+    ) -> PipelineDrawCommand {
         PipelineDrawCommand {
             vertex_buffer,
             index_buffer,
             index_count,
-            push_constant,
+            push_constant_ptr,
         }
     }
 }
 
-pub struct PipelineJob<T>
-where T: PushConstantData {
+pub struct PipelineJob {
     pub(crate) handle: PipelineHandle,
-    pub(crate) draw_commands: Vec<PipelineDrawCommand<T>>,
+    pub(crate) draw_commands: Vec<PipelineDrawCommand>,
 }
 
 pub struct PipelineConfiguration {
     vertex_shader_code: Vec<u8>,
     fragment_shader_code: Vec<u8>,
-    push_constant_size: u32,
+    push_constant_size: u8,
 }
 
 impl PipelineConfiguration {
@@ -566,7 +548,7 @@ impl PipelineConfiguration {
 pub struct PipelineConfigurationBuilder {
     vertex_shader_code: Option<Vec<u8>>,
     fragment_shader_code: Option<Vec<u8>>,
-    push_constant_size: Option<u32>,
+    push_constant_size: Option<u8>,
 }
 
 impl PipelineConfigurationBuilder {
@@ -582,7 +564,7 @@ impl PipelineConfigurationBuilder {
         self
     }
 
-    pub fn with_push_constant(&mut self, push_constant_size: u32) -> &mut PipelineConfigurationBuilder{
+    pub fn with_push_constant(&mut self, push_constant_size: u8) -> &mut PipelineConfigurationBuilder {
         self.push_constant_size = Some(push_constant_size);
 
         self
@@ -594,7 +576,6 @@ impl PipelineConfigurationBuilder {
         let fragment_shader_code = self.fragment_shader_code.borrow().as_ref().expect("error").clone();
 
         let push_constant_size = self.push_constant_size.unwrap_or(0);
-
 
         PipelineConfiguration {
             vertex_shader_code,

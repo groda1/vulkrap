@@ -3,7 +3,7 @@ use std::ptr;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::engine::datatypes::{ColoredVertex, Index, ViewProjectionUniform};
+use crate::engine::datatypes::{Index, Vertex, ViewProjectionUniform};
 use std::collections::HashMap;
 
 //  TODO: make it possible allocate a buffer on preexisting memory.
@@ -26,12 +26,12 @@ impl MemoryManager {
         *self.buffer_to_chunk_map.get(&buffer).expect("Unknown buffer memory!")
     }
 
-    pub fn create_vertex_buffer(
+    pub fn create_vertex_buffer<T: Vertex>(
         &mut self,
         device: &ash::Device,
         command_pool: vk::CommandPool,
         submit_queue: vk::Queue,
-        vertices: &[ColoredVertex],
+        vertices: &[T],
     ) -> vk::Buffer {
         let (buffer, device_memory) = create_device_local_buffer(
             device,

@@ -1,18 +1,17 @@
 use std::collections::HashSet;
-use std::ffi::{c_void, CString};
+use std::ffi::{CString, c_void};
 use std::ptr;
 
 use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
-use ash::vk::PhysicalDevice;
+use ash::vk::{DescriptorPoolCreateFlags, DescriptorType, PhysicalDevice};
 use winit::window::Window;
 
 use crate::engine::datatypes::{Index, Vertex, ViewProjectionUniform};
-use crate::engine::datatypes::ColoredVertex;
-use crate::ENGINE_NAME;
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::{PipelineConfiguration, PipelineContainer, PipelineHandle, PushConstantData, PipelineJob};
+use crate::renderer::pipeline::{PipelineConfiguration, PipelineContainer, PipelineHandle, PipelineJob};
 use crate::renderer::synchronization::SynchronizationHandler;
+use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
 
 use super::constants;
@@ -23,6 +22,8 @@ use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
+
+const MAXIMUM_PIPELINE_COUNT: u32 = 50;
 
 pub struct Context {
     _entry: ash::Entry,
@@ -123,7 +124,7 @@ impl Context {
 
         let image_count = swapchain_container.image_views.len();
         let memory_manager = MemoryManager::new(physical_device_memory_properties);
-        let descriptor_pool = _create_descriptor_pool(&logical_device, image_count);
+        let descriptor_pool = create_descriptor_pool(&logical_device);
         let command_buffers = create_command_buffers(&logical_device, command_pool, image_count);
         let sync_handler = SynchronizationHandler::new(&logical_device);
 
@@ -155,7 +156,7 @@ impl Context {
         }
     }
 
-    pub fn draw_frame<T>(&mut self, render_job: &[PipelineJob<T>]) where T:PushConstantData {
+    pub fn draw_frame(&mut self, render_job: &[PipelineJob]) {
         let (image_index, _is_sub_optimal) = unsafe {
             let result = self.swapchain_loader.acquire_next_image(
                 self.swapchain,
@@ -258,7 +259,7 @@ impl Context {
         self.sync_handler.step();
     }
 
-    pub fn allocate_vertex_buffer(&mut self, vertices: &[ColoredVertex]) -> vk::Buffer {
+    pub fn allocate_vertex_buffer<T: Vertex>(&mut self, vertices: &[T]) -> vk::Buffer {
         self.memory_manager
             .create_vertex_buffer(&self.logical_device, self.command_pool, self.graphics_queue, vertices)
     }
@@ -347,7 +348,7 @@ impl Context {
 
         let image_count = self.swapchain_imageviews.len();
 
-        self.descriptor_pool = _create_descriptor_pool(&self.logical_device, image_count);
+        self.descriptor_pool = create_descriptor_pool(&self.logical_device);
         self.render_pass = _create_render_pass(&self.logical_device, swapchain_container.format);
 
         self.swapchain_framebuffers = swapchain::create_framebuffers(
@@ -371,13 +372,13 @@ impl Context {
         }
     }
 
-    pub fn bake_command_buffer<T>(
+    pub fn bake_command_buffer(
         &self,
         command_buffer: vk::CommandBuffer,
         framebuffer: vk::Framebuffer,
         image_index: usize,
-        render_job: &[PipelineJob<T>],
-    ) -> bool  where T:PushConstantData{
+        render_job: &[PipelineJob],
+    ) -> bool {
         let command_buffer_begin_info = vk::CommandBufferBeginInfo {
             s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
             p_next: ptr::null(),
@@ -474,20 +475,16 @@ impl Drop for Context {
     }
 }
 
-fn _create_descriptor_pool(device: &ash::Device, swapchain_images_size: usize) -> vk::DescriptorPool {
-    let pool_sizes = [vk::DescriptorPoolSize {
-        ty: vk::DescriptorType::UNIFORM_BUFFER,
-        descriptor_count: swapchain_images_size as u32,
-    }];
+fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
+    let pool_sizes = [vk::DescriptorPoolSize::builder()
+        .ty(DescriptorType::UNIFORM_BUFFER)
+        .descriptor_count(MAXIMUM_PIPELINE_COUNT * 2u32)
+        .build()];
 
-    let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo {
-        s_type: vk::StructureType::DESCRIPTOR_POOL_CREATE_INFO,
-        p_next: ptr::null(),
-        flags: vk::DescriptorPoolCreateFlags::empty(),
-        max_sets: swapchain_images_size as u32,
-        pool_size_count: pool_sizes.len() as u32,
-        p_pool_sizes: pool_sizes.as_ptr(),
-    };
+    let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo::builder()
+        .flags(DescriptorPoolCreateFlags::empty())
+        .max_sets(MAXIMUM_PIPELINE_COUNT)
+        .pool_sizes(&pool_sizes);
 
     unsafe {
         device

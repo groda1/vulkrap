@@ -9,7 +9,7 @@ layout (push_constant) uniform pushConstants {
 layout(binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
-} mvp;
+} vp;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
@@ -30,7 +30,7 @@ void main() {
 
     vec3 wobbled_position = vec3(inPosition.x + wobble_x, inPosition.y + wobble_y, inPosition.z);
 
-    gl_Position = mvp.proj * mvp.view * model.transform * vec4(wobbled_position, 1.0);
+    gl_Position = vp.proj * vp.view * model.transform * vec4(wobbled_position, 1.0);
     fragColor = inColor;
     edgePosition = edge[gl_VertexIndex % 3];
 }
