@@ -10,7 +10,7 @@ pub const ENGINE_VERSION: u32 = make_version(
     crate::ENGINE_VERSION.1,
     crate::ENGINE_VERSION.2,
 );
-pub const DEVICE_EXTENSIONS: [&str; 1] = ["VK_KHR_swapchain"];
+pub const DEVICE_EXTENSIONS: [&str; 2] = ["VK_KHR_swapchain", "VK_KHR_maintenance1"];
 pub const USE_VSYNC: bool = false;
 
 #[cfg(debug_assertions)]

@@ -1,8 +1,6 @@
 use cgmath::{Deg, Quaternion, Rotation3};
 
-use crate::engine::datatypes::{
-    ModelColorPushConstant, ModelWoblyPushConstant,
-};
+use crate::engine::datatypes::{ModelColorPushConstant, ModelWoblyPushConstant};
 use crate::engine::entity::{FlatColorEntity, WobblyEntity};
 use crate::renderer::pipeline::{PipelineDrawCommand, PipelineHandle, PipelineJob};
 

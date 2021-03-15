@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::ffi::{CString, c_void};
+use std::ffi::{c_void, CString};
 use std::ptr;
 
 use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};

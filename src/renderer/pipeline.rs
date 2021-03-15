@@ -134,9 +134,9 @@ impl PipelineContainer {
 
         let viewports = [vk::Viewport {
             x: 0.0,
-            y: 0.0,
+            y: swapchain_extent.height as f32,
             width: swapchain_extent.width as f32,
-            height: swapchain_extent.height as f32,
+            height: -(swapchain_extent.height as f32),
             min_depth: 0.0,
             max_depth: 1.0,
         }];
@@ -156,21 +156,18 @@ impl PipelineContainer {
             p_viewports: viewports.as_ptr(),
         };
 
-        let rasterization_statue_create_info = vk::PipelineRasterizationStateCreateInfo {
-            s_type: vk::StructureType::PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-            p_next: ptr::null(),
-            flags: vk::PipelineRasterizationStateCreateFlags::empty(),
-            depth_clamp_enable: vk::FALSE,
-            cull_mode: vk::CullModeFlags::BACK,
-            front_face: vk::FrontFace::CLOCKWISE,
-            line_width: 1.0,
-            polygon_mode: vk::PolygonMode::FILL,
-            rasterizer_discard_enable: vk::FALSE,
-            depth_bias_clamp: 0.0,
-            depth_bias_constant_factor: 0.0,
-            depth_bias_enable: vk::FALSE,
-            depth_bias_slope_factor: 0.0,
-        };
+        let rasterization_statue_create_info = vk::PipelineRasterizationStateCreateInfo::builder()
+            .depth_clamp_enable(false)
+            .cull_mode(vk::CullModeFlags::BACK)
+            .front_face(vk::FrontFace::CLOCKWISE)
+            .polygon_mode(vk::PolygonMode::FILL)
+            .line_width(2.0)
+            .rasterizer_discard_enable(false)
+            .depth_bias_clamp(0.0)
+            .depth_bias_constant_factor(0.0)
+            .depth_bias_enable(false)
+            .depth_bias_slope_factor(0.0)
+            .build();
 
         let multisample_state_create_info = vk::PipelineMultisampleStateCreateInfo {
             s_type: vk::StructureType::PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
@@ -314,7 +311,6 @@ impl PipelineContainer {
         image_index: usize,
     ) {
         logical_device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.vk_pipeline);
-
         for draw_command in draw_commands {
             let vertex_buffers = [draw_command.vertex_buffer];
             let offsets = [0_u64];

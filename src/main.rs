@@ -1,8 +1,9 @@
 #[macro_use]
 extern crate lazy_static;
-
 #[macro_use]
 extern crate memoffset;
+#[macro_use]
+extern crate bitflags;
 
 #[macro_export]
 macro_rules! log_info {
@@ -48,6 +49,7 @@ fn main() {
 
     let event_loop = EventLoop::new();
     let window = window::winit::init_window(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, &event_loop);
+    window.set_cursor_visible(false);
 
     let vulkan_app = VulkrapApplication::new(&window);
     window::winit::main_loop(event_loop, window, vulkan_app);
