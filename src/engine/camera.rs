@@ -47,7 +47,7 @@ impl Camera {
         self.position += Quaternion::from_angle_y(Rad(self.yaw)) * Vector3::new(delta_time_s * MOVE_SPEED, 0.0, 0.0);
     }
 
-    pub fn debug_position(&self) {
+    pub fn _debug_position(&self) {
         log_debug!("pos {:?}", self.position)
     }
 

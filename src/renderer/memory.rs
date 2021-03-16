@@ -4,15 +4,17 @@ use ash::version::DeviceV1_0;
 use ash::vk;
 
 use crate::engine::datatypes::{Index, Vertex, ViewProjectionUniform};
+use ash::vk::PhysicalDeviceMemoryProperties;
 use std::collections::HashMap;
 
 //  TODO: make it possible allocate a buffer on preexisting memory.
 //  TODO: Maybe create an allocator that can handle the memory allocation completety separate from buffer allocation
 pub struct MemoryManager {
     physical_device_memory_properties: vk::PhysicalDeviceMemoryProperties,
-
     buffer_to_chunk_map: HashMap<vk::Buffer, vk::DeviceMemory>,
 }
+
+impl MemoryManager {}
 
 impl MemoryManager {
     pub fn new(physical_device_memory_properties: vk::PhysicalDeviceMemoryProperties) -> MemoryManager {
@@ -103,6 +105,10 @@ impl MemoryManager {
             logical_device.destroy_buffer(*buffer, None);
             logical_device.free_memory(*memory, None);
         }
+    }
+
+    pub fn physical_device_memory_properties(&self) -> &PhysicalDeviceMemoryProperties {
+        &self.physical_device_memory_properties
     }
 }
 

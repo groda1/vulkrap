@@ -1,9 +1,9 @@
-pub mod context;
-
 mod constants;
+pub mod context;
 mod debug;
+mod image;
 mod memory;
-pub(crate) mod pipeline;
+pub mod pipeline;
 mod platform;
 mod queue;
 mod surface;

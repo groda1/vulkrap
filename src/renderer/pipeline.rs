@@ -161,7 +161,7 @@ impl PipelineContainer {
             .cull_mode(vk::CullModeFlags::BACK)
             .front_face(vk::FrontFace::CLOCKWISE)
             .polygon_mode(vk::PolygonMode::FILL)
-            .line_width(2.0)
+            .line_width(1.0)
             .rasterizer_discard_enable(false)
             .depth_bias_clamp(0.0)
             .depth_bias_constant_factor(0.0)
@@ -195,8 +195,8 @@ impl PipelineContainer {
             s_type: vk::StructureType::PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
             p_next: ptr::null(),
             flags: vk::PipelineDepthStencilStateCreateFlags::empty(),
-            depth_test_enable: vk::FALSE,
-            depth_write_enable: vk::FALSE,
+            depth_test_enable: vk::TRUE,
+            depth_write_enable: vk::TRUE,
             depth_compare_op: vk::CompareOp::LESS_OR_EQUAL,
             depth_bounds_test_enable: vk::FALSE,
             stencil_test_enable: vk::FALSE,

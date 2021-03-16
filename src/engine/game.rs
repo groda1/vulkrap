@@ -120,7 +120,7 @@ impl VulkrapApplication {
             self.camera.move_right(delta_time_s);
         }
         if !self.movement.is_empty() {
-            self.camera.debug_position();
+            //self.camera._debug_position();
         }
     }
 

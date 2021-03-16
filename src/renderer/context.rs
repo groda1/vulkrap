@@ -3,8 +3,8 @@ use std::ffi::{c_void, CString};
 use std::ptr;
 
 use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
-use ash::vk;
 use ash::vk::{DescriptorPoolCreateFlags, DescriptorType, PhysicalDevice};
+use ash::vk;
 use winit::window::Window;
 
 use crate::engine::datatypes::{Index, Vertex, ViewProjectionUniform};
@@ -17,6 +17,7 @@ use crate::WINDOW_TITLE;
 use super::constants;
 use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
 use super::debug;
+use super::image;
 use super::platform;
 use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
@@ -45,6 +46,10 @@ pub struct Context {
     swapchain_extent: vk::Extent2D,
     swapchain_imageviews: Vec<vk::ImageView>,
     swapchain_framebuffers: Vec<vk::Framebuffer>,
+
+    depth_image: vk::Image,
+    depth_image_view: vk::ImageView,
+    depth_image_memory: vk::DeviceMemory,
 
     render_pass: vk::RenderPass,
 
@@ -111,13 +116,22 @@ impl Context {
             &queue_families,
         );
 
-        let render_pass = _create_render_pass(&logical_device, swapchain_container.format);
+        let render_pass = _create_render_pass(&logical_device, swapchain_container.format, &instance, physical_device);
 
         let pipelines = Vec::new();
+
+        let (depth_image, depth_image_view, depth_image_memory) = image::create_depth_resources(
+            &instance,
+            &logical_device,
+            physical_device,
+            swapchain_container.extent,
+            &physical_device_memory_properties,
+        );
 
         let swapchain_framebuffers = swapchain::create_framebuffers(
             &logical_device,
             &swapchain_container.image_views,
+            depth_image_view,
             swapchain_container.extent,
             render_pass,
         );
@@ -144,6 +158,9 @@ impl Context {
             swapchain_extent: swapchain_container.extent,
             swapchain_imageviews: swapchain_container.image_views,
             swapchain_framebuffers,
+            depth_image,
+            depth_image_view,
+            depth_image_memory,
             render_pass,
             pipelines,
             memory_manager,
@@ -298,6 +315,10 @@ impl Context {
 
     fn destroy_swapchain(&mut self) {
         unsafe {
+            self.logical_device.destroy_image_view(self.depth_image_view, None);
+            self.logical_device.destroy_image(self.depth_image, None);
+            self.logical_device.free_memory(self.depth_image_memory, None);
+
             self.logical_device
                 .free_command_buffers(self.command_pool, &self.command_buffers);
 
@@ -349,11 +370,28 @@ impl Context {
         let image_count = self.swapchain_imageviews.len();
 
         self.descriptor_pool = create_descriptor_pool(&self.logical_device);
-        self.render_pass = _create_render_pass(&self.logical_device, swapchain_container.format);
+        self.render_pass = _create_render_pass(
+            &self.logical_device,
+            swapchain_container.format,
+            &self.instance,
+            self.physical_device,
+        );
+
+        let (depth_image, depth_image_view, depth_image_memory) = image::create_depth_resources(
+            &self.instance,
+            &self.logical_device,
+            self.physical_device,
+            self.swapchain_extent,
+            &self.memory_manager.physical_device_memory_properties(),
+        );
+        self.depth_image = depth_image;
+        self.depth_image_view = depth_image_view;
+        self.depth_image_memory = depth_image_memory;
 
         self.swapchain_framebuffers = swapchain::create_framebuffers(
             &self.logical_device,
             &self.swapchain_imageviews,
+            self.depth_image_view,
             swapchain_container.extent,
             self.render_pass,
         );
@@ -385,11 +423,17 @@ impl Context {
             p_inheritance_info: ptr::null(),
             flags: vk::CommandBufferUsageFlags::SIMULTANEOUS_USE,
         };
-        let clear_values = [vk::ClearValue {
-            color: vk::ClearColorValue {
-                float32: [0.1, 0.1, 0.1, 1.0],
+        let clear_values = [
+            vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.1, 0.1, 0.1, 1.0],
+                },
             },
-        }];
+            vk::ClearValue {
+                // clear value for depth buffer
+                depth_stencil: vk::ClearDepthStencilValue { depth: 1.0, stencil: 0 },
+            },
+        ];
         let render_pass_begin_info = vk::RenderPassBeginInfo {
             s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
             p_next: ptr::null(),
@@ -508,7 +552,12 @@ fn _create_command_pool(device: &ash::Device, queue_families: &QueueFamilyIndice
     }
 }
 
-fn _create_render_pass(device: &ash::Device, surface_format: vk::Format) -> vk::RenderPass {
+fn _create_render_pass(
+    device: &ash::Device,
+    surface_format: vk::Format,
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+) -> vk::RenderPass {
     let color_attachment = vk::AttachmentDescription {
         flags: vk::AttachmentDescriptionFlags::empty(),
         format: surface_format,
@@ -521,9 +570,26 @@ fn _create_render_pass(device: &ash::Device, surface_format: vk::Format) -> vk::
         final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
     };
 
+    let depth_attachment = vk::AttachmentDescription {
+        flags: vk::AttachmentDescriptionFlags::empty(),
+        format: image::find_depth_format(instance, physical_device),
+        samples: vk::SampleCountFlags::TYPE_1,
+        load_op: vk::AttachmentLoadOp::CLEAR,
+        store_op: vk::AttachmentStoreOp::DONT_CARE,
+        stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
+        stencil_store_op: vk::AttachmentStoreOp::DONT_CARE,
+        initial_layout: vk::ImageLayout::UNDEFINED,
+        final_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
+
     let color_attachment_ref = vk::AttachmentReference {
         attachment: 0,
         layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+    };
+
+    let depth_attachment_ref = vk::AttachmentReference {
+        attachment: 1,
+        layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     };
 
     let subpass = vk::SubpassDescription {
@@ -534,20 +600,20 @@ fn _create_render_pass(device: &ash::Device, surface_format: vk::Format) -> vk::
         color_attachment_count: 1,
         p_color_attachments: &color_attachment_ref,
         p_resolve_attachments: ptr::null(),
-        p_depth_stencil_attachment: ptr::null(),
+        p_depth_stencil_attachment: &depth_attachment_ref,
         preserve_attachment_count: 0,
         p_preserve_attachments: ptr::null(),
     };
 
-    let render_pass_attachments = [color_attachment];
+    let render_pass_attachments = [color_attachment, depth_attachment];
 
     let subpass_dependencies = [vk::SubpassDependency {
         src_subpass: vk::SUBPASS_EXTERNAL,
         dst_subpass: 0,
-        src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-        dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+        src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+        dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
         src_access_mask: vk::AccessFlags::empty(),
-        dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+        dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
         dependency_flags: vk::DependencyFlags::empty(),
     }];
 
