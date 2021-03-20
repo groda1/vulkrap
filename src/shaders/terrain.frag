@@ -6,11 +6,8 @@ layout(location = 1) in vec3 edgePosition;
 
 layout(location = 0) out vec4 outColor;
 
-
 const float wire_width = 0.005;
 const vec3 wireColor = vec3(1.0, 1.0, 1.0);
-
-
 
 void main() {
     // Compute the shortest distance to the edge

@@ -31,8 +31,6 @@ void main() {
     float diffuse_factor = max(dot(inNormal, -light_dir), 0.0);
     vec3 diffuse = diffuse_factor * light_color;
 
-
-
     vec3 eyeVector = -normalize((vp.view * vec4(inPosition, 1.0)).xyz);
     vec3 reflectVectorWorld = normalize(reflect(light_dir, inNormal));
     vec3 reflectVector = vec3(vp.view * vec4(reflectVectorWorld, 0.0));
