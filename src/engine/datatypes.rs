@@ -4,8 +4,8 @@ use cgmath::{Matrix4, SquareMatrix, Vector3, Zero};
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
 pub struct ViewProjectionUniform {
-    pub(crate) view: Matrix4<f32>,
-    pub(crate) proj: Matrix4<f32>,
+    pub view: Matrix4<f32>,
+    pub proj: Matrix4<f32>,
 }
 
 pub type Index = u32;

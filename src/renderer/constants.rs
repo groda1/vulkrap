@@ -16,4 +16,4 @@ pub const USE_VSYNC: bool = false;
 #[cfg(debug_assertions)]
 pub const VALIDATION_LAYER_NAME: &str = "VK_LAYER_KHRONOS_validation";
 
-pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
+pub const MAX_FRAMES_IN_FLIGHT: usize = 3;

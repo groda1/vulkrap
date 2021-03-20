@@ -7,6 +7,20 @@ use crate::engine::datatypes::VertexNormal;
 use crate::engine::mesh::Mesh;
 use crate::renderer::context::Context;
 use crate::renderer::pipeline::PipelineDrawCommand;
+use std::f32::consts::PI;
+
+const QUAD_SIZE:f32 = 1.0;
+
+
+pub struct OctreeTerrainNode {
+    size : f32, // quad_width_count * (adjusted for LOD QUAD_SIZE)
+    center_point: Vector3<f32>,
+
+    mesh: Mesh,
+
+    // Order: 0 = SW, 1 = SE, 2 = NW, 3 = NE
+    children : Option<Box<[OctreeTerrainNode; 4]>>
+}
 
 pub struct Terrain {
     chunk: Mesh,
@@ -14,12 +28,16 @@ pub struct Terrain {
 
 impl Terrain {
     pub fn new(context: &mut Context) -> Self {
-        let raw_vertices = create_raw_vertices(64, 64, sin_terrain);
+
+        let quad_width = 256;
+        let quad_height = quad_width;
+
+        let raw_vertices = create_raw_vertices(quad_width, quad_height, sin_terrain);
         //for (i, vertex) in raw_vertices.iter().enumerate() {
         //    println!("raw vertex: {} {:?}", i, vertex);
         //}
 
-        let chunk_data = create_flat_normaled_chunk(64, 64, &raw_vertices);
+        let chunk_data = create_flat_normaled_chunk(quad_width, quad_height, &raw_vertices);
 
         let vertex_buffer = context.allocate_vertex_buffer(&chunk_data.vertices);
         let index_buffer = context.allocate_index_buffer(&chunk_data.indices);
@@ -41,13 +59,27 @@ impl Terrain {
     }
 }
 
-fn sin_terrain(x: f32, y: f32) -> f32 {
-    let x1 = (x * 1.5).sin() * 0.3;
-    let y1 = (y * 0.4).cos() * 1.0;
+fn sin_terrain(x: f32, y: f32, scale: u8) -> f32 {
+    let x_scaled = x * 64.0;
+    let y_scaled = y * 64.0;
 
-    let xy = (y + x * 0.3).sin() * 0.3;
+    let mut x1 = (x_scaled * 1.5).sin() * 0.3;
+    let mut y1 = (y_scaled * 0.4).cos() * 1.0;
 
-    x1 + y1 + xy
+    let mut xy = (y_scaled + x_scaled * 0.3).sin() * 0.3;
+
+    let mut bonus = 0.0;
+    if x > 0.45 && x< 0.55 && y> 0.45 && y < 0.55 {
+        bonus += 2.5;
+    }
+    if x > 0.48 && x< 0.52 && y> 0.48 && y < 0.52 {
+        bonus += 2.5;
+        x1 = 0.0;
+        y1 = 0.0;
+        xy = 0.0;
+    }
+
+    (x1 + y1 + xy + bonus) * scale as f32
 }
 
 struct ChunkData {
@@ -113,7 +145,7 @@ fn create_flat_normaled_chunk(
 fn create_raw_vertices(
     quad_count_width: usize,
     quad_count_height: usize,
-    height_function: fn(f32, f32) -> f32,
+    height_function: fn(f32, f32, u8) -> f32,
 ) -> Vec<Vector3<f32>> {
     let width = quad_count_width;
     let height = quad_count_height;
@@ -125,10 +157,13 @@ fn create_raw_vertices(
     // Vertices
     for i in 0..(height + 1) {
         for j in 0..(width + 1) {
-            let x_offset = j as f32 * 1.0;
-            let z_offset = i as f32 * -1.0;
+            let x_offset = j as f32 * QUAD_SIZE;
+            let z_offset = i as f32 * -QUAD_SIZE;
 
-            let y = height_function(x_offset, -z_offset);
+            let normalized_x_offset = j as f32 / quad_count_width as f32;
+            let normalized_y_offset = i as f32 / quad_count_height as f32;
+
+            let y = height_function(normalized_x_offset, normalized_y_offset, (quad_count_width / 64) as u8);
 
             vertices.push(Vector3::new(x_offset, y, z_offset));
         }

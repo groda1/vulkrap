@@ -33,7 +33,7 @@ void main() {
 
     vec3 eyeVector = -normalize((vp.view * vec4(inPosition, 1.0)).xyz);
     vec3 reflectVectorWorld = normalize(reflect(light_dir, inNormal));
-    vec3 reflectVector = vec3(vp.view * vec4(reflectVectorWorld, 0.0));
+    vec3 reflectVector = normalize(vec3(vp.view * vec4(reflectVectorWorld, 0.0)));
 
     float spec_factor = pow(max(dot(eyeVector, reflectVector), 0.0), 64);
     vec3 specular = 0.15 * spec_factor * light_color;

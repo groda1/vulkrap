@@ -1,10 +1,10 @@
 use cgmath::{dot, Matrix4, Quaternion, Rad, Rotation3, Vector3};
 
-const M_SENSITIVITY: f32 = 0.1;
+const M_SENSITIVITY: f32 = 0.08;
 const M_YAW: f32 = -0.01;
 const M_PITCH: f32 = -0.01;
 
-const MOVE_SPEED: f32 = 5.0;
+const MOVE_SPEED: f32 = 25.0;
 
 const YAW_LIMIT: f32 = std::f32::consts::PI * 2.0;
 const PITCH_LIMIT: f32 = (std::f32::consts::PI / 2.0) - 0.05;

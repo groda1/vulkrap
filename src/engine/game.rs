@@ -106,7 +106,7 @@ impl VulkrapApplication {
     fn update_uniform_data(&mut self, _delta_time_s: f32) {
         let data = ViewProjectionUniform {
             view: self.camera.get_view_matrix(),
-            proj: cgmath::perspective(Deg(60.0), self.context.get_aspect_ratio(), 0.1, 100.0),
+            proj: cgmath::perspective(Deg(60.0), self.context.get_aspect_ratio(), 0.1, 10000.0),
         };
 
         // TODO Should I use a global uniform for VP?
