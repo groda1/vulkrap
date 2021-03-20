@@ -4,10 +4,10 @@ const M_SENSITIVITY: f32 = 0.1;
 const M_YAW: f32 = -0.01;
 const M_PITCH: f32 = -0.01;
 
-const MOVE_SPEED: f32 = 2.5;
+const MOVE_SPEED: f32 = 5.0;
 
 const YAW_LIMIT: f32 = std::f32::consts::PI * 2.0;
-const PITCH_LIMIT: f32 = std::f32::consts::PI * 2.0;
+const PITCH_LIMIT: f32 = (std::f32::consts::PI / 2.0) - 0.05;
 
 pub struct Camera {
     position: Vector3<f32>,
@@ -20,7 +20,7 @@ pub struct Camera {
 impl Camera {
     pub fn new() -> Self {
         Camera {
-            position: Vector3::new(0.0, 0.0, 3.0),
+            position: Vector3::new(0.0, 10.0, 3.0),
             pitch: 0.0,
             yaw: 0.0,
             _flight_mode: true,
@@ -32,19 +32,31 @@ impl Camera {
     }
 
     pub fn move_forward(&mut self, delta_time_s: f32) {
-        self.position += Quaternion::from_angle_y(Rad(self.yaw)) * Vector3::new(0.0, 0.0, delta_time_s * -MOVE_SPEED);
+        self._move(Vector3::new(0.0, 0.0, -1.0), delta_time_s);
     }
 
     pub fn move_backward(&mut self, delta_time_s: f32) {
-        self.position += Quaternion::from_angle_y(Rad(self.yaw)) * Vector3::new(0.0, 0.0, delta_time_s * MOVE_SPEED);
+        self._move(Vector3::new(0.0, 0.0, 1.0), delta_time_s);
     }
 
     pub fn move_left(&mut self, delta_time_s: f32) {
-        self.position += Quaternion::from_angle_y(Rad(self.yaw)) * Vector3::new(delta_time_s * -MOVE_SPEED, 0.0, 0.0);
+        self._move(Vector3::new(-1.0, 0.0, 0.0), delta_time_s);
     }
 
     pub fn move_right(&mut self, delta_time_s: f32) {
-        self.position += Quaternion::from_angle_y(Rad(self.yaw)) * Vector3::new(delta_time_s * MOVE_SPEED, 0.0, 0.0);
+        self._move(Vector3::new(1.0, 0.0, 0.0), delta_time_s);
+    }
+
+    pub fn move_up(&mut self, delta_time_s: f32) {
+        self._move(Vector3::new(0.0, 1.0, 0.0), delta_time_s);
+    }
+
+    pub fn move_down(&mut self, delta_time_s: f32) {
+        self._move(Vector3::new(0.0, -1.0, 0.0), delta_time_s);
+    }
+
+    fn _move(&mut self, direction: Vector3<f32>, delta_time_s: f32) {
+        self.position += Quaternion::from_angle_y(Rad(self.yaw)) * (direction * MOVE_SPEED * delta_time_s);
     }
 
     pub fn _debug_position(&self) {
@@ -61,9 +73,9 @@ impl Camera {
 
         self.pitch += delta_pitch * M_PITCH * M_SENSITIVITY;
         if self.pitch > PITCH_LIMIT {
-            self.pitch -= PITCH_LIMIT;
+            self.pitch = PITCH_LIMIT;
         } else if self.pitch < -PITCH_LIMIT {
-            self.pitch += PITCH_LIMIT;
+            self.pitch = -PITCH_LIMIT;
         }
     }
 

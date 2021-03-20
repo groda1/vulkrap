@@ -2,30 +2,41 @@ use cgmath::{Deg, Quaternion, Rotation3};
 
 use crate::engine::datatypes::{ModelColorPushConstant, ModelWoblyPushConstant};
 use crate::engine::entity::{FlatColorEntity, WobblyEntity};
+use crate::engine::terrain::Terrain;
+use crate::renderer::context::Context;
 use crate::renderer::pipeline::{PipelineDrawCommand, PipelineHandle, PipelineJob};
 
 const WOBBLY_INDEX: usize = 0;
 const FLAT_COLOR_INDEX: usize = 1;
+const TERRAIN_INDEX: usize = 2;
 
 pub struct Scene {
     // TODO replace with entity content system ( specs? )
     wobbly_objects: Vec<WobblyEntity>,
     flat_objects: Vec<FlatColorEntity>,
-    // Static terrain system. Quadtree with static terrain +  entity links?
+
+    terrain: Terrain,
     render_job_buffer: Vec<PipelineJob>,
 }
 
 impl Scene {
-    pub fn new(static_objects_pipeline: PipelineHandle, flat_objects_pipeline: PipelineHandle) -> Scene {
+    pub fn new(
+        context: &mut Context,
+        static_objects_pipeline: PipelineHandle,
+        flat_objects_pipeline: PipelineHandle,
+        terrain_pipeline: PipelineHandle,
+    ) -> Scene {
         let mut render_job_buffer = Vec::new();
 
         render_job_buffer.push(PipelineJob::new(static_objects_pipeline));
         render_job_buffer.push(PipelineJob::new(flat_objects_pipeline));
+        render_job_buffer.push(PipelineJob::new(terrain_pipeline));
 
         Scene {
             wobbly_objects: Vec::new(),
             flat_objects: Vec::new(),
             render_job_buffer,
+            terrain: Terrain::new(context),
         }
     }
 
@@ -72,6 +83,9 @@ impl Scene {
                     &entity.push_constant_buf as *const ModelColorPushConstant as *const u8,
                 ));
         }
+
+        self.terrain
+            .set_draw_commands(&mut self.render_job_buffer[TERRAIN_INDEX].draw_commands);
 
         &self.render_job_buffer
     }

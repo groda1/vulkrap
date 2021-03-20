@@ -3,11 +3,11 @@ use std::ffi::{c_void, CString};
 use std::ptr;
 
 use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
-use ash::vk::{DescriptorPoolCreateFlags, DescriptorType, PhysicalDevice};
 use ash::vk;
+use ash::vk::{DescriptorPoolCreateFlags, DescriptorType, PhysicalDevice};
 use winit::window::Window;
 
-use crate::engine::datatypes::{Index, Vertex, ViewProjectionUniform};
+use crate::engine::datatypes::{Index, VertexInput, ViewProjectionUniform};
 use crate::renderer::memory::MemoryManager;
 use crate::renderer::pipeline::{PipelineConfiguration, PipelineContainer, PipelineHandle, PipelineJob};
 use crate::renderer::synchronization::SynchronizationHandler;
@@ -276,7 +276,7 @@ impl Context {
         self.sync_handler.step();
     }
 
-    pub fn allocate_vertex_buffer<T: Vertex>(&mut self, vertices: &[T]) -> vk::Buffer {
+    pub fn allocate_vertex_buffer<T: VertexInput>(&mut self, vertices: &[T]) -> vk::Buffer {
         self.memory_manager
             .create_vertex_buffer(&self.logical_device, self.command_pool, self.graphics_queue, vertices)
     }
@@ -286,7 +286,7 @@ impl Context {
             .create_index_buffer(&self.logical_device, self.command_pool, self.graphics_queue, indices)
     }
 
-    pub fn add_pipeline<T: Vertex>(&mut self, config: PipelineConfiguration) -> PipelineHandle {
+    pub fn add_pipeline<T: VertexInput>(&mut self, config: PipelineConfiguration) -> PipelineHandle {
         let mut pipeline_container = PipelineContainer::new::<T>(&self.logical_device, config);
         pipeline_container.build(
             &self.logical_device,

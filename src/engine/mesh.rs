@@ -1,16 +1,26 @@
 use std::collections::HashMap;
 
-use ash::vk;
 use cgmath::Vector3;
 
 use crate::engine::datatypes::{ColoredVertex, SimpleVertex};
 use crate::renderer::context::Context;
+use ash::vk::Buffer;
 
 #[derive(Clone, Debug, Copy)]
 pub struct Mesh {
-    pub vertex_buffer: vk::Buffer,
-    pub index_buffer: vk::Buffer,
+    pub vertex_buffer: Buffer,
+    pub index_buffer: Buffer,
     pub index_count: u32,
+}
+
+impl Mesh {
+    pub fn new(vertex_buffer: Buffer, index_buffer: Buffer, index_count: u32) -> Self {
+        Mesh {
+            vertex_buffer,
+            index_buffer,
+            index_count,
+        }
+    }
 }
 
 #[repr(u32)]

@@ -10,7 +10,7 @@ pub struct ViewProjectionUniform {
 
 pub type Index = u32;
 
-pub trait Vertex {
+pub trait VertexInput {
     fn get_binding_descriptions() -> Vec<vk::VertexInputBindingDescription>;
     fn get_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription>;
 }
@@ -28,7 +28,7 @@ impl ColoredVertex {
     }
 }
 
-impl Vertex for ColoredVertex {
+impl VertexInput for ColoredVertex {
     fn get_binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,
@@ -67,7 +67,7 @@ impl SimpleVertex {
     }
 }
 
-impl Vertex for SimpleVertex {
+impl VertexInput for SimpleVertex {
     fn get_binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,
@@ -83,6 +83,46 @@ impl Vertex for SimpleVertex {
             format: vk::Format::R32G32B32_SFLOAT,
             offset: offset_of!(Self, position) as u32,
         }]
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Debug, Copy)]
+pub struct VertexNormal {
+    pub position: Vector3<f32>,
+    pub normal: Vector3<f32>,
+}
+
+impl VertexNormal {
+    pub fn new(position: Vector3<f32>, normal: Vector3<f32>) -> Self {
+        VertexNormal { position, normal }
+    }
+}
+
+impl VertexInput for VertexNormal {
+    fn get_binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
+        vec![vk::VertexInputBindingDescription {
+            binding: 0,
+            stride: std::mem::size_of::<Self>() as u32,
+            input_rate: vk::VertexInputRate::VERTEX,
+        }]
+    }
+
+    fn get_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
+        vec![
+            vk::VertexInputAttributeDescription {
+                binding: 0,
+                location: 0,
+                format: vk::Format::R32G32B32_SFLOAT,
+                offset: offset_of!(Self, position) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                binding: 0,
+                location: 1,
+                format: vk::Format::R32G32B32_SFLOAT,
+                offset: offset_of!(Self, normal) as u32,
+            },
+        ]
     }
 }
 

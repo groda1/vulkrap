@@ -4,9 +4,9 @@ use std::ptr;
 
 use ash::version::DeviceV1_0;
 use ash::vk;
-use ash::vk::{ShaderStageFlags, VertexInputAttributeDescription, VertexInputBindingDescription};
+use ash::vk::{PrimitiveTopology, ShaderStageFlags, VertexInputAttributeDescription, VertexInputBindingDescription};
 
-use crate::engine::datatypes::{Vertex, ViewProjectionUniform};
+use crate::engine::datatypes::{VertexInput, ViewProjectionUniform};
 use crate::renderer::memory::MemoryManager;
 
 const SHADER_ENTRYPOINT: &str = "main";
@@ -33,6 +33,7 @@ pub(super) struct PipelineContainer {
     uniform_memory: Vec<vk::DeviceMemory>,
 
     push_constant_size: u8,
+    vertex_topology: vk::PrimitiveTopology,
 
     descriptor_pool: vk::DescriptorPool,
     descriptor_sets: Vec<vk::DescriptorSet>,
@@ -43,7 +44,10 @@ pub(super) struct PipelineContainer {
 }
 
 impl PipelineContainer {
-    pub(super) fn new<T: Vertex>(logical_device: &ash::Device, config: PipelineConfiguration) -> PipelineContainer {
+    pub(super) fn new<T: VertexInput>(
+        logical_device: &ash::Device,
+        config: PipelineConfiguration,
+    ) -> PipelineContainer {
         let vertex_shader = _create_shader_module(logical_device, &config.vertex_shader_code);
         let fragment_shader = _create_shader_module(logical_device, &config.fragment_shader_code);
 
@@ -51,6 +55,10 @@ impl PipelineContainer {
 
         let vertex_attribute_descriptions = T::get_attribute_descriptions();
         let vertex_binding_descriptions = T::get_binding_descriptions();
+        let vertex_topology = match config.vertex_topology {
+            VertexTopology::Triangle => vk::PrimitiveTopology::TRIANGLE_LIST,
+            VertexTopology::TriangeStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
+        };
 
         PipelineContainer {
             is_built: false,
@@ -70,6 +78,7 @@ impl PipelineContainer {
             vertex_binding_descriptions,
 
             push_constant_size: config.push_constant_size,
+            vertex_topology,
         }
     }
 
@@ -124,13 +133,11 @@ impl PipelineContainer {
             p_vertex_binding_descriptions: self.vertex_binding_descriptions.as_ptr(),
         };
 
-        let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
-            s_type: vk::StructureType::PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-            flags: vk::PipelineInputAssemblyStateCreateFlags::empty(),
-            p_next: ptr::null(),
-            primitive_restart_enable: vk::FALSE,
-            topology: vk::PrimitiveTopology::TRIANGLE_LIST,
-        };
+        let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo::builder()
+            .flags(vk::PipelineInputAssemblyStateCreateFlags::empty())
+            .topology(self.vertex_topology)
+            .primitive_restart_enable(self.vertex_topology == PrimitiveTopology::TRIANGLE_STRIP)
+            .build();
 
         let viewports = [vk::Viewport {
             x: 0.0,
@@ -229,22 +236,22 @@ impl PipelineContainer {
         };
 
         let set_layouts = [self.descriptor_set_layout];
+        let mut push_constant_ranges = Vec::with_capacity(2);
+        if self.push_constant_size > 0 {
+            push_constant_ranges.push(
+                vk::PushConstantRange::builder()
+                    .stage_flags(ShaderStageFlags::VERTEX)
+                    .size(self.push_constant_size as u32)
+                    .offset(0)
+                    .build(),
+            );
+        }
 
-        let push_constant_ranges = [vk::PushConstantRange::builder()
-            .stage_flags(ShaderStageFlags::VERTEX)
-            .size(self.push_constant_size as u32)
-            .offset(0)
-            .build()];
-
-        let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo {
-            s_type: vk::StructureType::PIPELINE_LAYOUT_CREATE_INFO,
-            p_next: ptr::null(),
-            flags: vk::PipelineLayoutCreateFlags::empty(),
-            set_layout_count: set_layouts.len() as u32,
-            p_set_layouts: set_layouts.as_ptr(),
-            push_constant_range_count: push_constant_ranges.len() as u32,
-            p_push_constant_ranges: push_constant_ranges.as_ptr(),
-        };
+        let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
+            .flags(vk::PipelineLayoutCreateFlags::empty())
+            .set_layouts(&set_layouts)
+            .push_constant_ranges(&push_constant_ranges)
+            .build();
 
         let pipeline_layout = unsafe {
             logical_device
@@ -316,13 +323,15 @@ impl PipelineContainer {
             let offsets = [0_u64];
             let descriptor_sets_to_bind = [self.descriptor_sets[image_index]];
 
-            logical_device.cmd_push_constants(
-                command_buffer,
-                self.layout,
-                ShaderStageFlags::VERTEX,
-                0,
-                std::slice::from_raw_parts(draw_command.push_constant_ptr, self.push_constant_size as usize),
-            );
+            if self.push_constant_size > 0 {
+                logical_device.cmd_push_constants(
+                    command_buffer,
+                    self.layout,
+                    ShaderStageFlags::VERTEX,
+                    0,
+                    std::slice::from_raw_parts(draw_command.push_constant_ptr, self.push_constant_size as usize),
+                );
+            }
 
             logical_device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, &offsets);
             logical_device.cmd_bind_index_buffer(command_buffer, draw_command.index_buffer, 0, vk::IndexType::UINT32);
@@ -520,6 +529,12 @@ impl PipelineDrawCommand {
     }
 }
 
+#[derive(Clone, Debug, Copy)]
+pub enum VertexTopology {
+    Triangle,
+    TriangeStrip,
+}
+
 pub struct PipelineJob {
     pub(crate) handle: PipelineHandle,
     pub(crate) draw_commands: Vec<PipelineDrawCommand>,
@@ -529,6 +544,7 @@ pub struct PipelineConfiguration {
     vertex_shader_code: Vec<u8>,
     fragment_shader_code: Vec<u8>,
     push_constant_size: u8,
+    vertex_topology: VertexTopology,
 }
 
 impl PipelineConfiguration {
@@ -537,6 +553,7 @@ impl PipelineConfiguration {
             vertex_shader_code: Option::None,
             fragment_shader_code: Option::None,
             push_constant_size: Option::None,
+            vertex_topology: Option::None,
         }
     }
 }
@@ -545,6 +562,7 @@ pub struct PipelineConfigurationBuilder {
     vertex_shader_code: Option<Vec<u8>>,
     fragment_shader_code: Option<Vec<u8>>,
     push_constant_size: Option<u8>,
+    vertex_topology: Option<VertexTopology>,
 }
 
 impl PipelineConfigurationBuilder {
@@ -566,17 +584,25 @@ impl PipelineConfigurationBuilder {
         self
     }
 
+    pub fn with_vertex_topology(&mut self, vertex_topology: VertexTopology) -> &mut PipelineConfigurationBuilder {
+        self.vertex_topology = Some(vertex_topology);
+
+        self
+    }
+
     pub fn build(&self) -> PipelineConfiguration {
         // TODO Load default shader if not present
         let vertex_shader_code = self.vertex_shader_code.borrow().as_ref().expect("error").clone();
         let fragment_shader_code = self.fragment_shader_code.borrow().as_ref().expect("error").clone();
 
         let push_constant_size = self.push_constant_size.unwrap_or(0);
+        let vertex_topology = self.vertex_topology.unwrap_or(VertexTopology::Triangle);
 
         PipelineConfiguration {
             vertex_shader_code,
             fragment_shader_code,
             push_constant_size,
+            vertex_topology,
         }
     }
 }
