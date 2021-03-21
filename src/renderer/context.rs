@@ -7,9 +7,10 @@ use ash::vk;
 use ash::vk::{DescriptorPoolCreateFlags, DescriptorType, PhysicalDevice};
 use winit::window::Window;
 
-use crate::engine::datatypes::{Index, VertexInput, ViewProjectionUniform};
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::{PipelineConfiguration, PipelineContainer, PipelineHandle, PipelineJob};
+use crate::renderer::pipeline::{
+    Index, PipelineConfiguration, PipelineContainer, PipelineJob, UniformData, VertexInput,
+};
 use crate::renderer::synchronization::SynchronizationHandler;
 use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
@@ -23,8 +24,12 @@ use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
+use crate::renderer::uniform::{Uniform, UniformStage};
 
 const MAXIMUM_PIPELINE_COUNT: u32 = 50;
+
+pub type PipelineHandle = usize;
+pub type UniformHandle = usize;
 
 pub struct Context {
     _entry: ash::Entry,
@@ -54,6 +59,8 @@ pub struct Context {
     render_pass: vk::RenderPass,
 
     pipelines: Vec<PipelineContainer>,
+
+    uniforms: Vec<Uniform>,
 
     memory_manager: MemoryManager,
     descriptor_pool: vk::DescriptorPool,
@@ -163,6 +170,7 @@ impl Context {
             depth_image_memory,
             render_pass,
             pipelines,
+            uniforms: Vec::new(),
             memory_manager,
             descriptor_pool,
             command_pool,
@@ -213,11 +221,9 @@ impl Context {
             image_index_usize,
             render_job,
         );
-        let command_buffers = [command_buffer];
 
-        for pipeline in self.pipelines.iter_mut() {
-            pipeline.update_uniform_buffer(&self.logical_device, image_index_usize);
-        }
+        self.update_uniforms(image_index_usize);
+        let command_buffers = [command_buffer];
 
         let wait_semaphores = [self.sync_handler.image_available_semaphore()];
         let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
@@ -286,25 +292,68 @@ impl Context {
             .create_index_buffer(&self.logical_device, self.command_pool, self.graphics_queue, indices)
     }
 
-    pub fn add_pipeline<T: VertexInput>(&mut self, config: PipelineConfiguration) -> PipelineHandle {
+    pub fn create_uniform<T: UniformData>(&mut self, stage: UniformStage) -> UniformHandle {
+        let handle = self.uniforms.len();
+
+        let mut uniform = Uniform::new(T::get_size(), stage);
+        uniform.build(
+            &self.logical_device,
+            &mut self.memory_manager,
+            self.swapchain_imageviews.len(),
+        );
+        self.uniforms.push(uniform);
+
+        handle
+    }
+
+    pub fn set_uniform_data<T: UniformData>(&mut self, handle: UniformHandle, data: T) {
+        self.uniforms[handle].set_data(data);
+    }
+
+    fn update_uniforms(&mut self, image_index: usize) {
+        for uniform in self.uniforms.iter_mut() {
+            uniform.update_device_memory(&self.logical_device, image_index);
+        }
+    }
+
+    pub fn add_pipeline<T: VertexInput>(&mut self, mut config: PipelineConfiguration) -> PipelineHandle {
+        let pipeline_handle = self.pipelines.len();
+
+        let mut vertex_uniform = Option::None;
+        let mut fragment_uniform = Option::None;
+
+        // Update config with correct uniform size
+
+        if config.has_vertex_uniform() {
+            vertex_uniform = Some(config.vertex_uniform_handle());
+            config.set_vertex_uniform_size(self.uniforms[vertex_uniform.unwrap()].size());
+            self.uniforms[vertex_uniform.unwrap()].assign_pipeline(pipeline_handle);
+        }
+        if config.has_fragment_uniform() {
+            fragment_uniform = Some(config.fragment_uniform_handle());
+            config.set_fragment_uniform_size(self.uniforms[fragment_uniform.unwrap()].size());
+            self.uniforms[fragment_uniform.unwrap()].assign_pipeline(pipeline_handle);
+        }
+
         let mut pipeline_container = PipelineContainer::new::<T>(&self.logical_device, config);
+
+        if let Some(i) = vertex_uniform {
+            pipeline_container.set_uniform_buffers(UniformStage::Vertex, self.uniforms[i].buffers());
+        };
+        if let Some(i) = fragment_uniform {
+            pipeline_container.set_uniform_buffers(UniformStage::Fragment, self.uniforms[i].buffers());
+        }
+
         pipeline_container.build(
             &self.logical_device,
             self.descriptor_pool,
             self.render_pass,
             self.swapchain_extent,
-            &mut self.memory_manager,
             self.swapchain_imageviews.len(),
         );
 
-        let handle = self.pipelines.len();
         self.pipelines.push(pipeline_container);
-
-        handle
-    }
-
-    pub fn update_pipeline_uniform_data(&mut self, handle: PipelineHandle, data: ViewProjectionUniform) {
-        self.pipelines[handle].set_uniform_data(data);
+        pipeline_handle
     }
 
     pub unsafe fn wait_idle(&self) {
@@ -330,9 +379,13 @@ impl Context {
 
             // Pipeline & render pass
             for pipeline_container in self.pipelines.iter_mut() {
-                pipeline_container.destroy_pipeline(&self.logical_device, &mut self.memory_manager);
+                pipeline_container.destroy_pipeline(&self.logical_device);
             }
             self.logical_device.destroy_render_pass(self.render_pass, None);
+
+            for uniform in self.uniforms.iter_mut() {
+                uniform.destroy(&self.logical_device, &mut self.memory_manager);
+            }
 
             // Swapchain
             for image_view in self.swapchain_imageviews.iter() {
@@ -398,13 +451,20 @@ impl Context {
 
         self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, image_count);
 
+        for uniform in self.uniforms.iter_mut() {
+            uniform.build(&self.logical_device, &mut self.memory_manager, image_count);
+
+            for pipeline_handle in uniform.assigned_pipelines().iter() {
+                self.pipelines[*pipeline_handle].set_uniform_buffers(uniform.stage(), uniform.buffers());
+            }
+        }
+
         for pipeline_container in self.pipelines.iter_mut() {
             pipeline_container.build(
                 &self.logical_device,
                 self.descriptor_pool,
                 self.render_pass,
                 swapchain_container.extent,
-                &mut self.memory_manager,
                 image_count,
             );
         }

@@ -12,8 +12,9 @@ use crate::engine::datatypes::{
 use crate::engine::entity::{FlatColorEntity, WobblyEntity};
 use crate::engine::mesh::{MeshManager, PredefinedMesh};
 use crate::engine::scene::Scene;
-use crate::renderer::context::Context;
-use crate::renderer::pipeline::{PipelineConfiguration, PipelineHandle, VertexTopology};
+use crate::renderer::context::{Context, UniformHandle};
+use crate::renderer::pipeline::{PipelineConfiguration, VertexTopology};
+use crate::renderer::uniform::UniformStage;
 use crate::util::file;
 
 pub struct VulkrapApplication {
@@ -23,9 +24,7 @@ pub struct VulkrapApplication {
 
     camera: Camera,
 
-    main_pipeline: PipelineHandle,
-    flat_color_pipeline: PipelineHandle,
-    terrain_pipeline: PipelineHandle,
+    vp_uniform: UniformHandle,
 
     movement: MovementFlags,
 
@@ -37,6 +36,8 @@ impl VulkrapApplication {
         let mut context = Context::new(window);
         let mesh_manager = MeshManager::new(&mut context);
 
+        let vp_uniform = context.create_uniform::<ViewProjectionUniform>(UniformStage::Vertex);
+
         let pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new(
                 "./resources/shaders/crazy_triangle_vert.spv",
@@ -45,13 +46,18 @@ impl VulkrapApplication {
                 "./resources/shaders/crazy_triangle_frag.spv",
             )))
             .with_push_constant(MODEL_WOBLY_PUSH_CONSTANT_SIZE)
+            .with_vertex_uniform(0, vp_uniform)
             .build();
+
+
         let main_pipeline = context.add_pipeline::<ColoredVertex>(pipeline_config);
+
 
         let pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/flat_color_vert.spv")))
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/flat_color_frag.spv")))
             .with_push_constant(MODEL_COLOR_PUSH_CONSTANT_SIZE)
+            .with_vertex_uniform(0, vp_uniform)
             .build();
         let flat_color_pipeline = context.add_pipeline::<SimpleVertex>(pipeline_config);
 
@@ -59,6 +65,7 @@ impl VulkrapApplication {
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/terrain_vert.spv")))
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/terrain_frag.spv")))
             .with_vertex_topology(VertexTopology::TriangeStrip)
+            .with_vertex_uniform(0, vp_uniform)
             .build();
         let terrain_pipeline = context.add_pipeline::<VertexNormal>(pipeline_config);
 
@@ -69,13 +76,12 @@ impl VulkrapApplication {
             mesh_manager,
             scene,
             camera: Camera::new(),
-            main_pipeline,
-            flat_color_pipeline,
-            terrain_pipeline,
+            vp_uniform,
             elapsed_time_s: 0.0,
             movement: MovementFlags::ZERO,
         };
         app.create_entities();
+
 
         app
     }
@@ -86,7 +92,6 @@ impl VulkrapApplication {
         self.update_camera(delta_time_s);
 
         self.scene.update(delta_time_s);
-        // TODO MOVE TO scene.update
         self.update_uniform_data(delta_time_s);
 
         let render_job = self.scene.get_render_job();
@@ -108,12 +113,7 @@ impl VulkrapApplication {
             view: self.camera.get_view_matrix(),
             proj: cgmath::perspective(Deg(60.0), self.context.get_aspect_ratio(), 0.1, 10000.0),
         };
-
-        // TODO Should I use a global uniform for VP?
-        self.context.update_pipeline_uniform_data(self.main_pipeline, data);
-        self.context
-            .update_pipeline_uniform_data(self.flat_color_pipeline, data);
-        self.context.update_pipeline_uniform_data(self.terrain_pipeline, data);
+        self.context.set_uniform_data(self.vp_uniform, data);
     }
 
     fn update_camera(&mut self, delta_time_s: f32) {

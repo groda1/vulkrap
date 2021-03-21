@@ -6,12 +6,10 @@ use ash::version::DeviceV1_0;
 use ash::vk;
 use ash::vk::{PrimitiveTopology, ShaderStageFlags, VertexInputAttributeDescription, VertexInputBindingDescription};
 
-use crate::engine::datatypes::{VertexInput, ViewProjectionUniform};
-use crate::renderer::memory::MemoryManager;
+use crate::renderer::context::{PipelineHandle, UniformHandle};
+use crate::renderer::uniform::UniformStage;
 
 const SHADER_ENTRYPOINT: &str = "main";
-
-pub type PipelineHandle = usize;
 
 pub(super) struct PipelineContainer {
     // Configuration
@@ -27,10 +25,17 @@ pub(super) struct PipelineContainer {
     fragment_shader: vk::ShaderModule,
 
     // Shader data
-    uniform_data: Option<ViewProjectionUniform>,
-    dirty_uniform: Vec<bool>,
-    uniform_buffers: Vec<vk::Buffer>,
-    uniform_memory: Vec<vk::DeviceMemory>,
+
+    // OLD SHIT
+    //   uniform_data: Vec<u8>,
+    //  dirty_uniform: Vec<bool>,
+    //  uniform_buffers: Vec<vk::Buffer>,
+    //  uniform_memory: Vec<vk::DeviceMemory>,
+    // OLD SHIT
+    vertex_uniform_cfg: Option<UniformConfiguration>,
+    fragment_uniform_cfg: Option<UniformConfiguration>,
+    vertex_uniform_buffers: Vec<vk::Buffer>,
+    fragment_uniform_buffers: Vec<vk::Buffer>,
 
     push_constant_size: u8,
     vertex_topology: vk::PrimitiveTopology,
@@ -48,10 +53,14 @@ impl PipelineContainer {
         logical_device: &ash::Device,
         config: PipelineConfiguration,
     ) -> PipelineContainer {
-        let vertex_shader = _create_shader_module(logical_device, &config.vertex_shader_code);
-        let fragment_shader = _create_shader_module(logical_device, &config.fragment_shader_code);
+        let vertex_shader = create_shader_module(logical_device, &config.vertex_shader_code);
+        let fragment_shader = create_shader_module(logical_device, &config.fragment_shader_code);
 
-        let descriptor_set_layout = _create_descriptor_set_layout(logical_device);
+        let descriptor_set_layout = create_descriptor_set_layout(
+            logical_device,
+            config.vertex_uniform_cfg.as_ref(),
+            config.fragment_uniform_cfg.as_ref(),
+        );
 
         let vertex_attribute_descriptions = T::get_attribute_descriptions();
         let vertex_binding_descriptions = T::get_binding_descriptions();
@@ -67,18 +76,18 @@ impl PipelineContainer {
             render_pass: vk::RenderPass::null(),
             vertex_shader,
             fragment_shader,
-            uniform_data: Option::None,
-            dirty_uniform: Vec::with_capacity(0),
-            uniform_buffers: Vec::with_capacity(0),
-            uniform_memory: Vec::with_capacity(0),
-            descriptor_sets: Vec::with_capacity(0),
-            descriptor_set_layout,
-            descriptor_pool: vk::DescriptorPool::null(),
-            vertex_attribute_descriptions,
-            vertex_binding_descriptions,
-
+            vertex_uniform_cfg: config.vertex_uniform_cfg,
+            fragment_uniform_cfg: config.fragment_uniform_cfg,
+            vertex_uniform_buffers: Vec::new(),
+            fragment_uniform_buffers: Vec::new(),
             push_constant_size: config.push_constant_size,
             vertex_topology,
+            descriptor_pool: vk::DescriptorPool::null(),
+            descriptor_sets: Vec::with_capacity(0),
+            descriptor_set_layout,
+
+            vertex_attribute_descriptions,
+            vertex_binding_descriptions,
         }
     }
 
@@ -88,7 +97,6 @@ impl PipelineContainer {
         descriptor_pool: vk::DescriptorPool,
         render_pass: vk::RenderPass,
         swapchain_extent: vk::Extent2D,
-        memory_manager: &mut MemoryManager,
         image_count: usize,
     ) {
         if self.is_built {
@@ -281,6 +289,8 @@ impl PipelineContainer {
             base_pipeline_index: -1,
         }];
 
+
+
         let graphics_pipelines = unsafe {
             logical_device
                 .create_graphics_pipelines(vk::PipelineCache::null(), &graphic_pipeline_create_infos, None)
@@ -290,22 +300,8 @@ impl PipelineContainer {
         self.vk_pipeline = graphics_pipelines[0];
         self.layout = pipeline_layout;
 
-        self.dirty_uniform = vec![false; image_count];
-        self.uniform_buffers = memory_manager.create_uniform_buffers(logical_device, image_count);
-        self.uniform_memory = self
-            .uniform_buffers
-            .iter()
-            .map(|buf| memory_manager.get_device_memory(*buf))
-            .collect();
-        assert_eq!(self.uniform_buffers.len(), self.uniform_memory.len());
 
-        self.descriptor_sets = _create_descriptor_sets(
-            logical_device,
-            self.descriptor_pool,
-            self.descriptor_set_layout,
-            &self.uniform_buffers,
-            image_count,
-        );
+        self.descriptor_sets = self.create_descriptor_sets(logical_device, image_count);
 
         self.is_built = true;
     }
@@ -349,42 +345,101 @@ impl PipelineContainer {
         }
     }
 
-    pub fn set_uniform_data(&mut self, data: ViewProjectionUniform) {
-        self.uniform_data = Some(data);
-        for i in 0..self.dirty_uniform.len() {
-            self.dirty_uniform[i] = true;
+    pub(super) fn set_uniform_buffers(&mut self, stage: UniformStage, buffers: &[vk::Buffer]) {
+        match stage {
+            UniformStage::Vertex => {
+                self.vertex_uniform_buffers.clear();
+                for buf in buffers {
+                    self.vertex_uniform_buffers.push(*buf);
+                }
+            }
+            UniformStage::Fragment => {
+                self.fragment_uniform_buffers.clear();
+                for buf in buffers {
+                    self.fragment_uniform_buffers.push(*buf);
+                }
+            }
         }
     }
 
-    pub fn update_uniform_buffer(&mut self, logical_device: &ash::Device, image_index: usize) {
-        if self.dirty_uniform[image_index] {
-            let data = [self.uniform_data.expect("Unset uniform data")];
-            let buffer_size = (std::mem::size_of::<ViewProjectionUniform>()) as u64;
+    fn create_descriptor_sets(&mut self, device: &ash::Device, swapchain_images_size: usize) -> Vec<vk::DescriptorSet> {
+        let mut layouts: Vec<vk::DescriptorSetLayout> = vec![];
+        for _ in 0..swapchain_images_size {
+            layouts.push(self.descriptor_set_layout);
+        }
+        let descriptor_set_allocate_info = vk::DescriptorSetAllocateInfo {
+            s_type: vk::StructureType::DESCRIPTOR_SET_ALLOCATE_INFO,
+            p_next: ptr::null(),
+            descriptor_pool: self.descriptor_pool,
+            descriptor_set_count: swapchain_images_size as u32,
+            p_set_layouts: layouts.as_ptr(),
+        };
 
-            let memory = self.uniform_memory[image_index];
-            unsafe {
-                let data_ptr = logical_device
-                    .map_memory(memory, 0, buffer_size, vk::MemoryMapFlags::empty())
-                    .expect("Failed to Map Memory") as *mut ViewProjectionUniform;
+        let descriptor_sets = unsafe {
+            device
+                .allocate_descriptor_sets(&descriptor_set_allocate_info)
+                .expect("Failed to allocate descriptor sets!")
+        };
 
-                data_ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
+        for (i, &descriptor_set) in descriptor_sets.iter().enumerate() {
+            let mut descriptor_write_sets = Vec::with_capacity(2);
 
-                logical_device.unmap_memory(memory);
+            let mut vertex_descriptor_buffer_infos = Vec::new();
+            let mut fragment_descriptor_buffer_infos = Vec::new();
+
+            if self.vertex_uniform_cfg.is_some() {
+                vertex_descriptor_buffer_infos.push(vk::DescriptorBufferInfo {
+                    buffer: self.vertex_uniform_buffers[i],
+                    offset: 0,
+                    range: self.vertex_uniform_cfg.as_ref().unwrap().size as u64,
+                });
+
+                descriptor_write_sets.push(vk::WriteDescriptorSet {
+                    s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
+                    p_next: ptr::null(),
+                    dst_set: descriptor_set,
+                    dst_binding: self.vertex_uniform_cfg.as_ref().unwrap().binding as u32,
+                    dst_array_element: 0,
+                    descriptor_count: 1,
+                    descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                    p_image_info: ptr::null(),
+                    p_buffer_info: vertex_descriptor_buffer_infos.as_ptr(),
+                    p_texel_buffer_view: ptr::null(),
+                });
             }
 
-            self.dirty_uniform[image_index] = false;
+            if self.fragment_uniform_cfg.is_some() {
+                fragment_descriptor_buffer_infos.push(vk::DescriptorBufferInfo {
+                    buffer: self.fragment_uniform_buffers[i],
+                    offset: 0,
+                    range: self.fragment_uniform_cfg.as_ref().unwrap().size as u64,
+                });
+
+                descriptor_write_sets.push(vk::WriteDescriptorSet {
+                    s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
+                    p_next: ptr::null(),
+                    dst_set: descriptor_set,
+                    dst_binding: self.fragment_uniform_cfg.as_ref().unwrap().binding as u32,
+                    dst_array_element: 0,
+                    descriptor_count: 1,
+                    descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                    p_image_info: ptr::null(),
+                    p_buffer_info: fragment_descriptor_buffer_infos.as_ptr(),
+                    p_texel_buffer_view: ptr::null(),
+                });
+            }
+
+            unsafe {
+                device.update_descriptor_sets(&descriptor_write_sets, &[]);
+            }
         }
+
+        descriptor_sets
     }
 
-    pub unsafe fn destroy_pipeline(&mut self, logical_device: &ash::Device, memory_manager: &mut MemoryManager) {
+    pub unsafe fn destroy_pipeline(&mut self, logical_device: &ash::Device) {
         logical_device.destroy_pipeline(self.vk_pipeline, None);
         logical_device.destroy_pipeline_layout(self.layout, None);
-
-        self.uniform_memory.clear();
-        for buffer in self.uniform_buffers.iter() {
-            memory_manager.destroy_buffer(logical_device, *buffer);
-        }
-        self.uniform_buffers.clear();
 
         self.descriptor_sets.clear();
 
@@ -403,7 +458,7 @@ impl PipelineContainer {
     }
 }
 
-fn _create_shader_module(device: &ash::Device, code: &[u8]) -> vk::ShaderModule {
+fn create_shader_module(device: &ash::Device, code: &[u8]) -> vk::ShaderModule {
     let shader_module_create_info = vk::ShaderModuleCreateInfo {
         s_type: vk::StructureType::SHADER_MODULE_CREATE_INFO,
         p_next: ptr::null(),
@@ -419,76 +474,36 @@ fn _create_shader_module(device: &ash::Device, code: &[u8]) -> vk::ShaderModule 
     }
 }
 
-fn _create_descriptor_sets(
+fn create_descriptor_set_layout(
     device: &ash::Device,
-    descriptor_pool: vk::DescriptorPool,
-    descriptor_set_layout: vk::DescriptorSetLayout,
-    uniforms_buffers: &[vk::Buffer],
-    swapchain_images_size: usize,
-) -> Vec<vk::DescriptorSet> {
-    let mut layouts: Vec<vk::DescriptorSetLayout> = vec![];
-    for _ in 0..swapchain_images_size {
-        layouts.push(descriptor_set_layout);
-    }
+    vertex_uniform_cfg: Option<&UniformConfiguration>,
+    fragment_uniform_cfg: Option<&UniformConfiguration>,
+) -> vk::DescriptorSetLayout {
+    let mut layout_bindings = Vec::with_capacity(2);
 
-    let descriptor_set_allocate_info = vk::DescriptorSetAllocateInfo {
-        s_type: vk::StructureType::DESCRIPTOR_SET_ALLOCATE_INFO,
-        p_next: ptr::null(),
-        descriptor_pool,
-        descriptor_set_count: swapchain_images_size as u32,
-        p_set_layouts: layouts.as_ptr(),
-    };
-
-    let descriptor_sets = unsafe {
-        device
-            .allocate_descriptor_sets(&descriptor_set_allocate_info)
-            .expect("Failed to allocate descriptor sets!")
-    };
-
-    for (i, &descriptor_set) in descriptor_sets.iter().enumerate() {
-        let descriptor_buffer_info = [vk::DescriptorBufferInfo {
-            buffer: uniforms_buffers[i],
-            offset: 0,
-            range: std::mem::size_of::<ViewProjectionUniform>() as u64,
-        }];
-
-        let descriptor_write_sets = [vk::WriteDescriptorSet {
-            s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
-            p_next: ptr::null(),
-            dst_set: descriptor_set,
-            dst_binding: 0,
-            dst_array_element: 0,
-            descriptor_count: 1,
+    if let Some(uniform_cfg) = vertex_uniform_cfg {
+        layout_bindings.push(vk::DescriptorSetLayoutBinding {
+            binding: uniform_cfg.binding as u32,
             descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-            p_image_info: ptr::null(),
-            p_buffer_info: descriptor_buffer_info.as_ptr(),
-            p_texel_buffer_view: ptr::null(),
-        }];
-
-        unsafe {
-            device.update_descriptor_sets(&descriptor_write_sets, &[]);
-        }
+            descriptor_count: 1,
+            stage_flags: vk::ShaderStageFlags::VERTEX,
+            p_immutable_samplers: ptr::null(),
+        });
+    }
+    if let Some(uniform_cfg) = fragment_uniform_cfg {
+        layout_bindings.push(vk::DescriptorSetLayoutBinding {
+            binding: uniform_cfg.binding as u32,
+            descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+            descriptor_count: 1,
+            stage_flags: vk::ShaderStageFlags::FRAGMENT,
+            p_immutable_samplers: ptr::null(),
+        });
     }
 
-    descriptor_sets
-}
-
-fn _create_descriptor_set_layout(device: &ash::Device) -> vk::DescriptorSetLayout {
-    let layout_bindings = [vk::DescriptorSetLayoutBinding {
-        binding: 0,
-        descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-        descriptor_count: 1,
-        stage_flags: vk::ShaderStageFlags::VERTEX,
-        p_immutable_samplers: ptr::null(),
-    }];
-
-    let ubo_layout_create_info = vk::DescriptorSetLayoutCreateInfo {
-        s_type: vk::StructureType::DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        p_next: ptr::null(),
-        flags: vk::DescriptorSetLayoutCreateFlags::empty(),
-        binding_count: layout_bindings.len() as u32,
-        p_bindings: layout_bindings.as_ptr(),
-    };
+    let ubo_layout_create_info = vk::DescriptorSetLayoutCreateInfo::builder()
+        .flags(vk::DescriptorSetLayoutCreateFlags::empty())
+        .bindings(&layout_bindings)
+        .build();
 
     unsafe {
         device
@@ -545,6 +560,8 @@ pub struct PipelineConfiguration {
     fragment_shader_code: Vec<u8>,
     push_constant_size: u8,
     vertex_topology: VertexTopology,
+    vertex_uniform_cfg: Option<UniformConfiguration>,
+    fragment_uniform_cfg: Option<UniformConfiguration>,
 }
 
 impl PipelineConfiguration {
@@ -554,7 +571,44 @@ impl PipelineConfiguration {
             fragment_shader_code: Option::None,
             push_constant_size: Option::None,
             vertex_topology: Option::None,
+            vertex_uniform_cfg: Option::None,
+            fragment_uniform_cfg: Option::None,
         }
+    }
+
+    pub fn set_vertex_uniform_size(&mut self, size: usize) {
+        if self.vertex_uniform_cfg.is_none() {
+            panic!("Unset vertex uniform cfg");
+        }
+        self.vertex_uniform_cfg.as_mut().unwrap().set_size(size);
+    }
+
+    pub fn set_fragment_uniform_size(&mut self, size: usize) {
+        if self.fragment_uniform_cfg.is_none() {
+            panic!("Unset fragment uniform cfg");
+        }
+        self.fragment_uniform_cfg.as_mut().unwrap().set_size(size);
+    }
+
+    pub fn vertex_uniform_handle(&self) -> UniformHandle {
+        if self.vertex_uniform_cfg.is_none() {
+            panic!("Unset vertex uniform cfg");
+        }
+        self.vertex_uniform_cfg.as_ref().unwrap().uniform_handle
+    }
+
+    pub fn fragment_uniform_handle(&self) -> UniformHandle {
+        if self.fragment_uniform_cfg.is_none() {
+            panic!("Unset fragment uniform cfg");
+        }
+        self.fragment_uniform_cfg.as_ref().unwrap().uniform_handle
+    }
+
+    pub fn has_vertex_uniform(&self) -> bool {
+        self.vertex_uniform_cfg.is_some()
+    }
+    pub fn has_fragment_uniform(&self) -> bool {
+        self.fragment_uniform_cfg.is_some()
     }
 }
 
@@ -563,29 +617,43 @@ pub struct PipelineConfigurationBuilder {
     fragment_shader_code: Option<Vec<u8>>,
     push_constant_size: Option<u8>,
     vertex_topology: Option<VertexTopology>,
+    vertex_uniform_cfg: Option<UniformConfiguration>,
+    fragment_uniform_cfg: Option<UniformConfiguration>,
 }
 
 impl PipelineConfigurationBuilder {
-    pub fn with_fragment_shader(&mut self, code: Vec<u8>) -> &mut PipelineConfigurationBuilder {
+    pub fn with_fragment_shader(&mut self, code: Vec<u8>) -> &mut Self {
         self.fragment_shader_code = Some(code);
 
         self
     }
 
-    pub fn with_vertex_shader(&mut self, code: Vec<u8>) -> &mut PipelineConfigurationBuilder {
+    pub fn with_vertex_shader(&mut self, code: Vec<u8>) -> &mut Self {
         self.vertex_shader_code = Some(code);
 
         self
     }
 
-    pub fn with_push_constant(&mut self, push_constant_size: u8) -> &mut PipelineConfigurationBuilder {
+    pub fn with_push_constant(&mut self, push_constant_size: u8) -> &mut Self {
         self.push_constant_size = Some(push_constant_size);
 
         self
     }
 
-    pub fn with_vertex_topology(&mut self, vertex_topology: VertexTopology) -> &mut PipelineConfigurationBuilder {
+    pub fn with_vertex_topology(&mut self, vertex_topology: VertexTopology) -> &mut Self {
         self.vertex_topology = Some(vertex_topology);
+
+        self
+    }
+
+    pub fn with_vertex_uniform(&mut self, binding: u8, uniform_handle: UniformHandle) -> &mut Self {
+        self.vertex_uniform_cfg = Some(UniformConfiguration::new(binding, uniform_handle));
+
+        self
+    }
+
+    pub fn with_fragment_uniform(&mut self, binding: u8, uniform_handle: UniformHandle) -> &mut Self {
+        self.fragment_uniform_cfg = Some(UniformConfiguration::new(binding, uniform_handle));
 
         self
     }
@@ -603,6 +671,40 @@ impl PipelineConfigurationBuilder {
             fragment_shader_code,
             push_constant_size,
             vertex_topology,
+            vertex_uniform_cfg: self.vertex_uniform_cfg,
+            fragment_uniform_cfg: self.fragment_uniform_cfg,
         }
     }
 }
+
+#[derive(Clone, Debug, Copy)]
+struct UniformConfiguration {
+    binding: u8,
+    uniform_handle: UniformHandle,
+    size: usize,
+}
+
+impl UniformConfiguration {
+    pub fn new(binding: u8, uniform_handle: UniformHandle) -> Self {
+        UniformConfiguration {
+            binding,
+            uniform_handle,
+            size: 0,
+        }
+    }
+
+    pub fn set_size(&mut self, size: usize) {
+        self.size = size;
+    }
+}
+
+pub trait VertexInput {
+    fn get_binding_descriptions() -> Vec<vk::VertexInputBindingDescription>;
+    fn get_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription>;
+}
+
+pub trait UniformData {
+    fn get_size() -> usize;
+}
+
+pub type Index = u32;

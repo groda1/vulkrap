@@ -7,19 +7,17 @@ use crate::engine::datatypes::VertexNormal;
 use crate::engine::mesh::Mesh;
 use crate::renderer::context::Context;
 use crate::renderer::pipeline::PipelineDrawCommand;
-use std::f32::consts::PI;
 
-const QUAD_SIZE:f32 = 1.0;
+const QUAD_SIZE: f32 = 1.0;
 
-
-pub struct OctreeTerrainNode {
-    size : f32, // quad_width_count * (adjusted for LOD QUAD_SIZE)
+pub struct _OctreeTerrainNode {
+    size: f32, // quad_width_count * (adjusted for LOD QUAD_SIZE)
     center_point: Vector3<f32>,
 
     mesh: Mesh,
 
     // Order: 0 = SW, 1 = SE, 2 = NW, 3 = NE
-    children : Option<Box<[OctreeTerrainNode; 4]>>
+    children: Option<Box<[_OctreeTerrainNode; 4]>>,
 }
 
 pub struct Terrain {
@@ -28,15 +26,17 @@ pub struct Terrain {
 
 impl Terrain {
     pub fn new(context: &mut Context) -> Self {
-
         let quad_width = 256;
         let quad_height = quad_width;
+
+        assert_eq!(quad_width % 64, 0);
 
         let raw_vertices = create_raw_vertices(quad_width, quad_height, sin_terrain);
         //for (i, vertex) in raw_vertices.iter().enumerate() {
         //    println!("raw vertex: {} {:?}", i, vertex);
         //}
 
+        //
         let chunk_data = create_flat_normaled_chunk(quad_width, quad_height, &raw_vertices);
 
         let vertex_buffer = context.allocate_vertex_buffer(&chunk_data.vertices);
@@ -69,10 +69,10 @@ fn sin_terrain(x: f32, y: f32, scale: u8) -> f32 {
     let mut xy = (y_scaled + x_scaled * 0.3).sin() * 0.3;
 
     let mut bonus = 0.0;
-    if x > 0.45 && x< 0.55 && y> 0.45 && y < 0.55 {
+    if x > 0.45 && x < 0.55 && y > 0.45 && y < 0.55 {
         bonus += 2.5;
     }
-    if x > 0.48 && x< 0.52 && y> 0.48 && y < 0.52 {
+    if x > 0.48 && x < 0.52 && y > 0.48 && y < 0.52 {
         bonus += 2.5;
         x1 = 0.0;
         y1 = 0.0;

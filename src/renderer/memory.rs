@@ -3,7 +3,7 @@ use std::ptr;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::engine::datatypes::{Index, VertexInput, ViewProjectionUniform};
+use crate::renderer::pipeline::{Index, VertexInput};
 use ash::vk::PhysicalDeviceMemoryProperties;
 use std::collections::HashMap;
 
@@ -70,11 +70,13 @@ impl MemoryManager {
         buffer
     }
 
-    pub fn create_uniform_buffers(&mut self, device: &ash::Device, swapchain_image_count: usize) -> Vec<vk::Buffer> {
-        let buffer_size = std::mem::size_of::<ViewProjectionUniform>();
-
+    pub fn create_uniform_buffers(
+        &mut self,
+        device: &ash::Device,
+        buffer_size: usize,
+        swapchain_image_count: usize,
+    ) -> Vec<vk::Buffer> {
         let mut uniform_buffers = Vec::with_capacity(swapchain_image_count);
-        //let mut uniform_buffers_memory = Vec::with_capacity(swapchain_image_count);
 
         for _ in 0..swapchain_image_count {
             let (uniform_buffer, uniform_buffer_memory) = create_buffer(

@@ -1,9 +1,11 @@
-mod constants;
 pub mod context;
+pub mod pipeline;
+pub mod uniform;
+
+mod constants;
 mod debug;
 mod image;
 mod memory;
-pub mod pipeline;
 mod platform;
 mod queue;
 mod surface;

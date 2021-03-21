@@ -15,8 +15,8 @@ impl QueueFamilyIndices {
         device: &PhysicalDevice,
         surface_container: &SurfaceContainer,
     ) -> QueueFamilyIndices {
-        let graphics = _pick_queue_families(instance, device);
-        let present = _pick_present_queue_family(instance, device, surface_container);
+        let graphics = pick_queue_families(instance, device);
+        let present = pick_present_queue_family(instance, device, surface_container);
 
         QueueFamilyIndices { graphics, present }
     }
@@ -37,7 +37,7 @@ impl Display for QueueFamilyIndices {
     }
 }
 
-fn _pick_queue_families(instance: &ash::Instance, device: &PhysicalDevice) -> Option<u32> {
+fn pick_queue_families(instance: &ash::Instance, device: &PhysicalDevice) -> Option<u32> {
     let queue_family_properties = unsafe { instance.get_physical_device_queue_family_properties(*device) };
 
     for (index, family_properties) in queue_family_properties.iter().enumerate() {
@@ -49,7 +49,7 @@ fn _pick_queue_families(instance: &ash::Instance, device: &PhysicalDevice) -> Op
     Option::None
 }
 
-fn _pick_present_queue_family(
+fn pick_present_queue_family(
     instance: &ash::Instance,
     physical_device: &PhysicalDevice,
     surface_container: &SurfaceContainer,

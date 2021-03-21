@@ -1,3 +1,4 @@
+use crate::renderer::pipeline::{UniformData, VertexInput};
 use ash::vk;
 use cgmath::{Matrix4, SquareMatrix, Vector3, Zero};
 
@@ -8,11 +9,10 @@ pub struct ViewProjectionUniform {
     pub proj: Matrix4<f32>,
 }
 
-pub type Index = u32;
-
-pub trait VertexInput {
-    fn get_binding_descriptions() -> Vec<vk::VertexInputBindingDescription>;
-    fn get_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription>;
+impl UniformData for ViewProjectionUniform {
+    fn get_size() -> usize {
+        std::mem::size_of::<ViewProjectionUniform>()
+    }
 }
 
 #[repr(C)]

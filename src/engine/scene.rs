@@ -3,8 +3,8 @@ use cgmath::{Deg, Quaternion, Rotation3};
 use crate::engine::datatypes::{ModelColorPushConstant, ModelWoblyPushConstant};
 use crate::engine::entity::{FlatColorEntity, WobblyEntity};
 use crate::engine::terrain::Terrain;
-use crate::renderer::context::Context;
-use crate::renderer::pipeline::{PipelineDrawCommand, PipelineHandle, PipelineJob};
+use crate::renderer::context::{Context, PipelineHandle};
+use crate::renderer::pipeline::{PipelineDrawCommand, PipelineJob};
 
 const WOBBLY_INDEX: usize = 0;
 const FLAT_COLOR_INDEX: usize = 1;
