@@ -25,13 +25,6 @@ pub(super) struct PipelineContainer {
     fragment_shader: vk::ShaderModule,
 
     // Shader data
-
-    // OLD SHIT
-    //   uniform_data: Vec<u8>,
-    //  dirty_uniform: Vec<bool>,
-    //  uniform_buffers: Vec<vk::Buffer>,
-    //  uniform_memory: Vec<vk::DeviceMemory>,
-    // OLD SHIT
     vertex_uniform_cfg: Option<UniformConfiguration>,
     fragment_uniform_cfg: Option<UniformConfiguration>,
     vertex_uniform_buffers: Vec<vk::Buffer>,
@@ -289,8 +282,6 @@ impl PipelineContainer {
             base_pipeline_index: -1,
         }];
 
-
-
         let graphics_pipelines = unsafe {
             logical_device
                 .create_graphics_pipelines(vk::PipelineCache::null(), &graphic_pipeline_create_infos, None)
@@ -299,7 +290,6 @@ impl PipelineContainer {
 
         self.vk_pipeline = graphics_pipelines[0];
         self.layout = pipeline_layout;
-
 
         self.descriptor_sets = self.create_descriptor_sets(logical_device, image_count);
 

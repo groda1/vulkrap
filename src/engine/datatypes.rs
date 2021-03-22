@@ -15,6 +15,12 @@ impl UniformData for ViewProjectionUniform {
     }
 }
 
+impl UniformData for u32 {
+    fn get_size() -> usize {
+        std::mem::size_of::<u32>()
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
 pub struct ColoredVertex {

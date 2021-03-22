@@ -25,10 +25,12 @@ pub struct VulkrapApplication {
     camera: Camera,
 
     vp_uniform: UniformHandle,
+    flags_uniform: UniformHandle,
 
     movement: MovementFlags,
 
     elapsed_time_s: f32,
+    draw_wireframe: bool,
 }
 
 impl VulkrapApplication {
@@ -37,6 +39,9 @@ impl VulkrapApplication {
         let mesh_manager = MeshManager::new(&mut context);
 
         let vp_uniform = context.create_uniform::<ViewProjectionUniform>(UniformStage::Vertex);
+        let flags_uniform = context.create_uniform::<u32>(UniformStage::Fragment);
+
+        context.set_uniform_data(flags_uniform, 0 as u32);
 
         let pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new(
@@ -49,9 +54,7 @@ impl VulkrapApplication {
             .with_vertex_uniform(0, vp_uniform)
             .build();
 
-
         let main_pipeline = context.add_pipeline::<ColoredVertex>(pipeline_config);
-
 
         let pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/flat_color_vert.spv")))
@@ -66,6 +69,7 @@ impl VulkrapApplication {
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/terrain_frag.spv")))
             .with_vertex_topology(VertexTopology::TriangeStrip)
             .with_vertex_uniform(0, vp_uniform)
+            .with_fragment_uniform(1, flags_uniform)
             .build();
         let terrain_pipeline = context.add_pipeline::<VertexNormal>(pipeline_config);
 
@@ -77,11 +81,12 @@ impl VulkrapApplication {
             scene,
             camera: Camera::new(),
             vp_uniform,
+            flags_uniform,
             elapsed_time_s: 0.0,
             movement: MovementFlags::ZERO,
+            draw_wireframe: false,
         };
         app.create_entities();
-
 
         app
     }
@@ -92,7 +97,7 @@ impl VulkrapApplication {
         self.update_camera(delta_time_s);
 
         self.scene.update(delta_time_s);
-        self.update_uniform_data(delta_time_s);
+        self.update_uniform_data();
 
         let render_job = self.scene.get_render_job();
         self.context.draw_frame(render_job);
@@ -108,7 +113,13 @@ impl VulkrapApplication {
         }
     }
 
-    fn update_uniform_data(&mut self, _delta_time_s: f32) {
+    fn toggle_wireframe(&mut self) {
+        self.draw_wireframe = !self.draw_wireframe;
+        self.context
+            .set_uniform_data(self.flags_uniform, self.draw_wireframe as u32);
+    }
+
+    fn update_uniform_data(&mut self) {
         let data = ViewProjectionUniform {
             view: self.camera.get_view_matrix(),
             proj: cgmath::perspective(Deg(60.0), self.context.get_aspect_ratio(), 0.1, 10000.0),
@@ -181,6 +192,7 @@ impl VulkrapApplication {
             (VirtualKeyCode::Space, ElementState::Released) => self.movement.remove(MovementFlags::UP),
             (VirtualKeyCode::C, ElementState::Pressed) => self.movement.insert(MovementFlags::DOWN),
             (VirtualKeyCode::C, ElementState::Released) => self.movement.remove(MovementFlags::DOWN),
+            (VirtualKeyCode::F1, ElementState::Pressed) => self.toggle_wireframe(),
             _ => {}
         }
     }
