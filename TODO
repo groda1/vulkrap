@@ -1,8 +1,10 @@
 Renderer:
-    [ ] Fix fragment uniforms
+    [ ] texture mapping
+    [ ] Memory handling for images is weird. Handled by image.rs instead of the memory manager. fix!
     [ ] Proper device picking
     [ ] Dont allocate buffer memory on every vertex/index buffer creation. This could be managed by an allocator. See memory.rs
     [ ] Maybe create a separate queue for transfering data instead of graphics_queue for everything?
+    [x] Fix fragment uniforms
     [x] Pipeline should not own uniform buffer and memory. Should be possible to use the same uniform for several pipelines
     [x] Pipeline: General uniform data. Maybe a simple uniform struct containing data ptr + size?
     [x] vertex_input_assembly VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, (If you set the primitiveRestartEnable member to VK_TRUE, then it's possible to break up lines and triangles in the _STRIP topology modes by using a special index of 0xFFFF or 0xFFFFFFFF)

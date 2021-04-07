@@ -10,6 +10,7 @@ use crate::engine::datatypes::{
     MODEL_WOBLY_PUSH_CONSTANT_SIZE,
 };
 use crate::engine::entity::{FlatColorEntity, WobblyEntity};
+use crate::engine::image;
 use crate::engine::mesh::{MeshManager, PredefinedMesh};
 use crate::engine::scene::Scene;
 use crate::renderer::context::{Context, UniformHandle};
@@ -72,6 +73,9 @@ impl VulkrapApplication {
             .with_fragment_uniform(1, flags_uniform)
             .build();
         let terrain_pipeline = context.add_pipeline::<VertexNormal>(pipeline_config);
+
+        let font_image = image::load_image(Path::new("./resources/textures/font.png"));
+        let font_texture = context.create_texture(font_image.width, font_image.height, &font_image.data);
 
         let scene = Scene::new(&mut context, main_pipeline, flat_color_pipeline, terrain_pipeline);
 

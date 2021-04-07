@@ -25,11 +25,13 @@ use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
 use crate::renderer::uniform::{Uniform, UniformStage};
+use std::alloc::handle_alloc_error;
 
 const MAXIMUM_PIPELINE_COUNT: u32 = 50;
 
 pub type PipelineHandle = usize;
 pub type UniformHandle = usize;
+pub type TextureHandle = usize;
 
 pub struct Context {
     _entry: ash::Entry,
@@ -59,8 +61,8 @@ pub struct Context {
     render_pass: vk::RenderPass,
 
     pipelines: Vec<PipelineContainer>,
-
     uniforms: Vec<Uniform>,
+    textures: Vec<vk::Image>,
 
     memory_manager: MemoryManager,
     descriptor_pool: vk::DescriptorPool,
@@ -171,6 +173,7 @@ impl Context {
             render_pass,
             pipelines,
             uniforms: Vec::new(),
+            textures: Vec::new(),
             memory_manager,
             descriptor_pool,
             command_pool,
@@ -314,6 +317,24 @@ impl Context {
         for uniform in self.uniforms.iter_mut() {
             uniform.update_device_memory(&self.logical_device, image_index);
         }
+    }
+
+    pub fn create_texture(&mut self, image_width: u32, image_height: u32, image_data: &[u8]) -> TextureHandle {
+        let handle = self.textures.len();
+
+        let (image, image_memory) = image::create_texture_image(
+            &self.logical_device,
+            self.command_pool,
+            self.graphics_queue,
+            &mut self.memory_manager,
+            image_width,
+            image_height,
+            image_data,
+        );
+
+        self.textures.push(image);
+
+        handle
     }
 
     pub fn add_pipeline<T: VertexInput>(&mut self, mut config: PipelineConfiguration) -> PipelineHandle {

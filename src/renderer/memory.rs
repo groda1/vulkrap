@@ -72,7 +72,7 @@ impl MemoryManager {
 
     pub fn create_uniform_buffers(
         &mut self,
-        device: &ash::Device,
+        logical_device: &ash::Device,
         buffer_size: usize,
         swapchain_image_count: usize,
     ) -> Vec<vk::Buffer> {
@@ -80,7 +80,7 @@ impl MemoryManager {
 
         for _ in 0..swapchain_image_count {
             let (uniform_buffer, uniform_buffer_memory) = create_buffer(
-                device,
+                logical_device,
                 buffer_size as u64,
                 vk::BufferUsageFlags::UNIFORM_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
@@ -91,6 +91,20 @@ impl MemoryManager {
         }
 
         uniform_buffers
+    }
+
+    pub fn create_staging_buffer(&mut self, logical_device: &ash::Device, buffer_size: vk::DeviceSize) -> vk::Buffer {
+        let (staging_buffer, staging_buffer_memory) = create_buffer(
+            logical_device,
+            buffer_size,
+            vk::BufferUsageFlags::TRANSFER_SRC,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            &self.physical_device_memory_properties,
+        );
+
+        self.buffer_to_chunk_map.insert(staging_buffer, staging_buffer_memory);
+
+        staging_buffer
     }
 
     pub unsafe fn destroy_buffer(&mut self, logical_device: &ash::Device, buffer: vk::Buffer) {
