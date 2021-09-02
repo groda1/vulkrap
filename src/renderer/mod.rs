@@ -11,4 +11,5 @@ mod queue;
 mod surface;
 mod swapchain;
 mod synchronization;
+mod texture;
 mod vulkan_util;

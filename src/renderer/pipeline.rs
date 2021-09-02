@@ -419,6 +419,10 @@ impl PipelineContainer {
                 });
             }
 
+            //            if self.sampler_cfg.is_some() {
+            //
+            //           }
+
             unsafe {
                 device.update_descriptor_sets(&descriptor_write_sets, &[]);
             }
@@ -698,3 +702,5 @@ pub trait UniformData {
 }
 
 pub type Index = u32;
+
+

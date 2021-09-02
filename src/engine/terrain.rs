@@ -29,7 +29,7 @@ impl Terrain {
         let quad_width = 256;
         let quad_height = quad_width;
 
-        assert_eq!(quad_width % 64, 0);
+        debug_assert_eq!(quad_width % 64, 0);
 
         let raw_vertices = create_raw_vertices(quad_width, quad_height, sin_terrain);
         //for (i, vertex) in raw_vertices.iter().enumerate() {

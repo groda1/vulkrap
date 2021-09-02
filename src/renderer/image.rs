@@ -41,7 +41,7 @@ pub fn create_texture_image(
         image_height,
         1,
         vk::SampleCountFlags::TYPE_1,
-        vk::Format::R8G8B8A8_UNORM,
+        vk::Format::R8G8B8A8_SRGB,
         vk::ImageTiling::OPTIMAL,
         vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
         vk::MemoryPropertyFlags::DEVICE_LOCAL,

@@ -24,14 +24,13 @@ use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
+use crate::renderer::texture::{TextureHandle, TextureManager, SamplerHandle};
 use crate::renderer::uniform::{Uniform, UniformStage};
-use std::alloc::handle_alloc_error;
 
 const MAXIMUM_PIPELINE_COUNT: u32 = 50;
 
 pub type PipelineHandle = usize;
 pub type UniformHandle = usize;
-pub type TextureHandle = usize;
 
 pub struct Context {
     _entry: ash::Entry,
@@ -62,7 +61,8 @@ pub struct Context {
 
     pipelines: Vec<PipelineContainer>,
     uniforms: Vec<Uniform>,
-    textures: Vec<vk::Image>,
+
+    texture_manager: TextureManager,
 
     memory_manager: MemoryManager,
     descriptor_pool: vk::DescriptorPool,
@@ -111,7 +111,7 @@ impl Context {
             panic!("Missing queue family!");
         }
 
-        let logical_device = create_logical_device(&instance, &physical_device, &layers, &queue_families);
+        let logical_device = _create_logical_device(&instance, &physical_device, &layers, &queue_families);
         let graphics_queue = unsafe { logical_device.get_device_queue(queue_families.graphics.unwrap(), 0) };
         let present_queue = unsafe { logical_device.get_device_queue(queue_families.present.unwrap(), 0) };
 
@@ -147,8 +147,8 @@ impl Context {
 
         let image_count = swapchain_container.image_views.len();
         let memory_manager = MemoryManager::new(physical_device_memory_properties);
-        let descriptor_pool = create_descriptor_pool(&logical_device);
-        let command_buffers = create_command_buffers(&logical_device, command_pool, image_count);
+        let descriptor_pool = _create_descriptor_pool(&logical_device);
+        let command_buffers = _create_command_buffers(&logical_device, command_pool, image_count);
         let sync_handler = SynchronizationHandler::new(&logical_device);
 
         Context {
@@ -173,7 +173,7 @@ impl Context {
             render_pass,
             pipelines,
             uniforms: Vec::new(),
-            textures: Vec::new(),
+            texture_manager: TextureManager::new(),
             memory_manager,
             descriptor_pool,
             command_pool,
@@ -319,9 +319,7 @@ impl Context {
         }
     }
 
-    pub fn create_texture(&mut self, image_width: u32, image_height: u32, image_data: &[u8]) -> TextureHandle {
-        let handle = self.textures.len();
-
+    pub fn add_texture(&mut self, image_width: u32, image_height: u32, image_data: &[u8]) -> TextureHandle {
         let (image, image_memory) = image::create_texture_image(
             &self.logical_device,
             self.command_pool,
@@ -331,10 +329,20 @@ impl Context {
             image_height,
             image_data,
         );
-
-        self.textures.push(image);
+        let image_view = image::create_image_view(
+            &self.logical_device,
+            image,
+            vk::Format::R8G8B8A8_SRGB,
+            vk::ImageAspectFlags::COLOR,
+            1,
+        );
+        let handle = self.texture_manager.add_texture(image, image_memory, image_view);
 
         handle
+    }
+
+    pub fn add_sampler(&mut self) -> SamplerHandle {
+        self.texture_manager.add_sampler(&self.logical_device)
     }
 
     pub fn add_pipeline<T: VertexInput>(&mut self, mut config: PipelineConfiguration) -> PipelineHandle {
@@ -344,7 +352,6 @@ impl Context {
         let mut fragment_uniform = Option::None;
 
         // Update config with correct uniform size
-
         if config.has_vertex_uniform() {
             vertex_uniform = Some(config.vertex_uniform_handle());
             config.set_vertex_uniform_size(self.uniforms[vertex_uniform.unwrap()].size());
@@ -443,7 +450,7 @@ impl Context {
 
         let image_count = self.swapchain_imageviews.len();
 
-        self.descriptor_pool = create_descriptor_pool(&self.logical_device);
+        self.descriptor_pool = _create_descriptor_pool(&self.logical_device);
         self.render_pass = _create_render_pass(
             &self.logical_device,
             swapchain_container.format,
@@ -470,7 +477,7 @@ impl Context {
             self.render_pass,
         );
 
-        self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, image_count);
+        self.command_buffers = _create_command_buffers(&self.logical_device, self.command_pool, image_count);
 
         for uniform in self.uniforms.iter_mut() {
             uniform.build(&self.logical_device, &mut self.memory_manager, image_count);
@@ -572,11 +579,14 @@ impl Drop for Context {
             // Synchronization objects
             self.sync_handler.destroy(&self.logical_device);
 
-            //Swapchain
+            // Swapchain
             self.destroy_swapchain();
 
             // Buffers and memory
             self.memory_manager.destroy(&self.logical_device);
+
+            // Textures & Samplers
+            self.texture_manager.destroy(&self.logical_device);
 
             // Pipeline shaders & descriptor sets
             for pipeline_container in self.pipelines.iter_mut() {
@@ -600,7 +610,7 @@ impl Drop for Context {
     }
 }
 
-fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
+fn _create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
     let pool_sizes = [vk::DescriptorPoolSize::builder()
         .ty(DescriptorType::UNIFORM_BUFFER)
         .descriptor_count(MAXIMUM_PIPELINE_COUNT * 2u32)
@@ -808,7 +818,7 @@ fn _check_instance_layer_support(entry: &ash::Entry, layer_name: &str) -> bool {
     false
 }
 
-fn create_logical_device(
+fn _create_logical_device(
     instance: &ash::Instance,
     physical_device: &vk::PhysicalDevice,
     layers: &[&str],
@@ -865,7 +875,7 @@ fn create_logical_device(
     device
 }
 
-fn create_command_buffers(
+fn _create_command_buffers(
     device: &ash::Device,
     command_pool: vk::CommandPool,
     framebuffer_count: usize,
