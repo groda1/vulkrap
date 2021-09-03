@@ -142,7 +142,7 @@ fn create_device_local_buffer<T>(
         buffer_size,
         vk::BufferUsageFlags::TRANSFER_SRC,
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        &device_memory_properties,
+        device_memory_properties,
     );
 
     unsafe {
@@ -160,7 +160,7 @@ fn create_device_local_buffer<T>(
         buffer_size,
         vk::BufferUsageFlags::TRANSFER_DST | usage,
         vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        &device_memory_properties,
+        device_memory_properties,
     );
 
     copy_buffer_device_blocking(

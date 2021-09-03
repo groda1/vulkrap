@@ -11,7 +11,7 @@ pub fn create_texture_image(
     image_height: u32,
     image_data: &[u8],
 ) -> (vk::Image, vk::DeviceMemory) {
-    if image_width == 0 || image_height == 0 || image_data.len() == 0 {
+    if image_width == 0 || image_height == 0 || image_data.is_empty() {
         panic!("Failed to crate texture image!")
     }
     assert_eq!((image_width * image_height * 4) as usize, image_data.len());

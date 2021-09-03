@@ -93,7 +93,7 @@ impl Context {
 
         debug::log_physical_devices(&instance);
 
-        let surface_container = SurfaceContainer::new(&entry, &instance, &window);
+        let surface_container = SurfaceContainer::new(&entry, &instance, window);
 
         let physical_device = _pick_physical_device(&instance);
         let physical_device_memory_properties =
@@ -462,7 +462,7 @@ impl Context {
             &self.logical_device,
             self.physical_device,
             self.swapchain_extent,
-            &self.memory_manager.physical_device_memory_properties(),
+            self.memory_manager.physical_device_memory_properties(),
         );
         self.depth_image = depth_image;
         self.depth_image_view = depth_image_view;
