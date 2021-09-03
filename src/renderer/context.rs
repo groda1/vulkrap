@@ -23,7 +23,7 @@ use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
-use crate::renderer::texture::{TextureHandle, TextureManager, SamplerHandle};
+use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
 use crate::renderer::uniform::{Uniform, UniformStage};
 use ash::extensions::ext::DebugUtils;
 
@@ -740,27 +740,23 @@ fn _create_instance(entry: &ash::Entry, layers: &[&str], window: &Window) -> ash
     };
 
     let enable_layers_temp = vulkan_util::copy_str_slice_to_cstring_vec(layers);
-    let enable_layers = enable_layers_temp.iter()
-        .map(|ext| ext.as_ptr())
-        .collect::<Vec<_>>();
+    let enable_layers = enable_layers_temp.iter().map(|ext| ext.as_ptr()).collect::<Vec<_>>();
 
     layers.iter().for_each(|layer| log_debug!("Enabling layer:  {}", layer));
 
-
-    let mut extensions_temp = ash_window::enumerate_required_extensions(window).expect("Failed to enumerate extensions");
+    let mut extensions_temp =
+        ash_window::enumerate_required_extensions(window).expect("Failed to enumerate extensions");
 
     #[cfg(debug_assertions)]
-        let debug = true;
+    let debug = true;
     #[cfg(not(debug_assertions))]
-        let debug = false;
+    let debug = false;
 
     if debug {
         extensions_temp.push(DebugUtils::name());
     }
 
-    let required_extensions = extensions_temp.iter()
-        .map(|ext| ext.as_ptr())
-        .collect::<Vec<_>>();
+    let required_extensions = extensions_temp.iter().map(|ext| ext.as_ptr()).collect::<Vec<_>>();
 
     let mut create_info_builder = vk::InstanceCreateInfo::builder()
         .application_info(&app_info)
@@ -855,17 +851,11 @@ fn _create_logical_device(
     }
 
     let layers_temp = vulkan_util::copy_str_slice_to_cstring_vec(layers);
-    let layers_converted = layers_temp.iter()
-        .map(|layer| layer.as_ptr())
-        .collect::<Vec<_>>();
+    let layers_converted = layers_temp.iter().map(|layer| layer.as_ptr()).collect::<Vec<_>>();
     let extensions_temp = vulkan_util::copy_str_slice_to_cstring_vec(&constants::DEVICE_EXTENSIONS);
-    let extensions_converted = extensions_temp.iter()
-        .map(|layer| layer.as_ptr())
-        .collect::<Vec<_>>();
+    let extensions_converted = extensions_temp.iter().map(|layer| layer.as_ptr()).collect::<Vec<_>>();
 
-    let physical_device_features = vk::PhysicalDeviceFeatures::builder()
-        .sampler_anisotropy(true)
-        .build();
+    let physical_device_features = vk::PhysicalDeviceFeatures::builder().sampler_anisotropy(true).build();
 
     let device_create_info = vk::DeviceCreateInfo::builder()
         .queue_create_infos(&queue_create_infos)

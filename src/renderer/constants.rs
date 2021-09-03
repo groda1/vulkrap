@@ -1,11 +1,13 @@
 use ash::vk::make_api_version;
 pub const API_VERSION: u32 = make_api_version(0, 1, 0, 92);
-pub const APPLICATION_VERSION: u32 = make_api_version(0,
+pub const APPLICATION_VERSION: u32 = make_api_version(
+    0,
     crate::APPLICATION_VERSION.0,
     crate::APPLICATION_VERSION.1,
     crate::APPLICATION_VERSION.2,
 );
-pub const ENGINE_VERSION: u32 = make_api_version(0,
+pub const ENGINE_VERSION: u32 = make_api_version(
+    0,
     crate::ENGINE_VERSION.0,
     crate::ENGINE_VERSION.1,
     crate::ENGINE_VERSION.2,

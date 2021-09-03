@@ -1,5 +1,5 @@
-use ash::vk::{DeviceMemory, Image, ImageView, Sampler};
 use ash::vk;
+use ash::vk::{DeviceMemory, Image, ImageView, Sampler};
 use std::ptr;
 
 pub type TextureHandle = usize;

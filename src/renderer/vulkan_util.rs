@@ -19,7 +19,5 @@ pub fn vk_format_version(version: u32) -> String {
 }
 
 pub fn copy_str_slice_to_cstring_vec(str_arr: &[&str]) -> Vec<CString> {
-    str_arr.iter().map(|layer| CString::new(*layer).unwrap())
-        .collect()
+    str_arr.iter().map(|layer| CString::new(*layer).unwrap()).collect()
 }
-

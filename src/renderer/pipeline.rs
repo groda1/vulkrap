@@ -701,5 +701,3 @@ pub trait UniformData {
 }
 
 pub type Index = u32;
-
-
