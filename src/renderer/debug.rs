@@ -1,7 +1,6 @@
 use std::ffi::{c_void, CStr};
 use std::ptr;
 
-use ash::version::{EntryV1_0, InstanceV1_0};
 use ash::vk;
 use ash::vk::{PhysicalDevice, QueueFlags};
 
@@ -12,12 +11,10 @@ pub fn setup_debug_utils(
     instance: &ash::Instance,
 ) -> (ash::extensions::ext::DebugUtils, vk::DebugUtilsMessengerEXT) {
     let debug_utils_loader = ash::extensions::ext::DebugUtils::new(entry, instance);
-
     #[cfg(not(debug_assertions))]
     {
         return (debug_utils_loader, ash::vk::DebugUtilsMessengerEXT::null());
     }
-
     let messenger_ci = create_debug_messenger_create_info();
 
     let utils_messenger = unsafe {

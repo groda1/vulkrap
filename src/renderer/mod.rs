@@ -6,7 +6,6 @@ mod constants;
 mod debug;
 mod image;
 mod memory;
-mod platform;
 mod queue;
 mod surface;
 mod swapchain;

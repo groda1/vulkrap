@@ -1,8 +1,8 @@
 use std::collections::HashSet;
-use std::ffi::{c_void, CString};
+use std::ffi::{c_void, CString, CStr};
 use std::ptr;
 
-use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
+//use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
 use ash::vk::{DescriptorPoolCreateFlags, DescriptorType, PhysicalDevice};
 use winit::window::Window;
@@ -19,13 +19,13 @@ use super::constants;
 use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
 use super::debug;
 use super::image;
-use super::platform;
 use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
 use crate::renderer::texture::{TextureHandle, TextureManager, SamplerHandle};
 use crate::renderer::uniform::{Uniform, UniformStage};
+use ash::extensions::ext::DebugUtils;
 
 const MAXIMUM_PIPELINE_COUNT: u32 = 50;
 
@@ -78,8 +78,7 @@ pub struct Context {
 
 impl Context {
     pub fn new(window: &Window) -> Context {
-        let entry = ash::Entry::new().unwrap();
-
+        let entry = unsafe { ash::Entry::new().unwrap() };
         debug::log_available_extension_properties(&entry);
         debug::log_validation_layer_support(&entry);
 
@@ -89,7 +88,7 @@ impl Context {
             layers.push(constants::VALIDATION_LAYER_NAME);
         }
 
-        let instance = _create_instance(&entry, &layers);
+        let instance = _create_instance(&entry, &layers, window);
         let (debug_utils_loader, debug_utils_messenger) = debug::setup_debug_utils(&entry, &instance);
 
         debug::log_physical_devices(&instance);
@@ -498,7 +497,7 @@ impl Context {
         }
     }
 
-    pub fn bake_command_buffer(
+    fn bake_command_buffer(
         &self,
         command_buffer: vk::CommandBuffer,
         framebuffer: vk::Framebuffer,
@@ -727,7 +726,7 @@ fn _create_render_pass(
     }
 }
 
-fn _create_instance(entry: &ash::Entry, layers: &[&str]) -> ash::Instance {
+fn _create_instance(entry: &ash::Entry, layers: &[&str], window: &Window) -> ash::Instance {
     let app_name = CString::new(WINDOW_TITLE).unwrap();
     let engine_name = CString::new(ENGINE_NAME).unwrap();
     let app_info = vk::ApplicationInfo {
@@ -740,29 +739,34 @@ fn _create_instance(entry: &ash::Entry, layers: &[&str]) -> ash::Instance {
         api_version: API_VERSION,
     };
 
-    let required_extensions = platform::required_extension_names();
+    let enable_layers_temp = vulkan_util::copy_str_slice_to_cstring_vec(layers);
+    let enable_layers = enable_layers_temp.iter()
+        .map(|ext| ext.as_ptr())
+        .collect::<Vec<_>>();
 
-    let cstring_vec = vulkan_util::copy_str_vec_to_cstring_vec(&layers);
-    let converted_layer_names = vulkan_util::cstring_vec_to_vk_vec(&cstring_vec);
     layers.iter().for_each(|layer| log_debug!("Enabling layer:  {}", layer));
 
     #[cfg(debug_assertions)]
-    let debug_messenger_create_info = debug::create_debug_messenger_create_info();
+    let mut debug_messenger_create_info = debug::create_debug_messenger_create_info();
     #[cfg(debug_assertions)]
     let p_next = &debug_messenger_create_info as *const vk::DebugUtilsMessengerCreateInfoEXT as *const c_void;
     #[cfg(not(debug_assertions))]
     let p_next = ptr::null();
 
-    let create_info = vk::InstanceCreateInfo {
-        s_type: vk::StructureType::INSTANCE_CREATE_INFO,
-        p_next,
-        flags: vk::InstanceCreateFlags::empty(),
-        p_application_info: &app_info,
-        pp_enabled_layer_names: converted_layer_names.as_ptr(),
-        enabled_layer_count: converted_layer_names.len() as u32,
-        pp_enabled_extension_names: required_extensions.as_ptr(),
-        enabled_extension_count: required_extensions.len() as u32,
-    };
+    let mut extensions_temp = ash_window::enumerate_required_extensions(window).expect("Failed to enumerate extensions");
+    extensions_temp.push(DebugUtils::name());
+    let required_extensions = extensions_temp.iter()
+        .map(|ext| ext.as_ptr())
+        .collect::<Vec<_>>();
+
+    extensions_temp.iter().for_each(|a| println!("REQ {}", a.to_str().unwrap()));
+
+    let create_info = vk::InstanceCreateInfo::builder()
+        .application_info(&app_info)
+        .enabled_layer_names(&enable_layers)
+        .enabled_extension_names(&required_extensions)
+        .push_next(&mut debug_messenger_create_info)
+        .build();
 
     let instance: ash::Instance = unsafe {
         entry
@@ -843,28 +847,25 @@ fn _create_logical_device(
         queue_create_infos.push(queue_create_info);
     }
 
-    let layer_cstring_vec = vulkan_util::copy_str_vec_to_cstring_vec(&layers);
-    let layers_converted = vulkan_util::cstring_vec_to_vk_vec(&layer_cstring_vec);
-
-    let extensions_cstring_vec = vulkan_util::copy_str_arr_to_cstring_vec(&constants::DEVICE_EXTENSIONS);
-    let extensions_converted = vulkan_util::cstring_vec_to_vk_vec(&extensions_cstring_vec);
+    let layers_temp = vulkan_util::copy_str_slice_to_cstring_vec(layers);
+    let layers_converted = layers_temp.iter()
+        .map(|layer| layer.as_ptr())
+        .collect::<Vec<_>>();
+    let extensions_temp = vulkan_util::copy_str_slice_to_cstring_vec(&constants::DEVICE_EXTENSIONS);
+    let extensions_converted = extensions_temp.iter()
+        .map(|layer| layer.as_ptr())
+        .collect::<Vec<_>>();
 
     let physical_device_features = vk::PhysicalDeviceFeatures {
         ..Default::default() // default just enable no feature.
     };
 
-    let device_create_info = vk::DeviceCreateInfo {
-        s_type: vk::StructureType::DEVICE_CREATE_INFO,
-        p_next: ptr::null(),
-        flags: vk::DeviceCreateFlags::empty(),
-        queue_create_info_count: queue_create_infos.len() as u32,
-        p_queue_create_infos: queue_create_infos.as_ptr(),
-        enabled_layer_count: layers_converted.len() as u32,
-        pp_enabled_layer_names: layers_converted.as_ptr(),
-        enabled_extension_count: extensions_converted.len() as u32,
-        pp_enabled_extension_names: extensions_converted.as_ptr(),
-        p_enabled_features: &physical_device_features,
-    };
+    let device_create_info = vk::DeviceCreateInfo::builder()
+        .queue_create_infos(&queue_create_infos)
+        .enabled_layer_names(&layers_converted)
+        .enabled_extension_names(&extensions_converted)
+        .enabled_features(&physical_device_features)
+        .build();
 
     let device: ash::Device = unsafe {
         instance

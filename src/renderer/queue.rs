@@ -1,5 +1,4 @@
 use crate::renderer::surface::SurfaceContainer;
-use ash::version::InstanceV1_0;
 use ash::vk::{PhysicalDevice, QueueFlags};
 use std::fmt;
 use std::fmt::Display;

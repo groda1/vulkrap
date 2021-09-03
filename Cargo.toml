@@ -8,14 +8,15 @@ edition = "2018"
 
 [dependencies]
 lazy_static = "1.4.0"
-winit     = "0.24.0"
-ash       = "0.31.0"
-num       = "0.3.1"
-stopwatch = "0.0.7"
-cgmath    = "0.18.0"
-memoffset = "0.6.1"
-bitflags  = "1.2.1"
-image     = "0.23.14"
+winit       = "0.24.0"
+ash         = "0.33.2"
+ash-window  = "0.7"
+num         = "0.3.1"
+stopwatch   = "0.0.7"
+cgmath      = "0.18.0"
+memoffset   = "0.6.1"
+bitflags    = "1.2.1"
+image       = "0.23.14"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 metal = "0.17.0"

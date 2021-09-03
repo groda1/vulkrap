@@ -2,7 +2,6 @@ use crate::renderer::constants::MAX_FRAMES_IN_FLIGHT;
 use crate::renderer::context::PipelineHandle;
 use crate::renderer::memory::MemoryManager;
 use crate::renderer::pipeline::UniformData;
-use ash::version::DeviceV1_0;
 use ash::vk;
 
 #[derive(Clone, Debug, Copy)]

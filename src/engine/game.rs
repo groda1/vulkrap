@@ -172,7 +172,7 @@ impl VulkrapApplication {
         );
 
         let triangle = FlatColorEntity::new(
-            Vector3::new(-0.5, 1.0, -4.0),
+            Vector3::new(-0.5, 2.0, -4.0),
             Quaternion::from_angle_z(Deg(0.0)),
             *self.mesh_manager.get_predefined_mesh(PredefinedMesh::SimpleTriangle),
             Vector3::new(1.0, 0.0, 0.0),
