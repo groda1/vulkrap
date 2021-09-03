@@ -746,27 +746,33 @@ fn _create_instance(entry: &ash::Entry, layers: &[&str], window: &Window) -> ash
 
     layers.iter().for_each(|layer| log_debug!("Enabling layer:  {}", layer));
 
-    #[cfg(debug_assertions)]
-    let mut debug_messenger_create_info = debug::create_debug_messenger_create_info();
-    #[cfg(debug_assertions)]
-    let p_next = &debug_messenger_create_info as *const vk::DebugUtilsMessengerCreateInfoEXT as *const c_void;
-    #[cfg(not(debug_assertions))]
-    let p_next = ptr::null();
 
     let mut extensions_temp = ash_window::enumerate_required_extensions(window).expect("Failed to enumerate extensions");
-    extensions_temp.push(DebugUtils::name());
+
+    #[cfg(debug_assertions)]
+        let debug = true;
+    #[cfg(not(debug_assertions))]
+        let debug = false;
+
+    if debug {
+        extensions_temp.push(DebugUtils::name());
+    }
+
     let required_extensions = extensions_temp.iter()
         .map(|ext| ext.as_ptr())
         .collect::<Vec<_>>();
 
-    extensions_temp.iter().for_each(|a| println!("REQ {}", a.to_str().unwrap()));
-
-    let create_info = vk::InstanceCreateInfo::builder()
+    let mut create_info_builder = vk::InstanceCreateInfo::builder()
         .application_info(&app_info)
         .enabled_layer_names(&enable_layers)
-        .enabled_extension_names(&required_extensions)
-        .push_next(&mut debug_messenger_create_info)
-        .build();
+        .enabled_extension_names(&required_extensions);
+
+    let mut debug_messenger_create_info = debug::create_debug_messenger_create_info();
+    if debug {
+        create_info_builder = create_info_builder.push_next(&mut debug_messenger_create_info);
+    }
+
+    let create_info = create_info_builder.build();
 
     let instance: ash::Instance = unsafe {
         entry
