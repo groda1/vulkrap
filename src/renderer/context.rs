@@ -9,7 +9,8 @@ use winit::window::Window;
 
 use crate::renderer::memory::MemoryManager;
 use crate::renderer::pipeline::{
-    Index, PipelineConfiguration, PipelineContainer, PipelineJob, UniformData, VertexInput,
+    Index, PipelineConfiguration, PipelineContainer, PipelineJob, SamplerBindingConfiguration,
+    UniformBindingConfiguration, UniformData, VertexInput, VertexTopology,
 };
 use crate::renderer::synchronization::SynchronizationHandler;
 use crate::ENGINE_NAME;
@@ -347,28 +348,46 @@ impl Context {
     pub fn add_pipeline<T: VertexInput>(&mut self, mut config: PipelineConfiguration) -> PipelineHandle {
         let pipeline_handle = self.pipelines.len();
 
-        let mut vertex_uniform = Option::None;
-        let mut fragment_uniform = Option::None;
+        let vertex_uniform_binding_cfg = config
+            .vertex_uniform_cfg
+            .map(|cfg| UniformBindingConfiguration::new(cfg.binding, self.uniforms[cfg.uniform_handle].size()));
+        let fragment_uniform_binding_cfg = config
+            .fragment_uniform_cfg
+            .map(|cfg| UniformBindingConfiguration::new(cfg.binding, self.uniforms[cfg.uniform_handle].size()));
 
-        // Update config with correct uniform size
-        if config.has_vertex_uniform() {
-            vertex_uniform = Some(config.vertex_uniform_handle());
-            config.set_vertex_uniform_size(self.uniforms[vertex_uniform.unwrap()].size());
-            self.uniforms[vertex_uniform.unwrap()].assign_pipeline(pipeline_handle);
-        }
-        if config.has_fragment_uniform() {
-            fragment_uniform = Some(config.fragment_uniform_handle());
-            config.set_fragment_uniform_size(self.uniforms[fragment_uniform.unwrap()].size());
-            self.uniforms[fragment_uniform.unwrap()].assign_pipeline(pipeline_handle);
-        }
-
-        let mut pipeline_container = PipelineContainer::new::<T>(&self.logical_device, config);
-
-        if let Some(i) = vertex_uniform {
-            pipeline_container.set_uniform_buffers(UniformStage::Vertex, self.uniforms[i].buffers());
+        let vertex_topology = match config.vertex_topology {
+            VertexTopology::Triangle => vk::PrimitiveTopology::TRIANGLE_LIST,
+            VertexTopology::TriangeStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
         };
-        if let Some(i) = fragment_uniform {
-            pipeline_container.set_uniform_buffers(UniformStage::Fragment, self.uniforms[i].buffers());
+
+        let sampler_cfgs = config
+            .texture_cfgs
+            .iter()
+            .map(|cfg| {
+                SamplerBindingConfiguration::new(
+                    cfg.binding,
+                    self.texture_manager.get_imageview(cfg.texture),
+                    self.texture_manager.get_sampler(cfg.sampler),
+                )
+            })
+            .collect();
+
+        let mut pipeline_container = PipelineContainer::new::<T>(
+            &self.logical_device,
+            config.vertex_shader_code,
+            config.fragment_shader_code,
+            vertex_uniform_binding_cfg,
+            fragment_uniform_binding_cfg,
+            sampler_cfgs,
+            vertex_topology,
+            config.push_constant_size,
+        );
+
+        if let Some(cfg) = config.vertex_uniform_cfg {
+            pipeline_container.set_uniform_buffers(UniformStage::Vertex, self.uniforms[cfg.uniform_handle].buffers());
+        };
+        if let Some(cfg) = config.fragment_uniform_cfg {
+            pipeline_container.set_uniform_buffers(UniformStage::Fragment, self.uniforms[cfg.uniform_handle].buffers());
         }
 
         pipeline_container.build(

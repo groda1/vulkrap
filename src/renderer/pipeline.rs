@@ -3,9 +3,13 @@ use std::ffi::CString;
 use std::ptr;
 
 use ash::vk;
-use ash::vk::{PrimitiveTopology, ShaderStageFlags, VertexInputAttributeDescription, VertexInputBindingDescription};
+use ash::vk::{
+    ImageView, PrimitiveTopology, Sampler, ShaderStageFlags, VertexInputAttributeDescription,
+    VertexInputBindingDescription,
+};
 
 use crate::renderer::context::{PipelineHandle, UniformHandle};
+use crate::renderer::texture::{SamplerHandle, TextureHandle};
 use crate::renderer::uniform::UniformStage;
 
 const SHADER_ENTRYPOINT: &str = "main";
@@ -24,10 +28,11 @@ pub(super) struct PipelineContainer {
     fragment_shader: vk::ShaderModule,
 
     // Shader data
-    vertex_uniform_cfg: Option<UniformConfiguration>,
-    fragment_uniform_cfg: Option<UniformConfiguration>,
+    vertex_uniform_cfg: Option<UniformBindingConfiguration>,
+    fragment_uniform_cfg: Option<UniformBindingConfiguration>,
     vertex_uniform_buffers: Vec<vk::Buffer>,
     fragment_uniform_buffers: Vec<vk::Buffer>,
+    sampler_cfgs: Vec<SamplerBindingConfiguration>,
 
     push_constant_size: u8,
     vertex_topology: vk::PrimitiveTopology,
@@ -43,23 +48,25 @@ pub(super) struct PipelineContainer {
 impl PipelineContainer {
     pub(super) fn new<T: VertexInput>(
         logical_device: &ash::Device,
-        config: PipelineConfiguration,
+        vertex_shader_code: Vec<u8>,
+        fragment_shader_code: Vec<u8>,
+        vertex_uniform_cfg: Option<UniformBindingConfiguration>,
+        fragment_uniform_cfg: Option<UniformBindingConfiguration>,
+        sampler_cfgs: Vec<SamplerBindingConfiguration>,
+        vertex_topology: PrimitiveTopology,
+        push_constant_size: u8,
     ) -> PipelineContainer {
-        let vertex_shader = create_shader_module(logical_device, &config.vertex_shader_code);
-        let fragment_shader = create_shader_module(logical_device, &config.fragment_shader_code);
+        let vertex_shader = create_shader_module(logical_device, &vertex_shader_code);
+        let fragment_shader = create_shader_module(logical_device, &fragment_shader_code);
 
         let descriptor_set_layout = create_descriptor_set_layout(
             logical_device,
-            config.vertex_uniform_cfg.as_ref(),
-            config.fragment_uniform_cfg.as_ref(),
+            vertex_uniform_cfg.as_ref(),
+            fragment_uniform_cfg.as_ref(),
         );
 
-        let vertex_attribute_descriptions = T::get_attribute_descriptions();
-        let vertex_binding_descriptions = T::get_binding_descriptions();
-        let vertex_topology = match config.vertex_topology {
-            VertexTopology::Triangle => vk::PrimitiveTopology::TRIANGLE_LIST,
-            VertexTopology::TriangeStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
-        };
+        let vertex_attribute_descriptions = T::attribute_descriptions();
+        let vertex_binding_descriptions = T::binding_descriptions();
 
         PipelineContainer {
             is_built: false,
@@ -68,11 +75,12 @@ impl PipelineContainer {
             render_pass: vk::RenderPass::null(),
             vertex_shader,
             fragment_shader,
-            vertex_uniform_cfg: config.vertex_uniform_cfg,
-            fragment_uniform_cfg: config.fragment_uniform_cfg,
+            vertex_uniform_cfg,
+            fragment_uniform_cfg,
             vertex_uniform_buffers: Vec::new(),
             fragment_uniform_buffers: Vec::new(),
-            push_constant_size: config.push_constant_size,
+            sampler_cfgs,
+            push_constant_size,
             vertex_topology,
             descriptor_pool: vk::DescriptorPool::null(),
             descriptor_sets: Vec::with_capacity(0),
@@ -469,8 +477,8 @@ fn create_shader_module(device: &ash::Device, code: &[u8]) -> vk::ShaderModule {
 
 fn create_descriptor_set_layout(
     device: &ash::Device,
-    vertex_uniform_cfg: Option<&UniformConfiguration>,
-    fragment_uniform_cfg: Option<&UniformConfiguration>,
+    vertex_uniform_cfg: Option<&UniformBindingConfiguration>,
+    fragment_uniform_cfg: Option<&UniformBindingConfiguration>,
 ) -> vk::DescriptorSetLayout {
     let mut layout_bindings = Vec::with_capacity(2);
 
@@ -549,12 +557,13 @@ pub struct PipelineJob {
 }
 
 pub struct PipelineConfiguration {
-    vertex_shader_code: Vec<u8>,
-    fragment_shader_code: Vec<u8>,
-    push_constant_size: u8,
-    vertex_topology: VertexTopology,
-    vertex_uniform_cfg: Option<UniformConfiguration>,
-    fragment_uniform_cfg: Option<UniformConfiguration>,
+    pub(super) vertex_shader_code: Vec<u8>,
+    pub(super) fragment_shader_code: Vec<u8>,
+    pub(super) push_constant_size: u8,
+    pub(super) vertex_topology: VertexTopology,
+    pub(super) vertex_uniform_cfg: Option<UniformConfiguration>,
+    pub(super) fragment_uniform_cfg: Option<UniformConfiguration>,
+    pub(super) texture_cfgs: Vec<TextureConfiguration>,
 }
 
 impl PipelineConfiguration {
@@ -566,42 +575,8 @@ impl PipelineConfiguration {
             vertex_topology: Option::None,
             vertex_uniform_cfg: Option::None,
             fragment_uniform_cfg: Option::None,
+            texture_cfgs: Vec::new(),
         }
-    }
-
-    pub fn set_vertex_uniform_size(&mut self, size: usize) {
-        if self.vertex_uniform_cfg.is_none() {
-            panic!("Unset vertex uniform cfg");
-        }
-        self.vertex_uniform_cfg.as_mut().unwrap().set_size(size);
-    }
-
-    pub fn set_fragment_uniform_size(&mut self, size: usize) {
-        if self.fragment_uniform_cfg.is_none() {
-            panic!("Unset fragment uniform cfg");
-        }
-        self.fragment_uniform_cfg.as_mut().unwrap().set_size(size);
-    }
-
-    pub fn vertex_uniform_handle(&self) -> UniformHandle {
-        if self.vertex_uniform_cfg.is_none() {
-            panic!("Unset vertex uniform cfg");
-        }
-        self.vertex_uniform_cfg.as_ref().unwrap().uniform_handle
-    }
-
-    pub fn fragment_uniform_handle(&self) -> UniformHandle {
-        if self.fragment_uniform_cfg.is_none() {
-            panic!("Unset fragment uniform cfg");
-        }
-        self.fragment_uniform_cfg.as_ref().unwrap().uniform_handle
-    }
-
-    pub fn has_vertex_uniform(&self) -> bool {
-        self.vertex_uniform_cfg.is_some()
-    }
-    pub fn has_fragment_uniform(&self) -> bool {
-        self.fragment_uniform_cfg.is_some()
     }
 }
 
@@ -612,6 +587,7 @@ pub struct PipelineConfigurationBuilder {
     vertex_topology: Option<VertexTopology>,
     vertex_uniform_cfg: Option<UniformConfiguration>,
     fragment_uniform_cfg: Option<UniformConfiguration>,
+    texture_cfgs: Vec<TextureConfiguration>,
 }
 
 impl PipelineConfigurationBuilder {
@@ -651,8 +627,15 @@ impl PipelineConfigurationBuilder {
         self
     }
 
+    pub fn add_texture(&mut self, binding: u8, texture: TextureHandle, sampler: SamplerHandle) -> &mut Self {
+        self.texture_cfgs
+            .push(TextureConfiguration::new(binding, texture, sampler));
+
+        self
+    }
+
     pub fn build(&self) -> PipelineConfiguration {
-        // TODO Load default shader if not present
+        // TODO Load a default shader if not present
         let vertex_shader_code = self.vertex_shader_code.borrow().as_ref().expect("error").clone();
         let fragment_shader_code = self.fragment_shader_code.borrow().as_ref().expect("error").clone();
 
@@ -666,15 +649,15 @@ impl PipelineConfigurationBuilder {
             vertex_topology,
             vertex_uniform_cfg: self.vertex_uniform_cfg,
             fragment_uniform_cfg: self.fragment_uniform_cfg,
+            texture_cfgs: self.texture_cfgs.clone(),
         }
     }
 }
 
 #[derive(Clone, Debug, Copy)]
-struct UniformConfiguration {
-    binding: u8,
-    uniform_handle: UniformHandle,
-    size: usize,
+pub struct UniformConfiguration {
+    pub(super) binding: u8,
+    pub(super) uniform_handle: UniformHandle,
 }
 
 impl UniformConfiguration {
@@ -682,18 +665,59 @@ impl UniformConfiguration {
         UniformConfiguration {
             binding,
             uniform_handle,
-            size: 0,
         }
     }
+}
 
-    pub fn set_size(&mut self, size: usize) {
-        self.size = size;
+#[derive(Clone, Debug, Copy)]
+pub struct TextureConfiguration {
+    pub(super) binding: u8,
+    pub(super) texture: TextureHandle,
+    pub(super) sampler: SamplerHandle,
+}
+
+impl TextureConfiguration {
+    pub fn new(binding: u8, texture: TextureHandle, sampler: SamplerHandle) -> Self {
+        TextureConfiguration {
+            binding,
+            texture,
+            sampler,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct SamplerBindingConfiguration {
+    binding: u8,
+    image: ImageView,
+    sampler: Sampler,
+}
+
+impl SamplerBindingConfiguration {
+    pub fn new(binding: u8, image: ImageView, sampler: Sampler) -> Self {
+        SamplerBindingConfiguration {
+            binding,
+            image,
+            sampler,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Copy)]
+pub(super) struct UniformBindingConfiguration {
+    binding: u8,
+    size: usize,
+}
+
+impl UniformBindingConfiguration {
+    pub fn new(binding: u8, size: usize) -> Self {
+        UniformBindingConfiguration { binding, size }
     }
 }
 
 pub trait VertexInput {
-    fn get_binding_descriptions() -> Vec<vk::VertexInputBindingDescription>;
-    fn get_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription>;
+    fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription>;
+    fn attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription>;
 }
 
 pub trait UniformData {

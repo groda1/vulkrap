@@ -61,6 +61,14 @@ impl TextureManager {
 
         handle
     }
+
+    pub fn get_imageview(&self, texture: TextureHandle) -> ImageView {
+        self.textures[texture].image_view
+    }
+
+    pub fn get_sampler(&self, sampler: SamplerHandle) -> Sampler {
+        self.samplers[sampler]
+    }
 }
 
 fn _create_texture_sampler(device: &ash::Device) -> Sampler {

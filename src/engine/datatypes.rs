@@ -35,7 +35,7 @@ impl ColoredVertex {
 }
 
 impl VertexInput for ColoredVertex {
-    fn get_binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
+    fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,
             stride: std::mem::size_of::<Self>() as u32,
@@ -43,7 +43,7 @@ impl VertexInput for ColoredVertex {
         }]
     }
 
-    fn get_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
+    fn attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
         vec![
             vk::VertexInputAttributeDescription {
                 binding: 0,
@@ -74,7 +74,7 @@ impl SimpleVertex {
 }
 
 impl VertexInput for SimpleVertex {
-    fn get_binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
+    fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,
             stride: std::mem::size_of::<Self>() as u32,
@@ -82,7 +82,7 @@ impl VertexInput for SimpleVertex {
         }]
     }
 
-    fn get_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
+    fn attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
         vec![vk::VertexInputAttributeDescription {
             binding: 0,
             location: 0,
@@ -106,7 +106,7 @@ impl VertexNormal {
 }
 
 impl VertexInput for VertexNormal {
-    fn get_binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
+    fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,
             stride: std::mem::size_of::<Self>() as u32,
@@ -114,7 +114,7 @@ impl VertexInput for VertexNormal {
         }]
     }
 
-    fn get_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
+    fn attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
         vec![
             vk::VertexInputAttributeDescription {
                 binding: 0,
