@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::ffi::{c_void, CString, CStr};
+use std::ffi::CString;
 use std::ptr;
 
 //use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
@@ -808,6 +808,7 @@ fn _is_physical_device_suitable(_device: &PhysicalDevice) -> bool {
     Check for extensions:
         - DEVICE_EXTENSIONS
     Check for swap chain support
+    Check for anisotropic filtering
      */
     true
 }
@@ -862,9 +863,9 @@ fn _create_logical_device(
         .map(|layer| layer.as_ptr())
         .collect::<Vec<_>>();
 
-    let physical_device_features = vk::PhysicalDeviceFeatures {
-        ..Default::default() // default just enable no feature.
-    };
+    let physical_device_features = vk::PhysicalDeviceFeatures::builder()
+        .sampler_anisotropy(true)
+        .build();
 
     let device_create_info = vk::DeviceCreateInfo::builder()
         .queue_create_infos(&queue_create_infos)

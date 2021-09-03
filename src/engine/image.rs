@@ -14,7 +14,7 @@ impl Image {
 }
 
 pub fn load_image(image_path: &Path) -> Image {
-    let mut image_object = image::open(image_path).unwrap();
+    let image_object = image::open(image_path).unwrap();
     let width = image_object.width();
     let height = image_object.height();
 

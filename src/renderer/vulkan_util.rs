@@ -1,8 +1,6 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
-use ash::vk::{version_major, version_minor, version_patch};
-
 pub fn vk_cstr_to_str(c_str: &[c_char]) -> &str {
     unsafe {
         CStr::from_ptr(c_str.as_ptr())
@@ -14,9 +12,9 @@ pub fn vk_cstr_to_str(c_str: &[c_char]) -> &str {
 pub fn vk_format_version(version: u32) -> String {
     format!(
         "{}.{}.{}",
-        version_major(version),
-        version_minor(version),
-        version_patch(version)
+        ash::vk::api_version_major(version),
+        ash::vk::api_version_minor(version),
+        ash::vk::api_version_patch(version)
     )
 }
 

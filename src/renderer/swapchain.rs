@@ -41,9 +41,9 @@ pub fn create_swapchain(
     let present_family = queue_families.present.unwrap();
 
     let (image_sharing_mode, queue_family_index_count, queue_family_indices) = if graphics_family != present_family {
-        (vk::SharingMode::EXCLUSIVE, 2, vec![graphics_family, present_family])
+        (vk::SharingMode::CONCURRENT, 2, vec![graphics_family, present_family])
     } else {
-        (vk::SharingMode::CONCURRENT, 0, vec![])
+        (vk::SharingMode::EXCLUSIVE, 2, vec![graphics_family, present_family])
     };
 
     let swapchain_create_info = vk::SwapchainCreateInfoKHR {
