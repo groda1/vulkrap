@@ -76,6 +76,8 @@ pub struct Context {
 
     debug_utils_loader: ash::extensions::ext::DebugUtils,
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
+
+    is_framebuffer_resized: bool,
 }
 
 impl Context {
@@ -182,6 +184,7 @@ impl Context {
             sync_handler,
             debug_utils_loader,
             debug_utils_messenger,
+            is_framebuffer_resized : false
         }
     }
 
@@ -272,13 +275,14 @@ impl Context {
             let result = self.swapchain_loader.queue_present(self.present_queue, &present_info);
 
             let is_resized = match result {
-                Ok(_) => false,
+                Ok(_) => self.is_framebuffer_resized,
                 Err(vk_result) => match vk_result {
                     vk::Result::ERROR_OUT_OF_DATE_KHR | vk::Result::SUBOPTIMAL_KHR => true,
                     _ => panic!("Failed to execute queue present."),
                 },
             };
             if is_resized {
+                self.is_framebuffer_resized = false;
                 self.recreate_swapchain();
             }
         }
@@ -597,6 +601,16 @@ impl Context {
     pub fn get_aspect_ratio(&self) -> f32 {
         self.swapchain_extent.width as f32 / self.swapchain_extent.height as f32
     }
+
+    pub fn get_framebuffer_extent(&self) -> (u32, u32) {
+        (self.swapchain_extent.width, self.swapchain_extent.height)
+    }
+
+    pub fn handle_window_resize(&mut self) {
+        unsafe { self.wait_idle(); }
+        self.is_framebuffer_resized = true;
+    }
+
 }
 
 impl Drop for Context {

@@ -58,7 +58,7 @@ impl Camera {
 
         let data = ViewProjectionUniform {
             view: self._get_view_matrix(),
-            proj: cgmath::perspective(Deg(60.0), context.get_aspect_ratio(), 0.1, 10000.0),
+            proj: cgmath::perspective(Deg(60.0), context.get_aspect_ratio(), 0.1, 1000.0),
         };
         context.set_uniform_data(self.uniform, data);
     }

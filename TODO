@@ -1,4 +1,5 @@
 Renderer:
+    [ ] Alpha blending
     [ ] Texture mipmaps
     [ ] Memory handling for images is weird. Handled by image.rs instead of the memory manager. fix!
     [ ] Proper device picking
@@ -15,14 +16,17 @@ Renderer:
     [x] Recreating swapchain should possibly recreate uniform buffers as the number of images could change.
 
 Game:
-    [ ] Text rendering pipeline
     [ ] Include shaders in binary
     [x] Camera
     [x] Setup game structure. Which holds the rendering context and is called from window
+
+UI:
+    [ ] Text rendering
+    [ ] Initial console
 
 Terrain:
     [ ] Octree LOD rendering
 
 Window:
-    [ ] Handle resize events. Make sure this works on mac. Seems broken atm
+    [x] Handle resize events. Make sure this works on mac. Seems broken atm
     [x] Measure delta time properly

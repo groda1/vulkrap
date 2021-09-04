@@ -6,6 +6,7 @@ use crate::engine::terrain::Terrain;
 use crate::engine::ui::UI;
 use crate::renderer::context::{Context, PipelineHandle};
 use crate::renderer::pipeline::PipelineDrawCommand;
+use crate::engine::mesh::{MeshManager, PredefinedMesh};
 
 pub struct Scene {
     // TODO replace with entity content system ( specs? )
@@ -23,11 +24,13 @@ pub struct Scene {
 impl Scene {
     pub fn new(
         context: &mut Context,
+        mesh_manager: &MeshManager,
         wobbly_pipeline: PipelineHandle,
         flat_objects_pipeline: PipelineHandle,
         terrain_pipeline: PipelineHandle,
     ) -> Scene {
         let render_job_buffer = Vec::new();
+        let (window_width, window_height) = context.get_framebuffer_extent();
 
         Scene {
             wobbly_objects: vec![],
@@ -36,7 +39,7 @@ impl Scene {
             flat_objects_pipeline,
             render_job_buffer,
             terrain: Terrain::new(context, terrain_pipeline),
-            ui: UI::new(),
+            ui: UI::new(context, *mesh_manager.get_predefined_mesh(PredefinedMesh::TexturedQuad), window_width, window_height),
         }
     }
 
@@ -82,7 +85,12 @@ impl Scene {
         }
 
         self.terrain.draw(&mut self.render_job_buffer);
+        self.ui.draw(&mut self.render_job_buffer);
 
         &self.render_job_buffer
+    }
+
+    pub fn handle_window_resize(&mut self, context : &mut Context, width: u32, height: u32) {
+        self.ui.handle_window_resize(context,width, height);
     }
 }

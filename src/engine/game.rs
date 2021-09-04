@@ -77,7 +77,7 @@ impl VulkrapApplication {
             .build();
         let terrain_pipeline = context.add_pipeline::<VertexNormal>(pipeline_config);
 
-        let scene = Scene::new(&mut context, main_pipeline, flat_color_pipeline, terrain_pipeline);
+        let scene = Scene::new(&mut context, &mesh_manager, main_pipeline, flat_color_pipeline, terrain_pipeline);
 
         let mut app = VulkrapApplication {
             context,
@@ -106,6 +106,11 @@ impl VulkrapApplication {
 
     pub fn handle_mouse_input(&mut self, x_delta: f64, y_delta: f64) {
         self.camera.update_yaw_pitch(x_delta as f32, y_delta as f32);
+    }
+
+    pub fn handle_window_resize(&mut self, width: u32, height: u32) {
+        self.scene.handle_window_resize(&mut self.context, width, height);
+        self.context.handle_window_resize();
     }
 
     pub fn exit(&self) {

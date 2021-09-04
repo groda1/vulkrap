@@ -28,6 +28,9 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut vulkrap_app: Vul
                     _ => {}
                 },
             },
+            WindowEvent::Resized(new_size) => {
+                vulkrap_app.handle_window_resize(new_size.width, new_size.height);
+            }
             _ => {}
         },
         Event::DeviceEvent { event, .. } => match event {
