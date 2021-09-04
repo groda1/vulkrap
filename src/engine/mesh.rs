@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use cgmath::Vector3;
+use cgmath::{Vector2, Vector3};
 
-use crate::engine::datatypes::{ColoredVertex, SimpleVertex};
+use crate::engine::datatypes::{ColoredVertex, SimpleVertex, TexturedVertex};
 use crate::renderer::context::Context;
 use ash::vk::Buffer;
 
@@ -32,6 +32,8 @@ pub enum PredefinedMesh {
     ColoredTriangle = 3,
     ColoredQuad = 4,
     _ColoredCube = 5,
+
+    TexturedQuad = 6,
 }
 
 type MeshHandle = u32;
@@ -93,21 +95,29 @@ impl MeshManager {
         }
 
         {
-            let colored_vertices = vec![
-                ColoredVertex::new(Vector3::new(-0.5, 0.5, 0.0), Vector3::new(1.0, 0.0, 0.0)),
-                ColoredVertex::new(Vector3::new(0.5, 0.5, 0.0), Vector3::new(0.0, 1.0, 0.0)),
-                ColoredVertex::new(Vector3::new(-0.5, -0.5, 0.0), Vector3::new(0.0, 0.0, 1.0)),
-                ColoredVertex::new(Vector3::new(0.5, -0.5, 0.0), Vector3::new(1.0, 0.0, 1.0)),
-            ];
             let simple_vertices = vec![
                 SimpleVertex::new(Vector3::new(-0.5, 0.5, 0.0)),
                 SimpleVertex::new(Vector3::new(0.5, 0.5, 0.0)),
                 SimpleVertex::new(Vector3::new(-0.5, -0.5, 0.0)),
                 SimpleVertex::new(Vector3::new(0.5, -0.5, 0.0)),
             ];
+            let colored_vertices = vec![
+                ColoredVertex::new(Vector3::new(-0.5, 0.5, 0.0), Vector3::new(1.0, 0.0, 0.0)),
+                ColoredVertex::new(Vector3::new(0.5, 0.5, 0.0), Vector3::new(0.0, 1.0, 0.0)),
+                ColoredVertex::new(Vector3::new(-0.5, -0.5, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+                ColoredVertex::new(Vector3::new(0.5, -0.5, 0.0), Vector3::new(1.0, 0.0, 1.0)),
+            ];
+            let textured_vertices = vec![
+                TexturedVertex::new(Vector3::new(-0.5, 0.5, 0.0), Vector2::new(0.0, 0.0)),
+                TexturedVertex::new(Vector3::new(0.5, 0.5, 0.0), Vector2::new(1.0, 0.0)),
+                TexturedVertex::new(Vector3::new(-0.5, -0.5, 0.0), Vector2::new(0.0, 1.0)),
+                TexturedVertex::new(Vector3::new(0.5, -0.5, 0.0), Vector2::new(1.0, 1.0)),
+            ];
+
             let indices = vec![0, 1, 2, 2, 1, 3];
             let colored_vertex_buffer = context.allocate_vertex_buffer(&colored_vertices);
             let simple_vertex_buffer = context.allocate_vertex_buffer(&simple_vertices);
+            let textured_vertex_buffer = context.allocate_vertex_buffer(&textured_vertices);
             let index_buffer = context.allocate_index_buffer(&indices);
             let simple_mesh = Mesh {
                 vertex_buffer: simple_vertex_buffer,
@@ -119,10 +129,17 @@ impl MeshManager {
                 index_buffer,
                 index_count: indices.len() as u32,
             };
+            let textured_mesh = Mesh {
+                vertex_buffer: textured_vertex_buffer,
+                index_buffer,
+                index_count: indices.len() as u32,
+            };
             self.meshes
                 .insert(PredefinedMesh::SimpleQuad as MeshHandle, simple_mesh);
             self.meshes
                 .insert(PredefinedMesh::ColoredQuad as MeshHandle, colored_mesh);
+            self.meshes
+                .insert(PredefinedMesh::TexturedQuad as MeshHandle, textured_mesh);
         }
     }
 }

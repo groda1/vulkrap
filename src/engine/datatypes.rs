@@ -1,6 +1,6 @@
 use crate::renderer::pipeline::{UniformData, VertexInput};
 use ash::vk;
-use cgmath::{Matrix4, SquareMatrix, Vector3, Zero};
+use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Zero};
 
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
@@ -56,6 +56,49 @@ impl VertexInput for ColoredVertex {
                 location: 1,
                 format: vk::Format::R32G32B32_SFLOAT,
                 offset: offset_of!(Self, color) as u32,
+            },
+        ]
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Debug, Copy)]
+pub struct TexturedVertex {
+    pub position: Vector3<f32>,
+    pub texture_coord: Vector2<f32>,
+}
+
+impl TexturedVertex {
+    pub fn new(position: Vector3<f32>, texture_coord: Vector2<f32>) -> Self {
+        TexturedVertex {
+            position,
+            texture_coord,
+        }
+    }
+}
+
+impl VertexInput for TexturedVertex {
+    fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
+        vec![vk::VertexInputBindingDescription {
+            binding: 0,
+            stride: std::mem::size_of::<Self>() as u32,
+            input_rate: vk::VertexInputRate::VERTEX,
+        }]
+    }
+
+    fn attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
+        vec![
+            vk::VertexInputAttributeDescription {
+                binding: 0,
+                location: 0,
+                format: vk::Format::R32G32B32_SFLOAT,
+                offset: offset_of!(Self, position) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                binding: 0,
+                location: 1,
+                format: vk::Format::R32G32_SFLOAT,
+                offset: offset_of!(Self, texture_coord) as u32,
             },
         ]
     }

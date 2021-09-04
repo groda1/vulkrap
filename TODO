@@ -1,9 +1,11 @@
 Renderer:
-    [ ] texture mapping
+    [ ] Texture mipmaps
     [ ] Memory handling for images is weird. Handled by image.rs instead of the memory manager. fix!
     [ ] Proper device picking
     [ ] Dont allocate buffer memory on every vertex/index buffer creation. This could be managed by an allocator. See memory.rs
     [ ] Maybe create a separate queue for transfering data instead of graphics_queue for everything?
+    [ ] Multiple textures could be stored as an array with a single binding. See descriptor_count in create_descriptor_set_layout (pipeline.rs)
+    [x] texture mapping
     [x] Fix fragment uniforms
     [x] Pipeline should not own uniform buffer and memory. Should be possible to use the same uniform for several pipelines
     [x] Pipeline: General uniform data. Maybe a simple uniform struct containing data ptr + size?

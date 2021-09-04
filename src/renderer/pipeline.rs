@@ -63,6 +63,7 @@ impl PipelineContainer {
             logical_device,
             vertex_uniform_cfg.as_ref(),
             fragment_uniform_cfg.as_ref(),
+            &sampler_cfgs,
         );
 
         let vertex_attribute_descriptions = T::attribute_descriptions();
@@ -379,56 +380,69 @@ impl PipelineContainer {
         };
 
         for (i, &descriptor_set) in descriptor_sets.iter().enumerate() {
-            let mut descriptor_write_sets = Vec::with_capacity(2);
+            let mut descriptor_write_sets = Vec::new();
 
+            // This needs to be stored here so they are not deleted before the vulkan call
             let mut vertex_descriptor_buffer_infos = Vec::new();
             let mut fragment_descriptor_buffer_infos = Vec::new();
+            let mut descriptor_image_infos = Vec::new();
 
-            if self.vertex_uniform_cfg.is_some() {
+            if let Some(cfg) = self.vertex_uniform_cfg {
                 vertex_descriptor_buffer_infos.push(vk::DescriptorBufferInfo {
                     buffer: self.vertex_uniform_buffers[i],
                     offset: 0,
-                    range: self.vertex_uniform_cfg.as_ref().unwrap().size as u64,
+                    range: cfg.size as u64,
                 });
 
-                descriptor_write_sets.push(vk::WriteDescriptorSet {
-                    s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
-                    p_next: ptr::null(),
-                    dst_set: descriptor_set,
-                    dst_binding: self.vertex_uniform_cfg.as_ref().unwrap().binding as u32,
-                    dst_array_element: 0,
-                    descriptor_count: 1,
-                    descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                    p_image_info: ptr::null(),
-                    p_buffer_info: vertex_descriptor_buffer_infos.as_ptr(),
-                    p_texel_buffer_view: ptr::null(),
-                });
+                descriptor_write_sets.push(
+                    vk::WriteDescriptorSet::builder()
+                        .dst_set(descriptor_set)
+                        .dst_binding(cfg.binding as u32)
+                        .dst_array_element(0)
+                        .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                        .buffer_info(&vertex_descriptor_buffer_infos)
+                        .build(),
+                );
             }
 
-            if self.fragment_uniform_cfg.is_some() {
+            if let Some(cfg) = self.fragment_uniform_cfg {
                 fragment_descriptor_buffer_infos.push(vk::DescriptorBufferInfo {
                     buffer: self.fragment_uniform_buffers[i],
                     offset: 0,
-                    range: self.fragment_uniform_cfg.as_ref().unwrap().size as u64,
+                    range: cfg.size as u64,
                 });
 
-                descriptor_write_sets.push(vk::WriteDescriptorSet {
-                    s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
-                    p_next: ptr::null(),
-                    dst_set: descriptor_set,
-                    dst_binding: self.fragment_uniform_cfg.as_ref().unwrap().binding as u32,
-                    dst_array_element: 0,
-                    descriptor_count: 1,
-                    descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                    p_image_info: ptr::null(),
-                    p_buffer_info: fragment_descriptor_buffer_infos.as_ptr(),
-                    p_texel_buffer_view: ptr::null(),
-                });
+                descriptor_write_sets.push(
+                    vk::WriteDescriptorSet::builder()
+                        .dst_set(descriptor_set)
+                        .dst_binding(cfg.binding as u32)
+                        .dst_array_element(0)
+                        .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                        .buffer_info(&fragment_descriptor_buffer_infos)
+                        .build(),
+                );
             }
 
-            //            if self.sampler_cfg.is_some() {
-            //
-            //           }
+            for (i, cfg) in self.sampler_cfgs.iter().enumerate() {
+                let info = vec![
+                    vk::DescriptorImageInfo {
+                        sampler: cfg.sampler,
+                        image_view: cfg.image,
+                        image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                    }];
+                descriptor_image_infos.push(info);
+
+                descriptor_write_sets.push(
+                    vk::WriteDescriptorSet::builder()
+                        .dst_set(descriptor_set)
+                        .dst_binding(cfg.binding as u32)
+                        .dst_array_element(0)
+                        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                        .buffer_info(&fragment_descriptor_buffer_infos)
+                        .image_info(&descriptor_image_infos[i])
+                        .build(),
+                );
+            }
 
             unsafe {
                 device.update_descriptor_sets(&descriptor_write_sets, &[]);
@@ -479,26 +493,41 @@ fn create_descriptor_set_layout(
     device: &ash::Device,
     vertex_uniform_cfg: Option<&UniformBindingConfiguration>,
     fragment_uniform_cfg: Option<&UniformBindingConfiguration>,
+    sampler_cfgs: &[SamplerBindingConfiguration],
 ) -> vk::DescriptorSetLayout {
-    let mut layout_bindings = Vec::with_capacity(2);
+    let mut layout_bindings = Vec::new();
 
     if let Some(uniform_cfg) = vertex_uniform_cfg {
-        layout_bindings.push(vk::DescriptorSetLayoutBinding {
-            binding: uniform_cfg.binding as u32,
-            descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-            descriptor_count: 1,
-            stage_flags: vk::ShaderStageFlags::VERTEX,
-            p_immutable_samplers: ptr::null(),
-        });
+        layout_bindings.push(
+            vk::DescriptorSetLayoutBinding::builder()
+                .binding(uniform_cfg.binding as u32)
+                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::VERTEX)
+                .build(),
+        );
     }
     if let Some(uniform_cfg) = fragment_uniform_cfg {
-        layout_bindings.push(vk::DescriptorSetLayoutBinding {
-            binding: uniform_cfg.binding as u32,
-            descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-            descriptor_count: 1,
-            stage_flags: vk::ShaderStageFlags::FRAGMENT,
-            p_immutable_samplers: ptr::null(),
-        });
+        layout_bindings.push(
+            vk::DescriptorSetLayoutBinding::builder()
+                .binding(uniform_cfg.binding as u32)
+                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+                .build(),
+        );
+    }
+
+    for sampler_cfg in sampler_cfgs {
+        layout_bindings.push(
+            vk::DescriptorSetLayoutBinding::builder()
+                .binding(sampler_cfg.binding as u32)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                // TODO store textures as an array instead of separate bindings
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+                .build(),
+        )
     }
 
     let ubo_layout_create_info = vk::DescriptorSetLayoutCreateInfo::builder()

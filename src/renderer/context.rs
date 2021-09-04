@@ -28,7 +28,9 @@ use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
 use crate::renderer::uniform::{Uniform, UniformStage};
 use ash::extensions::ext::DebugUtils;
 
-const MAXIMUM_PIPELINE_COUNT: u32 = 50;
+const UNIFORM_DESCRIPTOR_POOL_SIZE: u32 = 10;
+const SAMPLER_DESCRIPTOR_POOL_SIZE: u32 = 5;
+const MAXIMUM_PIPELINE_COUNT: u32 = 25;
 
 pub type PipelineHandle = usize;
 pub type UniformHandle = usize;
@@ -345,8 +347,15 @@ impl Context {
         self.texture_manager.add_sampler(&self.logical_device)
     }
 
-    pub fn add_pipeline<T: VertexInput>(&mut self, mut config: PipelineConfiguration) -> PipelineHandle {
+    pub fn add_pipeline<T: VertexInput>(&mut self, config: PipelineConfiguration) -> PipelineHandle {
         let pipeline_handle = self.pipelines.len();
+
+        if config.vertex_uniform_cfg.is_some() {
+            self.uniforms[config.vertex_uniform_cfg.unwrap().uniform_handle].assign_pipeline(pipeline_handle);
+        }
+        if config.fragment_uniform_cfg.is_some() {
+            self.uniforms[config.fragment_uniform_cfg.unwrap().uniform_handle].assign_pipeline(pipeline_handle);
+        }
 
         let vertex_uniform_binding_cfg = config
             .vertex_uniform_cfg
@@ -383,8 +392,10 @@ impl Context {
             config.push_constant_size,
         );
 
+        // FIXME: remove this shitty call. The uniform buffers should be passed as an argument to the build function
         if let Some(cfg) = config.vertex_uniform_cfg {
             pipeline_container.set_uniform_buffers(UniformStage::Vertex, self.uniforms[cfg.uniform_handle].buffers());
+
         };
         if let Some(cfg) = config.fragment_uniform_cfg {
             pipeline_container.set_uniform_buffers(UniformStage::Fragment, self.uniforms[cfg.uniform_handle].buffers());
@@ -629,10 +640,16 @@ impl Drop for Context {
 }
 
 fn _create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
-    let pool_sizes = [vk::DescriptorPoolSize::builder()
-        .ty(DescriptorType::UNIFORM_BUFFER)
-        .descriptor_count(MAXIMUM_PIPELINE_COUNT * 2u32)
-        .build()];
+    let pool_sizes = [
+        vk::DescriptorPoolSize::builder()
+            .ty(DescriptorType::UNIFORM_BUFFER)
+            .descriptor_count(UNIFORM_DESCRIPTOR_POOL_SIZE)
+            .build(),
+        vk::DescriptorPoolSize::builder()
+            .ty(DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_count(SAMPLER_DESCRIPTOR_POOL_SIZE)
+            .build(),
+    ];
 
     let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo::builder()
         .flags(DescriptorPoolCreateFlags::empty())
