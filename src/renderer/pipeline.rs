@@ -308,39 +308,38 @@ impl PipelineContainer {
         &self,
         logical_device: &ash::Device,
         command_buffer: vk::CommandBuffer,
-        draw_commands: &[PipelineDrawCommand],
+        draw_command: &PipelineDrawCommand,
         image_index: usize,
     ) {
         logical_device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.vk_pipeline);
-        for draw_command in draw_commands {
-            let vertex_buffers = [draw_command.vertex_buffer];
-            let offsets = [0_u64];
-            let descriptor_sets_to_bind = [self.descriptor_sets[image_index]];
 
-            if self.push_constant_size > 0 {
-                logical_device.cmd_push_constants(
-                    command_buffer,
-                    self.layout,
-                    ShaderStageFlags::VERTEX,
-                    0,
-                    std::slice::from_raw_parts(draw_command.push_constant_ptr, self.push_constant_size as usize),
-                );
-            }
+        let vertex_buffers = [draw_command.vertex_buffer];
+        let offsets = [0_u64];
+        let descriptor_sets_to_bind = [self.descriptor_sets[image_index]];
 
-            logical_device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, &offsets);
-            logical_device.cmd_bind_index_buffer(command_buffer, draw_command.index_buffer, 0, vk::IndexType::UINT32);
-
-            logical_device.cmd_bind_descriptor_sets(
+        if self.push_constant_size > 0 {
+            logical_device.cmd_push_constants(
                 command_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
                 self.layout,
+                ShaderStageFlags::VERTEX,
                 0,
-                &descriptor_sets_to_bind,
-                &[],
+                std::slice::from_raw_parts(draw_command.push_constant_ptr, self.push_constant_size as usize),
             );
-
-            logical_device.cmd_draw_indexed(command_buffer, draw_command.index_count, 1, 0, 0, 0);
         }
+
+        logical_device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, &offsets);
+        logical_device.cmd_bind_index_buffer(command_buffer, draw_command.index_buffer, 0, vk::IndexType::UINT32);
+
+        logical_device.cmd_bind_descriptor_sets(
+            command_buffer,
+            vk::PipelineBindPoint::GRAPHICS,
+            self.layout,
+            0,
+            &descriptor_sets_to_bind,
+            &[],
+        );
+
+        logical_device.cmd_draw_indexed(command_buffer, draw_command.index_count, 1, 0, 0, 0);
     }
 
     pub(super) fn set_uniform_buffers(&mut self, stage: UniformStage, buffers: &[vk::Buffer]) {
@@ -424,12 +423,11 @@ impl PipelineContainer {
             }
 
             for (i, cfg) in self.sampler_cfgs.iter().enumerate() {
-                let info = vec![
-                    vk::DescriptorImageInfo {
-                        sampler: cfg.sampler,
-                        image_view: cfg.image,
-                        image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                    }];
+                let info = vec![vk::DescriptorImageInfo {
+                    sampler: cfg.sampler,
+                    image_view: cfg.image,
+                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                }];
                 descriptor_image_infos.push(info);
 
                 descriptor_write_sets.push(
@@ -542,16 +540,8 @@ fn create_descriptor_set_layout(
     }
 }
 
-impl PipelineJob {
-    pub fn new(handle: PipelineHandle) -> PipelineJob {
-        PipelineJob {
-            handle,
-            draw_commands: Vec::new(),
-        }
-    }
-}
-
 pub struct PipelineDrawCommand {
+    pub(crate) pipeline: PipelineHandle,
     vertex_buffer: vk::Buffer,
     index_buffer: vk::Buffer,
     index_count: u32,
@@ -560,12 +550,14 @@ pub struct PipelineDrawCommand {
 
 impl PipelineDrawCommand {
     pub fn new(
+        pipeline: PipelineHandle,
         vertex_buffer: vk::Buffer,
         index_buffer: vk::Buffer,
         index_count: u32,
         push_constant_ptr: *const u8,
     ) -> PipelineDrawCommand {
         PipelineDrawCommand {
+            pipeline,
             vertex_buffer,
             index_buffer,
             index_count,
@@ -578,11 +570,6 @@ impl PipelineDrawCommand {
 pub enum VertexTopology {
     Triangle,
     TriangeStrip,
-}
-
-pub struct PipelineJob {
-    pub(crate) handle: PipelineHandle,
-    pub(crate) draw_commands: Vec<PipelineDrawCommand>,
 }
 
 pub struct PipelineConfiguration {

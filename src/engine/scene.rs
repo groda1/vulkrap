@@ -3,40 +3,40 @@ use cgmath::{Deg, Quaternion, Rotation3};
 use crate::engine::datatypes::{ModelColorPushConstant, ModelWoblyPushConstant};
 use crate::engine::entity::{FlatColorEntity, WobblyEntity};
 use crate::engine::terrain::Terrain;
+use crate::engine::ui::UI;
 use crate::renderer::context::{Context, PipelineHandle};
-use crate::renderer::pipeline::{PipelineDrawCommand, PipelineJob};
-
-const WOBBLY_INDEX: usize = 0;
-const FLAT_COLOR_INDEX: usize = 1;
-const TERRAIN_INDEX: usize = 2;
+use crate::renderer::pipeline::PipelineDrawCommand;
 
 pub struct Scene {
     // TODO replace with entity content system ( specs? )
     wobbly_objects: Vec<WobblyEntity>,
     flat_objects: Vec<FlatColorEntity>,
 
+    wobbly_pipeline: PipelineHandle,
+    flat_objects_pipeline: PipelineHandle,
+
     terrain: Terrain,
-    render_job_buffer: Vec<PipelineJob>,
+    ui: UI,
+    render_job_buffer: Vec<PipelineDrawCommand>,
 }
 
 impl Scene {
     pub fn new(
         context: &mut Context,
-        static_objects_pipeline: PipelineHandle,
+        wobbly_pipeline: PipelineHandle,
         flat_objects_pipeline: PipelineHandle,
         terrain_pipeline: PipelineHandle,
     ) -> Scene {
-        let mut render_job_buffer = Vec::new();
-
-        render_job_buffer.push(PipelineJob::new(static_objects_pipeline));
-        render_job_buffer.push(PipelineJob::new(flat_objects_pipeline));
-        render_job_buffer.push(PipelineJob::new(terrain_pipeline));
+        let render_job_buffer = Vec::new();
 
         Scene {
-            wobbly_objects: Vec::new(),
-            flat_objects: Vec::new(),
+            wobbly_objects: vec![],
+            flat_objects: vec![],
+            wobbly_pipeline,
+            flat_objects_pipeline,
             render_job_buffer,
-            terrain: Terrain::new(context),
+            terrain: Terrain::new(context, terrain_pipeline),
+            ui: UI::new(),
         }
     }
 
@@ -58,34 +58,30 @@ impl Scene {
         }
     }
 
-    pub fn get_render_job(&mut self) -> &Vec<PipelineJob> {
-        self.render_job_buffer[WOBBLY_INDEX].draw_commands.clear();
-        self.render_job_buffer[FLAT_COLOR_INDEX].draw_commands.clear();
+    pub fn fetch_render_job(&mut self) -> &Vec<PipelineDrawCommand> {
+        self.render_job_buffer.clear();
 
         for entity in self.wobbly_objects.iter() {
-            self.render_job_buffer[WOBBLY_INDEX]
-                .draw_commands
-                .push(PipelineDrawCommand::new(
-                    entity.mesh.vertex_buffer,
-                    entity.mesh.index_buffer,
-                    entity.mesh.index_count,
-                    &entity.push_constant_buf as *const ModelWoblyPushConstant as *const u8,
-                ));
+            self.render_job_buffer.push(PipelineDrawCommand::new(
+                self.wobbly_pipeline,
+                entity.mesh.vertex_buffer,
+                entity.mesh.index_buffer,
+                entity.mesh.index_count,
+                &entity.push_constant_buf as *const ModelWoblyPushConstant as *const u8,
+            ));
         }
 
         for entity in self.flat_objects.iter() {
-            self.render_job_buffer[FLAT_COLOR_INDEX]
-                .draw_commands
-                .push(PipelineDrawCommand::new(
-                    entity.mesh.vertex_buffer,
-                    entity.mesh.index_buffer,
-                    entity.mesh.index_count,
-                    &entity.push_constant_buf as *const ModelColorPushConstant as *const u8,
-                ));
+            self.render_job_buffer.push(PipelineDrawCommand::new(
+                self.flat_objects_pipeline,
+                entity.mesh.vertex_buffer,
+                entity.mesh.index_buffer,
+                entity.mesh.index_count,
+                &entity.push_constant_buf as *const ModelColorPushConstant as *const u8,
+            ));
         }
 
-        self.terrain
-            .set_draw_commands(&mut self.render_job_buffer[TERRAIN_INDEX].draw_commands);
+        self.terrain.draw(&mut self.render_job_buffer);
 
         &self.render_job_buffer
     }

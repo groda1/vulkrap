@@ -2,14 +2,13 @@ use std::collections::HashSet;
 use std::ffi::CString;
 use std::ptr;
 
-//use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
 use ash::vk::{DescriptorPoolCreateFlags, DescriptorType, PhysicalDevice};
 use winit::window::Window;
 
 use crate::renderer::memory::MemoryManager;
 use crate::renderer::pipeline::{
-    Index, PipelineConfiguration, PipelineContainer, PipelineJob, SamplerBindingConfiguration,
+    Index, PipelineConfiguration, PipelineContainer, PipelineDrawCommand, SamplerBindingConfiguration,
     UniformBindingConfiguration, UniformData, VertexInput, VertexTopology,
 };
 use crate::renderer::synchronization::SynchronizationHandler;
@@ -186,7 +185,7 @@ impl Context {
         }
     }
 
-    pub fn draw_frame(&mut self, render_job: &[PipelineJob]) {
+    pub fn draw_frame(&mut self, render_job: &[PipelineDrawCommand]) {
         let (image_index, _is_sub_optimal) = unsafe {
             let result = self.swapchain_loader.acquire_next_image(
                 self.swapchain,
@@ -395,7 +394,6 @@ impl Context {
         // FIXME: remove this shitty call. The uniform buffers should be passed as an argument to the build function
         if let Some(cfg) = config.vertex_uniform_cfg {
             pipeline_container.set_uniform_buffers(UniformStage::Vertex, self.uniforms[cfg.uniform_handle].buffers());
-
         };
         if let Some(cfg) = config.fragment_uniform_cfg {
             pipeline_container.set_uniform_buffers(UniformStage::Fragment, self.uniforms[cfg.uniform_handle].buffers());
@@ -532,7 +530,7 @@ impl Context {
         command_buffer: vk::CommandBuffer,
         framebuffer: vk::Framebuffer,
         image_index: usize,
-        render_job: &[PipelineJob],
+        render_job: &[PipelineDrawCommand],
     ) -> bool {
         let command_buffer_begin_info = vk::CommandBufferBeginInfo {
             s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
@@ -578,13 +576,13 @@ impl Context {
                 vk::SubpassContents::INLINE,
             );
 
-            for pipeline_job in render_job.iter() {
-                self.pipelines[pipeline_job.handle].bake_command_buffer(
+            for draw_command in render_job {
+                self.pipelines[draw_command.pipeline].bake_command_buffer(
                     &self.logical_device,
                     command_buffer,
-                    &pipeline_job.draw_commands,
+                    draw_command,
                     image_index,
-                )
+                );
             }
 
             self.logical_device.cmd_end_render_pass(command_buffer);

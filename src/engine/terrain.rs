@@ -5,7 +5,7 @@ use num::Integer;
 
 use crate::engine::datatypes::VertexNormal;
 use crate::engine::mesh::Mesh;
-use crate::renderer::context::Context;
+use crate::renderer::context::{Context, PipelineHandle};
 use crate::renderer::pipeline::PipelineDrawCommand;
 
 const QUAD_SIZE: f32 = 1.0;
@@ -21,11 +21,13 @@ pub struct _OctreeTerrainNode {
 }
 
 pub struct Terrain {
+    pipeline: PipelineHandle,
+
     chunk: Mesh,
 }
 
 impl Terrain {
-    pub fn new(context: &mut Context) -> Self {
+    pub fn new(context: &mut Context, pipeline: PipelineHandle) -> Self {
         let quad_width = 256;
         let quad_height = quad_width;
 
@@ -43,14 +45,14 @@ impl Terrain {
         let index_buffer = context.allocate_index_buffer(&chunk_data.indices);
 
         Terrain {
+            pipeline,
             chunk: Mesh::new(vertex_buffer, index_buffer, chunk_data.indices.len() as u32),
         }
     }
 
-    pub fn set_draw_commands(&self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
-        draw_command_buffer.clear();
-
+    pub fn draw(&self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
         draw_command_buffer.push(PipelineDrawCommand::new(
+            self.pipeline,
             self.chunk.vertex_buffer,
             self.chunk.index_buffer,
             self.chunk.index_count,

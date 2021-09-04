@@ -7,3 +7,4 @@ mod image;
 mod mesh;
 mod scene;
 mod terrain;
+mod ui;

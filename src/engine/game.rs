@@ -24,8 +24,6 @@ pub struct VulkrapApplication {
     scene: Scene,
 
     camera: Camera,
-
-    vp_uniform: UniformHandle,
     flags_uniform: UniformHandle,
 
     movement: MovementFlags,
@@ -39,9 +37,9 @@ impl VulkrapApplication {
         let mut context = Context::new(window);
         let mesh_manager = MeshManager::new(&mut context);
 
-        let vp_uniform = context.create_uniform::<ViewProjectionUniform>(UniformStage::Vertex);
-        let flags_uniform = context.create_uniform::<u32>(UniformStage::Fragment);
+        let camera = Camera::new(&mut context);
 
+        let flags_uniform = context.create_uniform::<u32>(UniformStage::Fragment);
         context.set_uniform_data(flags_uniform, 0_u32);
 
         let pipeline_config = PipelineConfiguration::builder()
@@ -52,7 +50,7 @@ impl VulkrapApplication {
                 "./resources/shaders/crazy_triangle_frag.spv",
             )))
             .with_push_constant(MODEL_WOBLY_PUSH_CONSTANT_SIZE)
-            .with_vertex_uniform(0, vp_uniform)
+            .with_vertex_uniform(0, camera.get_uniform())
             .build();
 
         let main_pipeline = context.add_pipeline::<ColoredVertex>(pipeline_config);
@@ -65,7 +63,7 @@ impl VulkrapApplication {
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/flat_color_vert.spv")))
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/flat_color_frag.spv")))
             .with_push_constant(MODEL_COLOR_PUSH_CONSTANT_SIZE)
-            .with_vertex_uniform(0, vp_uniform)
+            .with_vertex_uniform(0, camera.get_uniform())
             .add_texture(1, font_texture, sampler)
             .build();
         let flat_color_pipeline = context.add_pipeline::<TexturedVertex>(pipeline_config);
@@ -74,7 +72,7 @@ impl VulkrapApplication {
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/terrain_vert.spv")))
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/terrain_frag.spv")))
             .with_vertex_topology(VertexTopology::TriangeStrip)
-            .with_vertex_uniform(0, vp_uniform)
+            .with_vertex_uniform(0, camera.get_uniform())
             .with_fragment_uniform(1, flags_uniform)
             .build();
         let terrain_pipeline = context.add_pipeline::<VertexNormal>(pipeline_config);
@@ -85,8 +83,7 @@ impl VulkrapApplication {
             context,
             mesh_manager,
             scene,
-            camera: Camera::new(),
-            vp_uniform,
+            camera,
             flags_uniform,
             elapsed_time_s: 0.0,
             movement: MovementFlags::ZERO,
@@ -100,12 +97,10 @@ impl VulkrapApplication {
     pub fn update(&mut self, delta_time_s: f32) {
         self.elapsed_time_s += delta_time_s;
 
-        self.update_camera(delta_time_s);
-
+        self.camera.update(&mut self.context, self.movement, delta_time_s);
         self.scene.update(delta_time_s);
-        self.update_uniform_data();
 
-        let render_job = self.scene.get_render_job();
+        let render_job = self.scene.fetch_render_job();
         self.context.draw_frame(render_job);
     }
 
@@ -123,38 +118,6 @@ impl VulkrapApplication {
         self.draw_wireframe = !self.draw_wireframe;
         self.context
             .set_uniform_data(self.flags_uniform, self.draw_wireframe as u32);
-    }
-
-    fn update_uniform_data(&mut self) {
-        let data = ViewProjectionUniform {
-            view: self.camera.get_view_matrix(),
-            proj: cgmath::perspective(Deg(60.0), self.context.get_aspect_ratio(), 0.1, 10000.0),
-        };
-        self.context.set_uniform_data(self.vp_uniform, data);
-    }
-
-    fn update_camera(&mut self, delta_time_s: f32) {
-        if self.movement.contains(MovementFlags::FORWARD) {
-            self.camera.move_forward(delta_time_s);
-        }
-        if self.movement.contains(MovementFlags::BACKWARD) {
-            self.camera.move_backward(delta_time_s);
-        }
-        if self.movement.contains(MovementFlags::LEFT) {
-            self.camera.move_left(delta_time_s);
-        }
-        if self.movement.contains(MovementFlags::RIGHT) {
-            self.camera.move_right(delta_time_s);
-        }
-        if self.movement.contains(MovementFlags::UP) {
-            self.camera.move_up(delta_time_s);
-        }
-        if self.movement.contains(MovementFlags::DOWN) {
-            self.camera.move_down(delta_time_s);
-        }
-        if !self.movement.is_empty() {
-            //self.camera._debug_position();
-        }
     }
 
     fn create_entities(&mut self) {
@@ -206,7 +169,7 @@ impl VulkrapApplication {
 }
 
 bitflags! {
-    struct MovementFlags: u8 {
+    pub struct MovementFlags: u8 {
         const ZERO = 0;
         const FORWARD = 1 << 0;
         const BACKWARD = 1 << 1;
