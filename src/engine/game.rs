@@ -6,8 +6,8 @@ use winit::window::Window;
 
 use crate::engine::camera::Camera;
 use crate::engine::datatypes::{
-    ColoredVertex, SimpleVertex, TexturedVertex, VertexNormal, ViewProjectionUniform, MODEL_COLOR_PUSH_CONSTANT_SIZE,
-    MODEL_WOBLY_PUSH_CONSTANT_SIZE,
+    ColoredVertex, ModelColorPushConstant, ModelWoblyPushConstant, SimpleVertex, TexturedVertex, VertexNormal,
+    ViewProjectionUniform,
 };
 use crate::engine::entity::{FlatColorEntity, WobblyEntity};
 use crate::engine::image;
@@ -49,7 +49,7 @@ impl VulkrapApplication {
             .with_fragment_shader(file::read_file(Path::new(
                 "./resources/shaders/crazy_triangle_frag.spv",
             )))
-            .with_push_constant(MODEL_WOBLY_PUSH_CONSTANT_SIZE)
+            .with_push_constant::<ModelWoblyPushConstant>()
             .with_vertex_uniform(0, camera.get_uniform())
             .build();
 
@@ -62,7 +62,7 @@ impl VulkrapApplication {
         let pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/flat_color_vert.spv")))
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/flat_color_frag.spv")))
-            .with_push_constant(MODEL_COLOR_PUSH_CONSTANT_SIZE)
+            .with_push_constant::<ModelColorPushConstant>()
             .with_vertex_uniform(0, camera.get_uniform())
             .add_texture(1, font_texture, sampler)
             .build();
@@ -77,7 +77,13 @@ impl VulkrapApplication {
             .build();
         let terrain_pipeline = context.add_pipeline::<VertexNormal>(pipeline_config);
 
-        let scene = Scene::new(&mut context, &mesh_manager, main_pipeline, flat_color_pipeline, terrain_pipeline);
+        let scene = Scene::new(
+            &mut context,
+            &mesh_manager,
+            main_pipeline,
+            flat_color_pipeline,
+            terrain_pipeline,
+        );
 
         let mut app = VulkrapApplication {
             context,

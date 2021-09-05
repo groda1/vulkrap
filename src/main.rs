@@ -38,7 +38,7 @@ mod window;
 
 const ENGINE_NAME: &str = "vulkrap";
 const APPLICATION_VERSION: (u32, u32, u32) = (1, 0, 0);
-const ENGINE_VERSION: (u32, u32, u32) = (1, 0, 0);
+const ENGINE_VERSION: (u32, u32, u32) = (0, 0, 1);
 
 const WINDOW_TITLE: &str = "vulkrap";
 const WINDOW_WIDTH: u32 = 1920;

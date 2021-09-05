@@ -1,4 +1,4 @@
-use crate::renderer::pipeline::{UniformData, VertexInput};
+use crate::renderer::pipeline::{PushConstant, UniformData, VertexInput};
 use ash::vk;
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Zero};
 
@@ -175,9 +175,6 @@ impl VertexInput for VertexNormal {
     }
 }
 
-pub static MODEL_WOBLY_PUSH_CONSTANT_SIZE: u8 = std::mem::size_of::<ModelWoblyPushConstant>() as u8;
-pub static MODEL_COLOR_PUSH_CONSTANT_SIZE: u8 = std::mem::size_of::<ModelColorPushConstant>() as u8;
-
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
 pub struct ModelWoblyPushConstant {
@@ -201,6 +198,12 @@ impl ModelWoblyPushConstant {
     }
 }
 
+impl PushConstant for ModelWoblyPushConstant {
+    fn size() -> u8 {
+        std::mem::size_of::<Self>() as u8
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
 pub struct ModelColorPushConstant {
@@ -218,5 +221,43 @@ impl ModelColorPushConstant {
             model_transform: Matrix4::identity(),
             color: Vector3::zero(),
         }
+    }
+}
+
+impl PushConstant for ModelColorPushConstant {
+    fn size() -> u8 {
+        std::mem::size_of::<Self>() as u8
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Debug, Copy)]
+pub struct TextPushConstant {
+    model_transform: Matrix4<f32>,
+    color: Vector3<f32>,
+    char: u32,
+}
+
+impl TextPushConstant {
+    pub fn new(model_transform: Matrix4<f32>, color: Vector3<f32>, char: char) -> Self {
+        TextPushConstant {
+            model_transform,
+            color,
+            char: char as u32,
+        }
+    }
+
+    pub fn default() -> Self {
+        Self {
+            model_transform: Matrix4::identity(),
+            color: Vector3::zero(),
+            char: ' ' as u32,
+        }
+    }
+}
+
+impl PushConstant for TextPushConstant {
+    fn size() -> u8 {
+        std::mem::size_of::<Self>() as u8
     }
 }

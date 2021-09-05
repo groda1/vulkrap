@@ -572,6 +572,10 @@ pub enum VertexTopology {
     TriangeStrip,
 }
 
+pub trait PushConstant {
+    fn size() -> u8;
+}
+
 pub struct PipelineConfiguration {
     pub(super) vertex_shader_code: Vec<u8>,
     pub(super) fragment_shader_code: Vec<u8>,
@@ -619,8 +623,8 @@ impl PipelineConfigurationBuilder {
         self
     }
 
-    pub fn with_push_constant(&mut self, push_constant_size: u8) -> &mut Self {
-        self.push_constant_size = Some(push_constant_size);
+    pub fn with_push_constant<T: PushConstant>(&mut self) -> &mut Self {
+        self.push_constant_size = Some(T::size());
 
         self
     }

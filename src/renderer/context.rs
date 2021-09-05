@@ -184,7 +184,7 @@ impl Context {
             sync_handler,
             debug_utils_loader,
             debug_utils_messenger,
-            is_framebuffer_resized : false
+            is_framebuffer_resized: false,
         }
     }
 
@@ -607,10 +607,11 @@ impl Context {
     }
 
     pub fn handle_window_resize(&mut self) {
-        unsafe { self.wait_idle(); }
+        unsafe {
+            self.wait_idle();
+        }
         self.is_framebuffer_resized = true;
     }
-
 }
 
 impl Drop for Context {

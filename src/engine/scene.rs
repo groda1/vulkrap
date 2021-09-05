@@ -2,11 +2,12 @@ use cgmath::{Deg, Quaternion, Rotation3};
 
 use crate::engine::datatypes::{ModelColorPushConstant, ModelWoblyPushConstant};
 use crate::engine::entity::{FlatColorEntity, WobblyEntity};
+use crate::engine::mesh::{MeshManager, PredefinedMesh};
 use crate::engine::terrain::Terrain;
-use crate::engine::ui::UI;
+use crate::engine::ui::hud;
+use crate::engine::ui::hud::HUD;
 use crate::renderer::context::{Context, PipelineHandle};
 use crate::renderer::pipeline::PipelineDrawCommand;
-use crate::engine::mesh::{MeshManager, PredefinedMesh};
 
 pub struct Scene {
     // TODO replace with entity content system ( specs? )
@@ -17,7 +18,7 @@ pub struct Scene {
     flat_objects_pipeline: PipelineHandle,
 
     terrain: Terrain,
-    ui: UI,
+    hud: HUD,
     render_job_buffer: Vec<PipelineDrawCommand>,
 }
 
@@ -39,7 +40,12 @@ impl Scene {
             flat_objects_pipeline,
             render_job_buffer,
             terrain: Terrain::new(context, terrain_pipeline),
-            ui: UI::new(context, *mesh_manager.get_predefined_mesh(PredefinedMesh::TexturedQuad), window_width, window_height),
+            hud: HUD::new(
+                context,
+                *mesh_manager.get_predefined_mesh(PredefinedMesh::TexturedQuad),
+                window_width,
+                window_height,
+            ),
         }
     }
 
@@ -85,12 +91,12 @@ impl Scene {
         }
 
         self.terrain.draw(&mut self.render_job_buffer);
-        self.ui.draw(&mut self.render_job_buffer);
+        self.hud.draw(&mut self.render_job_buffer);
 
         &self.render_job_buffer
     }
 
-    pub fn handle_window_resize(&mut self, context : &mut Context, width: u32, height: u32) {
-        self.ui.handle_window_resize(context,width, height);
+    pub fn handle_window_resize(&mut self, context: &mut Context, width: u32, height: u32) {
+        self.hud.handle_window_resize(context, width, height);
     }
 }
