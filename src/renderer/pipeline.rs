@@ -4,7 +4,7 @@ use std::ptr;
 
 use ash::vk;
 use ash::vk::{
-    ColorComponentFlags, ImageView, PrimitiveTopology, Sampler, ShaderStageFlags, VertexInputAttributeDescription,
+    ImageView, PrimitiveTopology, Sampler, ShaderStageFlags, VertexInputAttributeDescription,
     VertexInputBindingDescription,
 };
 

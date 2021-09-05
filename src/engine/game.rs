@@ -8,8 +8,8 @@ use crate::engine::camera::Camera;
 use crate::engine::datatypes::{
     ColoredVertex, ModelColorPushConstant, ModelWoblyPushConstant, TexturedVertex, VertexNormal,
 };
-use crate::engine::entity::{FlatColorEntity, WobblyEntity};
-use crate::engine::image;
+use crate::engine::entity::{WobblyEntity};
+
 use crate::engine::mesh::{MeshManager, PredefinedMesh};
 use crate::engine::renderstats;
 use crate::engine::scene::Scene;

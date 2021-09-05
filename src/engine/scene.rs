@@ -1,15 +1,15 @@
 use cgmath::{Deg, Quaternion, Rotation3};
 
 use crate::engine::datatypes::{ModelColorPushConstant, ModelWoblyPushConstant, SimpleVertex, TexturedVertex};
-use crate::engine::entity::{FlatColorEntity, WobblyEntity};
-use crate::engine::mesh::{MeshManager, PredefinedMesh};
+use crate::engine::entity::{WobblyEntity};
+use crate::engine::mesh::{MeshManager};
 use crate::engine::terrain::Terrain;
 
 use crate::engine::ui::hud::HUD;
 use crate::renderer::context::{Context, PipelineHandle};
-use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand};
-use crate::util::file;
-use std::path::Path;
+use crate::renderer::pipeline::{PipelineDrawCommand};
+
+
 
 pub struct Scene {
     // TODO replace with entity content system ( specs? )
