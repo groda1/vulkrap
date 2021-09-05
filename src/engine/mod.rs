@@ -2,6 +2,7 @@ pub mod datatypes;
 pub mod game;
 
 mod camera;
+mod cvars;
 mod entity;
 mod image;
 mod mesh;

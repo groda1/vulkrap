@@ -1,12 +1,9 @@
+use crate::engine::cvars::{ConfigVariables, CvarValue, M_PITCH, M_SENSITIVITY, M_YAW};
 use crate::engine::datatypes::ViewProjectionUniform;
 use crate::engine::game::MovementFlags;
 use crate::renderer::context::{Context, UniformHandle};
 use crate::renderer::uniform::UniformStage;
 use cgmath::{dot, Deg, Matrix4, Quaternion, Rad, Rotation3, Vector3};
-
-const M_SENSITIVITY: f32 = 0.08;
-const M_YAW: f32 = -0.01;
-const M_PITCH: f32 = -0.01;
 
 const MOVE_SPEED: f32 = 25.0;
 
@@ -15,22 +12,32 @@ const PITCH_LIMIT: f32 = (std::f32::consts::PI / 2.0) - 0.05;
 
 pub struct Camera {
     position: Vector3<f32>,
+
     pitch: f32,
     yaw: f32,
 
     uniform: UniformHandle,
 
+    pitch_cvar: *const f32,
+    yaw_cvar: *const f32,
+    sensitivity_cvar: *const f32,
+
     _flight_mode: bool,
 }
 
 impl Camera {
-    pub fn new(context: &mut Context) -> Self {
+    pub fn new(context: &mut Context, config: &ConfigVariables) -> Self {
         let uniform = context.create_uniform::<ViewProjectionUniform>(UniformStage::Vertex);
         Camera {
             position: Vector3::new(0.0, 10.0, 3.0),
             pitch: 0.0,
             yaw: 0.0,
             uniform,
+
+            pitch_cvar: config.get(M_PITCH) as *const dyn CvarValue as *const f32,
+            yaw_cvar: config.get(M_YAW) as *const dyn CvarValue as *const f32,
+            sensitivity_cvar: config.get(M_SENSITIVITY) as *const dyn CvarValue as *const f32,
+
             _flight_mode: true,
         }
     }
@@ -64,14 +71,14 @@ impl Camera {
     }
 
     pub fn update_yaw_pitch(&mut self, delta_yaw: f32, delta_pitch: f32) {
-        self.yaw += delta_yaw * M_YAW * M_SENSITIVITY;
+        self.yaw += unsafe { delta_yaw * (-*self.yaw_cvar) * *self.sensitivity_cvar };
         if self.yaw > YAW_LIMIT {
             self.yaw -= YAW_LIMIT;
         } else if self.yaw < -YAW_LIMIT {
             self.yaw += YAW_LIMIT;
         }
 
-        self.pitch += delta_pitch * M_PITCH * M_SENSITIVITY;
+        self.pitch += unsafe { delta_pitch * (-*self.pitch_cvar) * *self.sensitivity_cvar };
         if self.pitch > PITCH_LIMIT {
             self.pitch = PITCH_LIMIT;
         } else if self.pitch < -PITCH_LIMIT {

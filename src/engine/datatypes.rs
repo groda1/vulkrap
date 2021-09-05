@@ -246,14 +246,6 @@ impl TextPushConstant {
             char: char as u32,
         }
     }
-
-    pub fn default() -> Self {
-        Self {
-            model_transform: Matrix4::identity(),
-            color: Vector3::zero(),
-            char: ' ' as u32,
-        }
-    }
 }
 
 impl PushConstant for TextPushConstant {

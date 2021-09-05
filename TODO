@@ -1,11 +1,11 @@
 Renderer:
-    [ ] Alpha blending
     [ ] Texture mipmaps
     [ ] Memory handling for images is weird. Handled by image.rs instead of the memory manager. fix!
     [ ] Proper device picking
     [ ] Dont allocate buffer memory on every vertex/index buffer creation. This could be managed by an allocator. See memory.rs
     [ ] Maybe create a separate queue for transfering data instead of graphics_queue for everything?
     [ ] Multiple textures could be stored as an array with a single binding. See descriptor_count in create_descriptor_set_layout (pipeline.rs)
+    [x] Alpha blending
     [x] texture mapping
     [x] Fix fragment uniforms
     [x] Pipeline should not own uniform buffer and memory. Should be possible to use the same uniform for several pipelines
@@ -15,14 +15,17 @@ Renderer:
     [x] Setup a usable API for a game structure
     [x] Recreating swapchain should possibly recreate uniform buffers as the number of images could change.
 
-Game:
+Engine:
+    [ ] read and save config file
     [ ] Include shaders in binary
+    [x] Config system
     [x] Camera
     [x] Setup game structure. Which holds the rendering context and is called from window
 
 UI:
-    [ ] Text rendering
+    [ ] Console command parsing. cvar setting
     [ ] Initial console
+    [x] Text rendering
 
 Terrain:
     [ ] Octree LOD rendering

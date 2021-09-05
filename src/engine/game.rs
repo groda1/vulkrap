@@ -5,11 +5,10 @@ use winit::event::{ElementState, VirtualKeyCode};
 use winit::window::Window;
 
 use crate::engine::camera::Camera;
-use crate::engine::datatypes::{
-    ColoredVertex, ModelColorPushConstant, ModelWoblyPushConstant, TexturedVertex, VertexNormal,
-};
-use crate::engine::entity::{WobblyEntity};
+use crate::engine::datatypes::{ColoredVertex, ModelWoblyPushConstant, VertexNormal};
+use crate::engine::entity::WobblyEntity;
 
+use crate::engine::cvars::{ConfigVariables, M_SENSITIVITY};
 use crate::engine::mesh::{MeshManager, PredefinedMesh};
 use crate::engine::renderstats;
 use crate::engine::scene::Scene;
@@ -20,6 +19,7 @@ use crate::util::file;
 
 pub struct VulkrapApplication {
     context: Context,
+    config: ConfigVariables,
     mesh_manager: MeshManager,
     scene: Scene,
 
@@ -34,9 +34,10 @@ pub struct VulkrapApplication {
 impl VulkrapApplication {
     pub fn new(window: &Window) -> VulkrapApplication {
         let mut context = Context::new(window);
-        let mesh_manager = MeshManager::new(&mut context);
+        let config = ConfigVariables::new();
 
-        let camera = Camera::new(&mut context);
+        let mesh_manager = MeshManager::new(&mut context);
+        let camera = Camera::new(&mut context, &config);
 
         let flags_uniform = context.create_uniform::<u32>(UniformStage::Fragment);
         context.set_uniform_data(flags_uniform, 0_u32);
@@ -66,6 +67,7 @@ impl VulkrapApplication {
 
         let mut app = VulkrapApplication {
             context,
+            config,
             mesh_manager,
             scene,
             camera,
@@ -143,6 +145,7 @@ impl VulkrapApplication {
             (VirtualKeyCode::C, ElementState::Pressed) => self.movement.insert(MovementFlags::DOWN),
             (VirtualKeyCode::C, ElementState::Released) => self.movement.remove(MovementFlags::DOWN),
             (VirtualKeyCode::F1, ElementState::Pressed) => self.toggle_wireframe(),
+            (VirtualKeyCode::F2, ElementState::Pressed) => self.config.set(M_SENSITIVITY, 1.0),
             _ => {}
         }
     }
