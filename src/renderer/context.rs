@@ -393,6 +393,7 @@ impl Context {
             sampler_cfgs,
             vertex_topology,
             config.push_constant_size,
+            config.alpha_blending,
         );
 
         // FIXME: remove this shitty call. The uniform buffers should be passed as an argument to the build function

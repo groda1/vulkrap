@@ -55,6 +55,7 @@ impl PipelineContainer {
         sampler_cfgs: Vec<SamplerBindingConfiguration>,
         vertex_topology: PrimitiveTopology,
         push_constant_size: u8,
+        alpha_blending: bool,
     ) -> PipelineContainer {
         let vertex_shader = create_shader_module(logical_device, &vertex_shader_code);
         let fragment_shader = create_shader_module(logical_device, &fragment_shader_code);
@@ -89,7 +90,7 @@ impl PipelineContainer {
 
             vertex_attribute_descriptions,
             vertex_binding_descriptions,
-            alpha_blending: true
+            alpha_blending,
         }
     }
 
@@ -597,6 +598,7 @@ pub struct PipelineConfiguration {
     pub(super) vertex_uniform_cfg: Option<UniformConfiguration>,
     pub(super) fragment_uniform_cfg: Option<UniformConfiguration>,
     pub(super) texture_cfgs: Vec<TextureConfiguration>,
+    pub(super) alpha_blending: bool,
 }
 
 impl PipelineConfiguration {
@@ -609,6 +611,7 @@ impl PipelineConfiguration {
             vertex_uniform_cfg: Option::None,
             fragment_uniform_cfg: Option::None,
             texture_cfgs: Vec::new(),
+            alpha_blending : false,
         }
     }
 }
@@ -621,6 +624,7 @@ pub struct PipelineConfigurationBuilder {
     vertex_uniform_cfg: Option<UniformConfiguration>,
     fragment_uniform_cfg: Option<UniformConfiguration>,
     texture_cfgs: Vec<TextureConfiguration>,
+    alpha_blending: bool
 }
 
 impl PipelineConfigurationBuilder {
@@ -660,6 +664,12 @@ impl PipelineConfigurationBuilder {
         self
     }
 
+    pub fn with_alpha_blending(&mut self) -> &mut Self {
+        self.alpha_blending = true;
+
+        self
+    }
+
     pub fn add_texture(&mut self, binding: u8, texture: TextureHandle, sampler: SamplerHandle) -> &mut Self {
         self.texture_cfgs
             .push(TextureConfiguration::new(binding, texture, sampler));
@@ -683,6 +693,7 @@ impl PipelineConfigurationBuilder {
             vertex_uniform_cfg: self.vertex_uniform_cfg,
             fragment_uniform_cfg: self.fragment_uniform_cfg,
             texture_cfgs: self.texture_cfgs.clone(),
+            alpha_blending : self.alpha_blending
         }
     }
 }

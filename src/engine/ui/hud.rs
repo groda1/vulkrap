@@ -44,6 +44,7 @@ impl HUD {
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/text_frag.spv")))
             .with_push_constant::<TextPushConstant>()
             .with_vertex_uniform(0, uniform)
+            .with_alpha_blending()
             .add_texture(1, font_texture, sampler)
             .build();
         let text_pipeline = context.add_pipeline::<TexturedVertex>(text_pipeline_config);
