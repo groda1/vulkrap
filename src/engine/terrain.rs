@@ -176,10 +176,9 @@ fn create_raw_vertices(
 
 #[cfg(test)]
 mod tests {
-    use crate::engine::terrain::create_flat_normaled_chunk;
 
     #[test]
     fn test() {
-        create_flat_normaled_chunk(3, 2);
+        println!("derp");
     }
 }
