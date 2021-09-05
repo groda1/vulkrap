@@ -1,17 +1,18 @@
 use std::path::Path;
 
-use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
+use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 
-use crate::engine::datatypes::{TextPushConstant, TexturedVertex, ViewProjectionUniform};
-use crate::engine::image;
-use crate::engine::mesh::Mesh;
-use crate::engine::ui::text;
+use crate::engine::datatypes::{
+    ModelColorPushConstant, SimpleVertex, TextPushConstant, TexturedVertex, ViewProjectionUniform,
+};
+use crate::engine::mesh::{Mesh, MeshManager, PredefinedMesh};
+use crate::engine::ui::draw;
+use crate::engine::{image, renderstats};
 use crate::renderer::context::{Context, PipelineHandle, UniformHandle};
 use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand};
 use crate::renderer::uniform::UniformStage;
 use crate::util::file;
 use crate::ENGINE_VERSION;
-
 
 const COLOR_WHITE: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
 const COLOR_BLACK: Vector3<f32> = Vector3::new(0.0, 0.0, 0.0);
@@ -19,21 +20,32 @@ const COLOR_RED: Vector3<f32> = Vector3::new(1.0, 0.0, 0.0);
 
 pub struct HUD {
     uniform: UniformHandle,
+    main_pipeline: PipelineHandle,
     text_pipeline: PipelineHandle,
-    quad_mesh: Mesh,
-    push_constant_buffer: Vec<TextPushConstant>,
+    quad_textured_mesh: Mesh,
+    quad_simple_mesh: Mesh,
+
+    text_push_constant_buffer: Vec<TextPushConstant>,
+    flat_push_constant_buffer: Vec<ModelColorPushConstant>,
 
     window_width: u32,
     window_height: u32,
-
-
 }
 
 impl HUD {
-    pub fn new(context: &mut Context, mesh: Mesh, window_width: u32, window_height: u32) -> Self {
+    pub fn new(context: &mut Context, mesh_manager: &MeshManager, window_width: u32, window_height: u32) -> Self {
         let uniform = context.create_uniform::<ViewProjectionUniform>(UniformStage::Vertex);
         let data = _create_view_projection_uniform(window_width, window_height);
         context.set_uniform_data(uniform, data);
+
+        let pipeline_config = PipelineConfiguration::builder()
+            .with_vertex_shader(file::read_file(Path::new("./resources/shaders/flat_color_vert.spv")))
+            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/flat_color_frag.spv")))
+            .with_push_constant::<ModelColorPushConstant>()
+            .with_vertex_uniform(0, uniform)
+            .with_alpha_blending()
+            .build();
+        let main_pipeline = context.add_pipeline::<SimpleVertex>(pipeline_config);
 
         let font_image = image::load_image(Path::new("./resources/textures/font.png"));
         let font_texture = context.add_texture(font_image.width, font_image.height, &font_image.data);
@@ -51,38 +63,68 @@ impl HUD {
 
         HUD {
             uniform,
+            main_pipeline,
             text_pipeline,
-            quad_mesh: mesh,
-            push_constant_buffer: Vec::new(),
+            quad_textured_mesh: *mesh_manager.get_predefined_mesh(PredefinedMesh::TexturedQuad),
+            quad_simple_mesh: *mesh_manager.get_predefined_mesh(PredefinedMesh::SimpleQuad),
+            text_push_constant_buffer: Vec::new(),
+            flat_push_constant_buffer: Vec::new(),
             window_width,
-            window_height
+            window_height,
         }
     }
 
     pub fn draw(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
-        self.push_constant_buffer.clear();
+        self.text_push_constant_buffer.clear();
 
-        text::draw_text(
+        draw::draw_quad(
             draw_command_buffer,
-            &mut self.push_constant_buffer,
-            self.text_pipeline,
-            &self.quad_mesh,
-            "bajskorv",
-            Vector2::new(20, 20),
-            16,
-            COLOR_RED
+            &mut self.flat_push_constant_buffer,
+            self.main_pipeline,
+            &self.quad_simple_mesh,
+            Vector2::new(500, 500),
+            Vector2::new(400, 200),
+            Vector4::new(0.02, 0.02, 0.02, 0.95),
         );
 
-        text::draw_text_shadowed(
+        self._draw_render_status(draw_command_buffer);
+
+        draw::draw_text_shadowed(
             draw_command_buffer,
-            &mut self.push_constant_buffer,
+            &mut self.text_push_constant_buffer,
             self.text_pipeline,
-            &self.quad_mesh,
+            &self.quad_textured_mesh,
             &*format!("VULKRAP {}.{}.{}", ENGINE_VERSION.0, ENGINE_VERSION.1, ENGINE_VERSION.2),
             Vector2::new(self.window_width - 210, self.window_height - 16),
             16,
             COLOR_WHITE,
-            COLOR_BLACK
+            COLOR_BLACK,
+        );
+    }
+
+    pub fn _draw_render_status(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
+        draw::draw_text_shadowed(
+            draw_command_buffer,
+            &mut self.text_push_constant_buffer,
+            self.text_pipeline,
+            &self.quad_textured_mesh,
+            &*format!("FPS: {}", renderstats::get_fps()),
+            Vector2::new(20, self.window_height - 16),
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
+        );
+
+        draw::draw_text_shadowed(
+            draw_command_buffer,
+            &mut self.text_push_constant_buffer,
+            self.text_pipeline,
+            &self.quad_textured_mesh,
+            &*format!("Frame time: {0:.3} ms", renderstats::get_frametime() * 1000f32),
+            Vector2::new(20, self.window_height - 34),
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
         );
     }
 
@@ -100,4 +142,3 @@ fn _create_view_projection_uniform(window_width: u32, window_height: u32) -> Vie
         proj: cgmath::ortho(0.0, window_width as f32, 0.0, window_height as f32, -1.0, 1.0),
     }
 }
-

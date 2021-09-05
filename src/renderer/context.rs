@@ -546,7 +546,7 @@ impl Context {
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
-                    float32: [0.1, 0.1, 0.1, 1.0],
+                    float32: [0.05, 0.05, 0.1, 1.0],
                 },
             },
             vk::ClearValue {
@@ -581,13 +581,16 @@ impl Context {
                 vk::SubpassContents::INLINE,
             );
 
+            let mut bound_pipeline = PipelineHandle::MAX;
             for draw_command in render_job {
                 self.pipelines[draw_command.pipeline].bake_command_buffer(
                     &self.logical_device,
                     command_buffer,
                     draw_command,
                     image_index,
+                    bound_pipeline != draw_command.pipeline,
                 );
+                bound_pipeline = draw_command.pipeline;
             }
 
             self.logical_device.cmd_end_render_pass(command_buffer);

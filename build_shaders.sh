@@ -2,6 +2,8 @@
 
 echo "Compiling shaders..."
 
+rm resources/shaders/*.spv
+
 for file in src/shaders/*.vert
 do
 	base=`basename $file`
@@ -9,6 +11,8 @@ do
 	echo "Compiling $file to $output"
 	glslc $file -o $output
 done
+
+
 
 for file in src/shaders/*.frag
 do

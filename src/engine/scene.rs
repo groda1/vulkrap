@@ -1,21 +1,20 @@
 use cgmath::{Deg, Quaternion, Rotation3};
 
-use crate::engine::datatypes::{ModelColorPushConstant, ModelWoblyPushConstant};
+use crate::engine::datatypes::{ModelColorPushConstant, ModelWoblyPushConstant, SimpleVertex, TexturedVertex};
 use crate::engine::entity::{FlatColorEntity, WobblyEntity};
 use crate::engine::mesh::{MeshManager, PredefinedMesh};
 use crate::engine::terrain::Terrain;
 
 use crate::engine::ui::hud::HUD;
 use crate::renderer::context::{Context, PipelineHandle};
-use crate::renderer::pipeline::PipelineDrawCommand;
+use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand};
+use crate::util::file;
+use std::path::Path;
 
 pub struct Scene {
     // TODO replace with entity content system ( specs? )
     wobbly_objects: Vec<WobblyEntity>,
-    flat_objects: Vec<FlatColorEntity>,
-
     wobbly_pipeline: PipelineHandle,
-    flat_objects_pipeline: PipelineHandle,
 
     terrain: Terrain,
     hud: HUD,
@@ -27,7 +26,6 @@ impl Scene {
         context: &mut Context,
         mesh_manager: &MeshManager,
         wobbly_pipeline: PipelineHandle,
-        flat_objects_pipeline: PipelineHandle,
         terrain_pipeline: PipelineHandle,
     ) -> Scene {
         let render_job_buffer = Vec::new();
@@ -35,26 +33,15 @@ impl Scene {
 
         Scene {
             wobbly_objects: vec![],
-            flat_objects: vec![],
             wobbly_pipeline,
-            flat_objects_pipeline,
             render_job_buffer,
             terrain: Terrain::new(context, terrain_pipeline),
-            hud: HUD::new(
-                context,
-                *mesh_manager.get_predefined_mesh(PredefinedMesh::TexturedQuad),
-                window_width,
-                window_height,
-            ),
+            hud: HUD::new(context, mesh_manager, window_width, window_height),
         }
     }
 
     pub fn add_wobbly_entity(&mut self, entity: WobblyEntity) {
         self.wobbly_objects.push(entity);
-    }
-
-    pub fn add_flat_color_entity(&mut self, entity: FlatColorEntity) {
-        self.flat_objects.push(entity);
     }
 
     pub fn update(&mut self, delta_time_s: f32) {
@@ -77,16 +64,6 @@ impl Scene {
                 entity.mesh.index_buffer,
                 entity.mesh.index_count,
                 &entity.push_constant_buf as *const ModelWoblyPushConstant as *const u8,
-            ));
-        }
-
-        for entity in self.flat_objects.iter() {
-            self.render_job_buffer.push(PipelineDrawCommand::new(
-                self.flat_objects_pipeline,
-                entity.mesh.vertex_buffer,
-                entity.mesh.index_buffer,
-                entity.mesh.index_count,
-                &entity.push_constant_buf as *const ModelColorPushConstant as *const u8,
             ));
         }
 

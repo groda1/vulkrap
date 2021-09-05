@@ -3,7 +3,7 @@
 
 layout (push_constant) uniform pushConstants {
     mat4 transform;
-    vec3 color;
+    vec4 color;
 } model;
 
 layout(binding = 0) uniform UniformBufferObject {
@@ -12,14 +12,10 @@ layout(binding = 0) uniform UniformBufferObject {
 } vp;
 
 layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec2 inTexCoord;
-
-layout(location = 0) flat out vec3 fragColor;
-layout(location = 1) out vec2 fragTexCoord;
+layout(location = 0) flat out vec4 fragColor;
 
 void main() {
     gl_Position = vp.proj * vp.view * model.transform * vec4(inPosition, 1.0);
 
     fragColor = model.color;
-    fragTexCoord = inTexCoord;
 }

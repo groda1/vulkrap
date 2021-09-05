@@ -3,7 +3,10 @@ use std::ffi::CString;
 use std::ptr;
 
 use ash::vk;
-use ash::vk::{ImageView, PrimitiveTopology, Sampler, ShaderStageFlags, VertexInputAttributeDescription, VertexInputBindingDescription, ColorComponentFlags};
+use ash::vk::{
+    ColorComponentFlags, ImageView, PrimitiveTopology, Sampler, ShaderStageFlags, VertexInputAttributeDescription,
+    VertexInputBindingDescription,
+};
 
 use crate::renderer::context::{PipelineHandle, UniformHandle};
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
@@ -42,7 +45,7 @@ pub(super) struct PipelineContainer {
     vertex_binding_descriptions: Vec<VertexInputBindingDescription>,
 
     // Configuration
-    alpha_blending: bool
+    alpha_blending: bool,
 }
 
 impl PipelineContainer {
@@ -224,8 +227,6 @@ impl PipelineContainer {
             min_depth_bounds: 0.0,
         };
 
-
-
         let color_blend_attachment_states = if self.alpha_blending {
             [vk::PipelineColorBlendAttachmentState::builder()
                 .blend_enable(true)
@@ -236,15 +237,12 @@ impl PipelineContainer {
                 .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
                 .alpha_blend_op(vk::BlendOp::ADD)
                 .color_write_mask(vk::ColorComponentFlags::all())
-
-                .build()
-            ]
+                .build()]
         } else {
             [vk::PipelineColorBlendAttachmentState::builder()
                 .blend_enable(false)
                 .color_write_mask(vk::ColorComponentFlags::all())
-                .build()
-            ]
+                .build()]
         };
 
         let color_blend_state = vk::PipelineColorBlendStateCreateInfo {
@@ -324,8 +322,11 @@ impl PipelineContainer {
         command_buffer: vk::CommandBuffer,
         draw_command: &PipelineDrawCommand,
         image_index: usize,
+        bind: bool,
     ) {
-        logical_device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.vk_pipeline);
+        if bind {
+            logical_device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.vk_pipeline);
+        }
 
         let vertex_buffers = [draw_command.vertex_buffer];
         let offsets = [0_u64];
@@ -611,7 +612,7 @@ impl PipelineConfiguration {
             vertex_uniform_cfg: Option::None,
             fragment_uniform_cfg: Option::None,
             texture_cfgs: Vec::new(),
-            alpha_blending : false,
+            alpha_blending: false,
         }
     }
 }
@@ -624,7 +625,7 @@ pub struct PipelineConfigurationBuilder {
     vertex_uniform_cfg: Option<UniformConfiguration>,
     fragment_uniform_cfg: Option<UniformConfiguration>,
     texture_cfgs: Vec<TextureConfiguration>,
-    alpha_blending: bool
+    alpha_blending: bool,
 }
 
 impl PipelineConfigurationBuilder {
@@ -693,7 +694,7 @@ impl PipelineConfigurationBuilder {
             vertex_uniform_cfg: self.vertex_uniform_cfg,
             fragment_uniform_cfg: self.fragment_uniform_cfg,
             texture_cfgs: self.texture_cfgs.clone(),
-            alpha_blending : self.alpha_blending
+            alpha_blending: self.alpha_blending,
         }
     }
 }

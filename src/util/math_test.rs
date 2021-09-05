@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
     use cgmath::{Deg, Matrix4, Point3, Quaternion, Rotation3, Vector3};
-    
 
     #[test]
     fn test() {

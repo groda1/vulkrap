@@ -1,6 +1,6 @@
 use crate::renderer::pipeline::{PushConstant, UniformData, VertexInput};
 use ash::vk;
-use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Zero};
+use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4, Zero};
 
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
@@ -208,18 +208,18 @@ impl PushConstant for ModelWoblyPushConstant {
 #[derive(Clone, Debug, Copy)]
 pub struct ModelColorPushConstant {
     model_transform: Matrix4<f32>,
-    color: Vector3<f32>,
+    color: Vector4<f32>,
 }
 
 impl ModelColorPushConstant {
-    pub fn new(model_transform: Matrix4<f32>, color: Vector3<f32>) -> Self {
+    pub fn new(model_transform: Matrix4<f32>, color: Vector4<f32>) -> Self {
         ModelColorPushConstant { model_transform, color }
     }
 
     pub fn default() -> Self {
         Self {
             model_transform: Matrix4::identity(),
-            color: Vector3::zero(),
+            color: Vector4::zero(),
         }
     }
 }

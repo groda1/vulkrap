@@ -14,35 +14,35 @@ pub struct FlatColorEntity {
     pub push_constant_buf: ModelColorPushConstant,
 }
 
-impl FlatColorEntity {
-    pub fn new(
-        position: Vector3<f32>,
-        scale: Vector3<f32>,
-        orientation: Quaternion<f32>,
-        mesh: Mesh,
-        color: Vector3<f32>,
-    ) -> Self {
-        let mut entity = FlatColorEntity {
-            position,
-            scale,
-            orientation,
-            mesh,
-            color,
-            push_constant_buf: ModelColorPushConstant::default(),
-        };
-        entity.update_push_constant_buffer();
-
-        entity
-    }
-    pub fn update_push_constant_buffer(&mut self) {
-        self.push_constant_buf = ModelColorPushConstant::new(
-            Matrix4::from_translation(self.position)
-                * Matrix4::from(self.orientation)
-                * Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z),
-            self.color,
-        );
-    }
-}
+// impl FlatColorEntity {
+//     pub fn new(
+//         position: Vector3<f32>,
+//         scale: Vector3<f32>,
+//         orientation: Quaternion<f32>,
+//         mesh: Mesh,
+//         color: Vector3<f32>,
+//     ) -> Self {
+//         let mut entity = FlatColorEntity {
+//             position,
+//             scale,
+//             orientation,
+//             mesh,
+//             color,
+//             push_constant_buf: ModelColorPushConstant::default(),
+//         };
+//         entity.update_push_constant_buffer();
+//
+//         entity
+//     }
+//     pub fn update_push_constant_buffer(&mut self) {
+//         self.push_constant_buf = ModelColorPushConstant::new(
+//             Matrix4::from_translation(self.position)
+//                 * Matrix4::from(self.orientation)
+//                 * Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z),
+//             self.color,
+//         );
+//     }
+// }
 
 #[derive(Debug)]
 pub struct WobblyEntity {
