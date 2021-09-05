@@ -6,8 +6,7 @@ use winit::window::Window;
 
 use crate::engine::camera::Camera;
 use crate::engine::datatypes::{
-    ColoredVertex, ModelColorPushConstant, ModelWoblyPushConstant, SimpleVertex, TexturedVertex, VertexNormal,
-    ViewProjectionUniform,
+    ColoredVertex, ModelColorPushConstant, ModelWoblyPushConstant, TexturedVertex, VertexNormal,
 };
 use crate::engine::entity::{FlatColorEntity, WobblyEntity};
 use crate::engine::image;
