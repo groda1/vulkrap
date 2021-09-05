@@ -2,7 +2,7 @@ use std::path::Path;
 
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
 
-use crate::engine::datatypes::{ModelColorPushConstant, TextPushConstant, TexturedVertex, ViewProjectionUniform};
+use crate::engine::datatypes::{TextPushConstant, TexturedVertex, ViewProjectionUniform};
 use crate::engine::image;
 use crate::engine::mesh::Mesh;
 use crate::engine::ui::text::draw_text;
