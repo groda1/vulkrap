@@ -5,7 +5,7 @@ use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3};
 use crate::engine::datatypes::{TextPushConstant, TexturedVertex, ViewProjectionUniform};
 use crate::engine::image;
 use crate::engine::mesh::Mesh;
-use crate::engine::ui::text::draw_text;
+use crate::engine::ui::text;
 use crate::renderer::context::{Context, PipelineHandle, UniformHandle};
 use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand};
 use crate::renderer::uniform::UniformStage;
@@ -14,6 +14,7 @@ use crate::ENGINE_VERSION;
 
 
 const COLOR_WHITE: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
+const COLOR_BLACK: Vector3<f32> = Vector3::new(0.0, 0.0, 0.0);
 const COLOR_RED: Vector3<f32> = Vector3::new(1.0, 0.0, 0.0);
 
 pub struct HUD {
@@ -24,6 +25,8 @@ pub struct HUD {
 
     window_width: u32,
     window_height: u32,
+
+
 }
 
 impl HUD {
@@ -58,18 +61,18 @@ impl HUD {
     pub fn draw(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
         self.push_constant_buffer.clear();
 
-        draw_text(
+        text::draw_text(
             draw_command_buffer,
             &mut self.push_constant_buffer,
             self.text_pipeline,
             &self.quad_mesh,
-            "ADAM bajskorv",
+            "bajskorv",
             Vector2::new(20, 20),
             16,
             COLOR_RED
         );
 
-        draw_text(
+        text::draw_text_shadowed(
             draw_command_buffer,
             &mut self.push_constant_buffer,
             self.text_pipeline,
@@ -77,7 +80,8 @@ impl HUD {
             &*format!("VULKRAP {}.{}.{}", ENGINE_VERSION.0, ENGINE_VERSION.1, ENGINE_VERSION.2),
             Vector2::new(self.window_width - 210, self.window_height - 16),
             16,
-            COLOR_WHITE
+            COLOR_WHITE,
+            COLOR_BLACK
         );
     }
 
@@ -95,3 +99,4 @@ fn _create_view_projection_uniform(window_width: u32, window_height: u32) -> Vie
         proj: cgmath::ortho(0.0, window_width as f32, 0.0, window_height as f32, -1.0, 1.0),
     }
 }
+

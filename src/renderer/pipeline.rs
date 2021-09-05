@@ -3,10 +3,7 @@ use std::ffi::CString;
 use std::ptr;
 
 use ash::vk;
-use ash::vk::{
-    ImageView, PrimitiveTopology, Sampler, ShaderStageFlags, VertexInputAttributeDescription,
-    VertexInputBindingDescription,
-};
+use ash::vk::{ImageView, PrimitiveTopology, Sampler, ShaderStageFlags, VertexInputAttributeDescription, VertexInputBindingDescription, ColorComponentFlags};
 
 use crate::renderer::context::{PipelineHandle, UniformHandle};
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
@@ -43,6 +40,9 @@ pub(super) struct PipelineContainer {
 
     vertex_attribute_descriptions: Vec<VertexInputAttributeDescription>,
     vertex_binding_descriptions: Vec<VertexInputBindingDescription>,
+
+    // Configuration
+    alpha_blending: bool
 }
 
 impl PipelineContainer {
@@ -89,6 +89,7 @@ impl PipelineContainer {
 
             vertex_attribute_descriptions,
             vertex_binding_descriptions,
+            alpha_blending: true
         }
     }
 
@@ -222,16 +223,28 @@ impl PipelineContainer {
             min_depth_bounds: 0.0,
         };
 
-        let color_blend_attachment_states = [vk::PipelineColorBlendAttachmentState {
-            blend_enable: vk::FALSE,
-            color_write_mask: vk::ColorComponentFlags::all(),
-            src_color_blend_factor: vk::BlendFactor::ONE,
-            dst_color_blend_factor: vk::BlendFactor::ZERO,
-            color_blend_op: vk::BlendOp::ADD,
-            src_alpha_blend_factor: vk::BlendFactor::ONE,
-            dst_alpha_blend_factor: vk::BlendFactor::ZERO,
-            alpha_blend_op: vk::BlendOp::ADD,
-        }];
+
+
+        let color_blend_attachment_states = if self.alpha_blending {
+            [vk::PipelineColorBlendAttachmentState::builder()
+                .blend_enable(true)
+                .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+                .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+                .color_blend_op(vk::BlendOp::ADD)
+                .src_alpha_blend_factor(vk::BlendFactor::ONE)
+                .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
+                .alpha_blend_op(vk::BlendOp::ADD)
+                .color_write_mask(vk::ColorComponentFlags::all())
+
+                .build()
+            ]
+        } else {
+            [vk::PipelineColorBlendAttachmentState::builder()
+                .blend_enable(false)
+                .color_write_mask(vk::ColorComponentFlags::all())
+                .build()
+            ]
+        };
 
         let color_blend_state = vk::PipelineColorBlendStateCreateInfo {
             s_type: vk::StructureType::PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,

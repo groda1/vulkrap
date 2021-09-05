@@ -17,6 +17,7 @@ cgmath      = "0.18.0"
 memoffset   = "0.6.1"
 bitflags    = "1.2.1"
 image       = "0.23.14"
+rand        = "0.8.4"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 metal = "0.17.0"
