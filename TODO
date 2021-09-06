@@ -1,5 +1,5 @@
 Renderer:
-	[ ] Render to texture. Support for multiple renderpasses.
+    [ ] Render to texture. Support for multiple renderpasses.
     [ ] Texture mipmaps
     [ ] Memory handling for images is weird. Handled by image.rs instead of the memory manager. fix!
     [ ] Proper device picking

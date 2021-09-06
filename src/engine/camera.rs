@@ -18,9 +18,9 @@ pub struct Camera {
 
     uniform: UniformHandle,
 
-    pitch_cvar: *const f32,
-    yaw_cvar: *const f32,
-    sensitivity_cvar: *const f32,
+    sens_pitch: f32,
+    sens_yaw: f32,
+    sens_global: f32,
 
     _flight_mode: bool,
 }
@@ -28,22 +28,30 @@ pub struct Camera {
 impl Camera {
     pub fn new(context: &mut Context, config: &ConfigVariables) -> Self {
         let uniform = context.create_uniform::<ViewProjectionUniform>(UniformStage::Vertex);
-        Camera {
+        let mut cam = Camera {
             position: Vector3::new(0.0, 10.0, 3.0),
             pitch: 0.0,
             yaw: 0.0,
             uniform,
 
-            pitch_cvar: config.get(M_PITCH) as *const dyn CvarValue as *const f32,
-            yaw_cvar: config.get(M_YAW) as *const dyn CvarValue as *const f32,
-            sensitivity_cvar: config.get(M_SENSITIVITY) as *const dyn CvarValue as *const f32,
+            sens_pitch: 0.0,
+            sens_yaw: 0.0,
+            sens_global: 0.0,
 
             _flight_mode: true,
-        }
+        };
+        cam.reconfigure(config);
+        cam
     }
 
     pub fn get_uniform(&self) -> UniformHandle {
         self.uniform
+    }
+
+    pub fn reconfigure(&mut self, config: &ConfigVariables) {
+        self.sens_pitch = config.get(M_PITCH).get_float();
+        self.sens_yaw = config.get(M_YAW).get_float();
+        self.sens_global = config.get(M_SENSITIVITY).get_float();
     }
 
     pub fn update(&mut self, context: &mut Context, movement_flags: MovementFlags, delta_time_s: f32) {
@@ -71,14 +79,14 @@ impl Camera {
     }
 
     pub fn update_yaw_pitch(&mut self, delta_yaw: f32, delta_pitch: f32) {
-        self.yaw += unsafe { delta_yaw * (-*self.yaw_cvar) * *self.sensitivity_cvar };
+        self.yaw += delta_yaw * (-self.sens_yaw) * self.sens_global;
         if self.yaw > YAW_LIMIT {
             self.yaw -= YAW_LIMIT;
         } else if self.yaw < -YAW_LIMIT {
             self.yaw += YAW_LIMIT;
         }
 
-        self.pitch += unsafe { delta_pitch * (-*self.pitch_cvar) * *self.sensitivity_cvar };
+        self.pitch += delta_pitch * (-self.sens_pitch) * self.sens_global;
         if self.pitch > PITCH_LIMIT {
             self.pitch = PITCH_LIMIT;
         } else if self.pitch < -PITCH_LIMIT {
