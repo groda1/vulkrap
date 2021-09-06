@@ -4,7 +4,7 @@
 layout (push_constant) uniform pushConstants {
     mat4 transform;
     vec3 color;
-    int char;
+    int character;
 } model;
 
 layout(binding = 0) uniform UniformBufferObject {
@@ -25,9 +25,9 @@ const float CHAR_HEIGHT = 1.0/6.0;
 void main() {
     fragColor = model.color;
 
-    int char = model.char - 32; // First ASCII character in the texture will be 32
-    int offset_y = char / WIDTH;
-    int offset_x = char % WIDTH;
+    int character = model.character - 32; // First ASCII character in the texture will be 32
+    int offset_y = character / WIDTH;
+    int offset_x = character % WIDTH;
     fragTexCoord = vec2(inTexCoord.x * CHAR_WIDTH + offset_x * CHAR_WIDTH, inTexCoord.y * CHAR_HEIGHT + offset_y * CHAR_HEIGHT);
 
     gl_Position = vp.proj * vp.view * model.transform * vec4(inPosition, 1.0);
