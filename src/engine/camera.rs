@@ -1,4 +1,4 @@
-use crate::engine::cvars::{ConfigVariables, CvarValue, FOV, M_PITCH, M_SENSITIVITY, M_YAW};
+use crate::engine::cvars::{ConfigVariables, FOV, M_PITCH, M_SENSITIVITY, M_YAW};
 use crate::engine::datatypes::ViewProjectionUniform;
 use crate::engine::game::MovementFlags;
 use crate::renderer::context::{Context, UniformHandle};

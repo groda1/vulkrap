@@ -2,7 +2,7 @@ use std::path::Path;
 
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 
-use crate::engine::console::{Console, HistoryLine, LineType};
+use crate::engine::console::{Console, LineType};
 use crate::engine::datatypes::{
     ModelColorPushConstant, SimpleVertex, TextPushConstant, TexturedVertex, ViewProjectionUniform,
 };
@@ -160,7 +160,7 @@ impl HUD {
         height: u32,
         offset: u32,
     ) {
-        let mut history_count_visible = height / (TEXT_SIZE_PX + LINE_SPACING) - 1;
+        let history_count_visible = height / (TEXT_SIZE_PX + LINE_SPACING) - 1;
         let history = console.get_history(history_count_visible as usize);
 
         for (i, line) in history.iter().rev().enumerate() {
