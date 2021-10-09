@@ -1,13 +1,16 @@
-use std::borrow::BorrowMut;
 use std::collections::HashMap;
 
 pub const M_SENSITIVITY: u32 = 1000;
 pub const M_YAW: u32 = 1001;
 pub const M_PITCH: u32 = 1002;
 
+pub const FOV: u32 = 1050;
+
 pub struct ConfigVariables {
     id_to_cvar: HashMap<u32, ConfigVariable>,
     cvar_str_to_id: HashMap<String, u32>,
+
+    dirty : bool
 }
 
 impl ConfigVariables {
@@ -21,6 +24,8 @@ impl ConfigVariables {
         id_to_cvar.insert(M_YAW, ConfigVariable::new("m_yaw", 0.01f32, "Mouse yaw"));
         id_to_cvar.insert(M_PITCH, ConfigVariable::new("m_pitch", 0.01f32, "Mouse pitch"));
 
+        id_to_cvar.insert(FOV, ConfigVariable::new("fov", 60.0f32, "Vertical field of view"));
+
         let cvar_str_to_id = id_to_cvar
             .iter()
             .map(|(id, cvar)| (cvar.name.to_string(), *id))
@@ -29,12 +34,24 @@ impl ConfigVariables {
         ConfigVariables {
             id_to_cvar,
             cvar_str_to_id,
+            dirty : false
         }
     }
 
     pub fn get(&self, id: u32) -> &dyn CvarValue {
         let cvar = self.id_to_cvar.get(&id);
         cvar.unwrap().value.as_ref()
+    }
+
+    pub fn get_desc(&self, id: u32) -> String {
+        let cvar = self.id_to_cvar.get(&id).expect("unknown cvar id");
+
+        format!("{} = {} ({}, default: {})", cvar.name, cvar.value.get_float(), cvar.description, cvar.default.get_float())
+
+    }
+
+    pub fn get_cvar_id_from_str(&self, cvar_str : &str) -> Option<&u32> {
+        self.cvar_str_to_id.get(cvar_str)
     }
 
     pub fn set<T: CvarValue>(&mut self, id: u32, val: T) {

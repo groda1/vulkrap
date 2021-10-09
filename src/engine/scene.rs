@@ -5,6 +5,7 @@ use crate::engine::entity::WobblyEntity;
 use crate::engine::mesh::MeshManager;
 use crate::engine::terrain::Terrain;
 
+use crate::engine::console::Console;
 use crate::engine::ui::hud::HUD;
 use crate::renderer::context::{Context, PipelineHandle};
 use crate::renderer::pipeline::PipelineDrawCommand;
@@ -52,7 +53,7 @@ impl Scene {
         }
     }
 
-    pub fn fetch_render_job(&mut self) -> &Vec<PipelineDrawCommand> {
+    pub fn fetch_render_job(&mut self, console: &Console) -> &Vec<PipelineDrawCommand> {
         self.render_job_buffer.clear();
 
         for entity in self.wobbly_objects.iter() {
@@ -66,7 +67,7 @@ impl Scene {
         }
 
         self.terrain.draw(&mut self.render_job_buffer);
-        self.hud.draw(&mut self.render_job_buffer);
+        self.hud.draw(&mut self.render_job_buffer, console);
 
         &self.render_job_buffer
     }

@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 lazy_static = "1.4.0"
-winit       = "0.24.0"
+winit       = "0.25.0"
 ash         = "0.33.2"
 ash-window  = "0.7"
 num         = "0.3.1"

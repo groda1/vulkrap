@@ -1,4 +1,4 @@
-use crate::engine::cvars::{ConfigVariables, CvarValue, M_PITCH, M_SENSITIVITY, M_YAW};
+use crate::engine::cvars::{ConfigVariables, CvarValue, M_PITCH, M_SENSITIVITY, M_YAW, FOV};
 use crate::engine::datatypes::ViewProjectionUniform;
 use crate::engine::game::MovementFlags;
 use crate::renderer::context::{Context, UniformHandle};
@@ -22,6 +22,8 @@ pub struct Camera {
     sens_yaw: f32,
     sens_global: f32,
 
+    fovy: f32,
+
     _flight_mode: bool,
 }
 
@@ -38,6 +40,8 @@ impl Camera {
             sens_yaw: 0.0,
             sens_global: 0.0,
 
+            fovy: 60.0,
+
             _flight_mode: true,
         };
         cam.reconfigure(config);
@@ -52,6 +56,7 @@ impl Camera {
         self.sens_pitch = config.get(M_PITCH).get_float();
         self.sens_yaw = config.get(M_YAW).get_float();
         self.sens_global = config.get(M_SENSITIVITY).get_float();
+        self.fovy =  config.get(FOV).get_float();
     }
 
     pub fn update(&mut self, context: &mut Context, movement_flags: MovementFlags, delta_time_s: f32) {
@@ -73,7 +78,7 @@ impl Camera {
 
         let data = ViewProjectionUniform {
             view: self._get_view_matrix(),
-            proj: cgmath::perspective(Deg(60.0), context.get_aspect_ratio(), 0.1, 1000.0),
+            proj: cgmath::perspective(Deg(self.fovy), context.get_aspect_ratio(), 0.1, 1000.0),
         };
         context.set_uniform_data(self.uniform, data);
     }

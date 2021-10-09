@@ -8,6 +8,7 @@ use crate::engine::camera::Camera;
 use crate::engine::datatypes::{ColoredVertex, ModelWoblyPushConstant, VertexNormal};
 use crate::engine::entity::WobblyEntity;
 
+use crate::engine::console::Console;
 use crate::engine::cvars::{ConfigVariables, M_SENSITIVITY};
 use crate::engine::mesh::{MeshManager, PredefinedMesh};
 use crate::engine::renderstats;
@@ -25,8 +26,9 @@ pub struct VulkrapApplication {
 
     camera: Camera,
     flags_uniform: UniformHandle,
-
     movement: MovementFlags,
+
+    console: Console,
 
     draw_wireframe: bool,
 }
@@ -72,6 +74,7 @@ impl VulkrapApplication {
             scene,
             camera,
             flags_uniform,
+            console: Console::new(),
             movement: MovementFlags::ZERO,
             draw_wireframe: false,
         };
@@ -85,8 +88,9 @@ impl VulkrapApplication {
 
         self.camera.update(&mut self.context, self.movement, delta_time_s);
         self.scene.update(delta_time_s);
+        self.console.update(delta_time_s);
 
-        let render_job = self.scene.fetch_render_job();
+        let render_job = self.scene.fetch_render_job(&self.console);
         self.context.draw_frame(render_job);
     }
 
@@ -131,6 +135,11 @@ impl VulkrapApplication {
     }
 
     pub fn handle_keyboard_event(&mut self, key: VirtualKeyCode, state: ElementState) {
+        if self.console.is_active() {
+            self.console.handle_keyboard_event(&self.config, key, state);
+            return;
+        }
+
         match (key, state) {
             (VirtualKeyCode::W, ElementState::Pressed) => self.movement.insert(MovementFlags::FORWARD),
             (VirtualKeyCode::W, ElementState::Released) => self.movement.remove(MovementFlags::FORWARD),
@@ -145,9 +154,19 @@ impl VulkrapApplication {
             (VirtualKeyCode::C, ElementState::Pressed) => self.movement.insert(MovementFlags::DOWN),
             (VirtualKeyCode::C, ElementState::Released) => self.movement.remove(MovementFlags::DOWN),
             (VirtualKeyCode::F1, ElementState::Pressed) => self.toggle_wireframe(),
-            (VirtualKeyCode::F2, ElementState::Pressed) => self.config.set(M_SENSITIVITY, 1.0),
+            (VirtualKeyCode::F2, ElementState::Pressed) => {
+                self.config.set(M_SENSITIVITY, 1.0);
+                self.reconfigure()
+            }
+
+            (Console::TOGGLE_BUTTON, ElementState::Pressed) => self.console.toggle(),
+
             _ => {}
         }
+    }
+
+    fn reconfigure(&mut self) {
+        self.camera.reconfigure(&self.config);
     }
 }
 

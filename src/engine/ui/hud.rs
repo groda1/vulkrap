@@ -2,6 +2,7 @@ use std::path::Path;
 
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 
+use crate::engine::console::{Console, HistoryLine, LineType};
 use crate::engine::datatypes::{
     ModelColorPushConstant, SimpleVertex, TextPushConstant, TexturedVertex, ViewProjectionUniform,
 };
@@ -16,7 +17,20 @@ use crate::ENGINE_VERSION;
 
 const COLOR_WHITE: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
 const COLOR_BLACK: Vector3<f32> = Vector3::new(0.0, 0.0, 0.0);
-const COLOR_RED: Vector3<f32> = Vector3::new(1.0, 0.0, 0.0);
+
+const COLOR_INPUT_TEXT: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
+const COLOR_INPUT_TEXT_A: Vector4<f32> = Vector4::new(1.0, 1.0, 1.0, 1.0);
+const COLOR_TEXT: Vector3<f32> = Vector3::new(0.7, 0.7, 0.8);
+const COLOR_TEXT_ERROR: Vector3<f32> = Vector3::new(0.9, 0.3, 0.3);
+const COLOR_TEXT_CVAR: Vector3<f32> = Vector3::new(0.3, 0.3, 0.9);
+
+// Console
+const BORDER_OFFSET: u32 = 4;
+const CONSOLE_HEIGHT_FACTOR: f32 = 0.75;
+const TEXT_SIZE_PX: u32 = 16;
+const LINE_SPACING: u32 = 2;
+const INPUT_BOX_OFFSET: u32 = 2;
+
 
 pub struct HUD {
     uniform: UniformHandle,
@@ -74,42 +88,174 @@ impl HUD {
         }
     }
 
-    pub fn draw(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
+    pub fn draw(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>, console: &Console) {
         self.text_push_constant_buffer.clear();
 
-        draw::draw_quad(
-            draw_command_buffer,
-            &mut self.flat_push_constant_buffer,
-            self.main_pipeline,
-            &self.quad_simple_mesh,
-            Vector2::new(500, 500),
-            Vector2::new(400, 200),
-            Vector4::new(0.02, 0.02, 0.02, 0.95),
-        );
-
         self._draw_render_status(draw_command_buffer);
-
         draw::draw_text_shadowed(
             draw_command_buffer,
             &mut self.text_push_constant_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
             &*format!("VULKRAP {}.{}.{}", ENGINE_VERSION.0, ENGINE_VERSION.1, ENGINE_VERSION.2),
-            Vector2::new(self.window_width - 210, self.window_height - 16),
+            Vector2::new(self.window_width - 218, self.window_height - 24),
             16,
             COLOR_WHITE,
             COLOR_BLACK,
         );
+
+        self._draw_console(draw_command_buffer, console)
     }
 
-    pub fn _draw_render_status(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
+    fn _draw_console(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>, console: &Console) {
+        if !console.is_visible() {
+            return;
+        }
+
+        let height = (self.window_height as f32 * CONSOLE_HEIGHT_FACTOR) as u32;
+        let offset = (console.get_current_y_offset() * height as f32) as u32;
+
+        draw::draw_quad(
+            draw_command_buffer,
+            &mut self.flat_push_constant_buffer,
+            self.main_pipeline,
+            &self.quad_simple_mesh,
+            Vector2::new(0, self.window_height - height + offset),
+            Vector2::new(self.window_width, height),
+            Vector4::new(0.02, 0.02, 0.02, 0.95),
+        );
+
+        draw::draw_text(
+            draw_command_buffer,
+            &mut self.text_push_constant_buffer,
+            self.text_pipeline,
+            &self.quad_textured_mesh,
+            &*format!("> {}", console.get_current_input()),
+            Vector2::new(BORDER_OFFSET, self.window_height - height + offset + BORDER_OFFSET),
+            TEXT_SIZE_PX,
+            COLOR_INPUT_TEXT,
+        );
+
+        if console.is_caret_visible() && console.is_active() {
+            draw::draw_quad(
+                draw_command_buffer,
+                &mut self.flat_push_constant_buffer,
+                self.main_pipeline,
+                &self.quad_simple_mesh,
+                Vector2::new(
+                    BORDER_OFFSET + console.get_input_index() * TEXT_SIZE_PX + (2 * TEXT_SIZE_PX),
+                    self.window_height - height + offset + BORDER_OFFSET,
+                ),
+                Vector2::new(4, TEXT_SIZE_PX),
+                COLOR_INPUT_TEXT_A,
+            );
+        }
+
+        self._draw_console_history(draw_command_buffer, console, height, offset)
+    }
+
+    fn _draw_console_history(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>, console: &Console, height: u32, offset: u32) {
+        let mut history_count_visible = height / (TEXT_SIZE_PX + LINE_SPACING) - 1;
+        let history = console.get_history(history_count_visible as usize);
+
+        for (i, line) in history.iter().rev().enumerate() {
+            let mut x_offset: u32 = 0;
+
+            match &line.line_type {
+                LineType::Input => {
+                    x_offset = 1;
+                    draw::draw_text(
+                        draw_command_buffer,
+                        &mut self.text_push_constant_buffer,
+                        self.text_pipeline,
+                        &self.quad_textured_mesh,
+                        ">",
+                        Vector2::new(
+                            BORDER_OFFSET,
+                            self.window_height - height
+                                + offset
+                                + BORDER_OFFSET
+                                + INPUT_BOX_OFFSET
+                                + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
+                        ),
+                        TEXT_SIZE_PX,
+                        COLOR_TEXT,
+                    );
+                },
+                LineType::Error => {
+                    let error_message = "[error] ";
+                    x_offset += error_message.len() as u32;
+                    draw::draw_text(
+                        draw_command_buffer,
+                        &mut self.text_push_constant_buffer,
+                        self.text_pipeline,
+                        &self.quad_textured_mesh,
+                        error_message,
+                        Vector2::new(
+                            BORDER_OFFSET,
+                            self.window_height - height
+                                + offset
+                                + BORDER_OFFSET
+                                + INPUT_BOX_OFFSET
+                                + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
+                        ),
+                        TEXT_SIZE_PX,
+                        COLOR_TEXT_ERROR
+                    );
+                }
+                LineType::Cvar => {
+                    let error_message = "[cvar] ";
+                    x_offset += error_message.len() as u32;
+                    draw::draw_text(
+                        draw_command_buffer,
+                        &mut self.text_push_constant_buffer,
+                        self.text_pipeline,
+                        &self.quad_textured_mesh,
+                        error_message,
+                        Vector2::new(
+                            BORDER_OFFSET,
+                            self.window_height - height
+                                + offset
+                                + BORDER_OFFSET
+                                + INPUT_BOX_OFFSET
+                                + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
+                        ),
+                        TEXT_SIZE_PX,
+                        COLOR_TEXT_CVAR
+                    );
+                }
+
+                _ => {}
+            }
+
+            draw::draw_text(
+                draw_command_buffer,
+                &mut self.text_push_constant_buffer,
+                self.text_pipeline,
+                &self.quad_textured_mesh,
+                &line.line,
+                Vector2::new(
+                    BORDER_OFFSET + (x_offset * TEXT_SIZE_PX),
+                    self.window_height - height
+                        + offset
+                        + BORDER_OFFSET
+                        + INPUT_BOX_OFFSET
+                        + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
+                ),
+                TEXT_SIZE_PX,
+                COLOR_TEXT,
+            );
+        }
+    }
+
+    fn _draw_render_status(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
         draw::draw_text_shadowed(
             draw_command_buffer,
             &mut self.text_push_constant_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
             &*format!("FPS: {}", renderstats::get_fps()),
-            Vector2::new(20, self.window_height - 16),
+            Vector2::new(8, self.window_height - 24),
             16,
             COLOR_WHITE,
             COLOR_BLACK,
@@ -121,7 +267,7 @@ impl HUD {
             self.text_pipeline,
             &self.quad_textured_mesh,
             &*format!("Frame time: {0:.3} ms", renderstats::get_frametime() * 1000f32),
-            Vector2::new(20, self.window_height - 34),
+            Vector2::new(8, self.window_height - 42),
             16,
             COLOR_WHITE,
             COLOR_BLACK,

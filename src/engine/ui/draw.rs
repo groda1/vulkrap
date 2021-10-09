@@ -13,8 +13,11 @@ pub fn draw_quad(
     extent: Vector2<u32>,
     color: Vector4<f32>,
 ) {
-    let transform = Matrix4::from_translation(Vector3::new(position.x as f32, position.y as f32, 0.0))
-        * Matrix4::from_nonuniform_scale(extent.x as f32, extent.y as f32, 1.0);
+    let transform = Matrix4::from_translation(Vector3::new(
+        (position.x + (extent.x / 2)) as f32,
+        (position.y + (extent.y / 2)) as f32,
+        0.0,
+    )) * Matrix4::from_nonuniform_scale(extent.x as f32, extent.y as f32, 1.0);
     push_constant_buf.push(ModelColorPushConstant::new(transform, color));
 
     let draw_command = PipelineDrawCommand::new(
@@ -41,8 +44,8 @@ pub fn draw_text(
 
     for (i, char) in text.chars().enumerate() {
         let transform = Matrix4::from_translation(Vector3::new(
-            position.x as f32 + (i as u32 * text_size_px) as f32,
-            position.y as f32,
+            (position.x + (i as u32 * text_size_px) + (text_size_px / 2)) as f32,
+            (position.y + (text_size_px / 2)) as f32,
             0.0,
         )) * scale;
         target_buf.push(draw_character(
