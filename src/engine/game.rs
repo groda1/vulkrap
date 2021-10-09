@@ -136,7 +136,12 @@ impl VulkrapApplication {
 
     pub fn handle_keyboard_event(&mut self, key: VirtualKeyCode, state: ElementState) {
         if self.console.is_active() {
-            self.console.handle_keyboard_event(&self.config, key, state);
+            self.console.handle_keyboard_event(&mut self.config, key, state);
+
+            if self.config.is_dirty() {
+                self.reconfigure();
+                self.config.clear_dirty();
+            }
             return;
         }
 
@@ -153,11 +158,7 @@ impl VulkrapApplication {
             (VirtualKeyCode::Space, ElementState::Released) => self.movement.remove(MovementFlags::UP),
             (VirtualKeyCode::C, ElementState::Pressed) => self.movement.insert(MovementFlags::DOWN),
             (VirtualKeyCode::C, ElementState::Released) => self.movement.remove(MovementFlags::DOWN),
-            (VirtualKeyCode::F1, ElementState::Pressed) => self.toggle_wireframe(),
-            (VirtualKeyCode::F2, ElementState::Pressed) => {
-                self.config.set(M_SENSITIVITY, 1.0);
-                self.reconfigure()
-            }
+            (VirtualKeyCode::F2, ElementState::Pressed) => self.toggle_wireframe(),
 
             (Console::TOGGLE_BUTTON, ElementState::Pressed) => self.console.toggle(),
 

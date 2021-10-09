@@ -10,7 +10,7 @@ pub struct ConfigVariables {
     id_to_cvar: HashMap<u32, ConfigVariable>,
     cvar_str_to_id: HashMap<String, u32>,
 
-    dirty : bool
+    dirty: bool,
 }
 
 impl ConfigVariables {
@@ -34,7 +34,7 @@ impl ConfigVariables {
         ConfigVariables {
             id_to_cvar,
             cvar_str_to_id,
-            dirty : false
+            dirty: false,
         }
     }
 
@@ -46,17 +46,31 @@ impl ConfigVariables {
     pub fn get_desc(&self, id: u32) -> String {
         let cvar = self.id_to_cvar.get(&id).expect("unknown cvar id");
 
-        format!("{} = {} ({}, default: {})", cvar.name, cvar.value.get_float(), cvar.description, cvar.default.get_float())
-
+        format!(
+            "{} = {} ({}, default: {})",
+            cvar.name,
+            cvar.value.get_float(),
+            cvar.description,
+            cvar.default.get_float()
+        )
     }
 
-    pub fn get_cvar_id_from_str(&self, cvar_str : &str) -> Option<&u32> {
+    pub fn get_cvar_id_from_str(&self, cvar_str: &str) -> Option<&u32> {
         self.cvar_str_to_id.get(cvar_str)
     }
 
     pub fn set<T: CvarValue>(&mut self, id: u32, val: T) {
         let cvar = self.id_to_cvar.get_mut(&id).unwrap();
         cvar.value.set(&val);
+        self.dirty = true;
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    pub fn clear_dirty(&mut self) {
+        self.dirty = false;
     }
 }
 

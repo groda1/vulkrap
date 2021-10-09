@@ -31,7 +31,6 @@ const TEXT_SIZE_PX: u32 = 16;
 const LINE_SPACING: u32 = 2;
 const INPUT_BOX_OFFSET: u32 = 2;
 
-
 pub struct HUD {
     uniform: UniformHandle,
     main_pipeline: PipelineHandle,
@@ -154,7 +153,13 @@ impl HUD {
         self._draw_console_history(draw_command_buffer, console, height, offset)
     }
 
-    fn _draw_console_history(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>, console: &Console, height: u32, offset: u32) {
+    fn _draw_console_history(
+        &mut self,
+        draw_command_buffer: &mut Vec<PipelineDrawCommand>,
+        console: &Console,
+        height: u32,
+        offset: u32,
+    ) {
         let mut history_count_visible = height / (TEXT_SIZE_PX + LINE_SPACING) - 1;
         let history = console.get_history(history_count_visible as usize);
 
@@ -181,7 +186,7 @@ impl HUD {
                         TEXT_SIZE_PX,
                         COLOR_TEXT,
                     );
-                },
+                }
                 LineType::Error => {
                     let error_message = "[error] ";
                     x_offset += error_message.len() as u32;
@@ -200,7 +205,7 @@ impl HUD {
                                 + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
                         ),
                         TEXT_SIZE_PX,
-                        COLOR_TEXT_ERROR
+                        COLOR_TEXT_ERROR,
                     );
                 }
                 LineType::Cvar => {
@@ -221,7 +226,7 @@ impl HUD {
                                 + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
                         ),
                         TEXT_SIZE_PX,
-                        COLOR_TEXT_CVAR
+                        COLOR_TEXT_CVAR,
                     );
                 }
 

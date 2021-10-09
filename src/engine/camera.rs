@@ -1,4 +1,4 @@
-use crate::engine::cvars::{ConfigVariables, CvarValue, M_PITCH, M_SENSITIVITY, M_YAW, FOV};
+use crate::engine::cvars::{ConfigVariables, CvarValue, FOV, M_PITCH, M_SENSITIVITY, M_YAW};
 use crate::engine::datatypes::ViewProjectionUniform;
 use crate::engine::game::MovementFlags;
 use crate::renderer::context::{Context, UniformHandle};
@@ -56,7 +56,7 @@ impl Camera {
         self.sens_pitch = config.get(M_PITCH).get_float();
         self.sens_yaw = config.get(M_YAW).get_float();
         self.sens_global = config.get(M_SENSITIVITY).get_float();
-        self.fovy =  config.get(FOV).get_float();
+        self.fovy = config.get(FOV).get_float();
     }
 
     pub fn update(&mut self, context: &mut Context, movement_flags: MovementFlags, delta_time_s: f32) {

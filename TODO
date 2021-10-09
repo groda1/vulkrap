@@ -17,6 +17,7 @@ Renderer:
     [x] Recreating swapchain should possibly recreate uniform buffers as the number of images could change.
 
 Engine:
+    [ ] limits to cvars
     [ ] read and save config file
     [ ] Include shaders in binary
     [x] Config system
@@ -24,8 +25,8 @@ Engine:
     [x] Setup game structure. Which holds the rendering context and is called from window
 
 UI:
-    [ ] Console command parsing. cvar setting
-    [ ] Initial console
+    [x] Console command parsing. cvar setting
+    [x] Initial console
     [x] Text rendering
 
 Terrain:
