@@ -107,10 +107,6 @@ impl Camera {
         self.position += Quaternion::from_angle_y(Rad(self.yaw)) * (direction * MOVE_SPEED * delta_time_s);
     }
 
-    pub fn _debug_position(&self) {
-        log_debug!("pos {:?}", self.position)
-    }
-
     fn _get_view_matrix(&self) -> Matrix4<f32> {
         let cos_pitch = self.pitch.cos();
         let sin_pitch = self.pitch.sin();

@@ -5,32 +5,41 @@ extern crate memoffset;
 #[macro_use]
 extern crate bitflags;
 
+
+#[macro_export]
+macro_rules! log_debug {
+    () => (crate::log::logger::debug(""));
+    ($($arg:tt)*) => ({
+        crate::log::logger::debug(format!($($arg)*).as_str());
+    })
+}
 #[macro_export]
 macro_rules! log_info {
-    () => (crate::console::logger::info(""));
+    () => (crate::log::logger::info(""));
     ($($arg:tt)*) => ({
-        crate::console::logger::info(format!($($arg)*).as_str());
+        crate::log::logger::info(format!($($arg)*).as_str());
     })
 }
 #[macro_export]
 macro_rules! log_warning {
-    () => (crate::console::logger::warning(""));
+    () => (crate::log::logger::warning(""));
     ($($arg:tt)*) => ({
-        crate::console::logger::warning(format!($($arg)*).as_str());
+        crate::log::logger::warning(format!($($arg)*).as_str());
     })
 }
 #[macro_export]
-macro_rules! log_debug {
-    () => (crate::console::logger::debug(""));
+macro_rules! log_error {
+    () => (crate::log::logger::error(""));
     ($($arg:tt)*) => ({
-        crate::console::logger::debug(format!($($arg)*).as_str());
+        crate::log::logger::error(format!($($arg)*).as_str());
     })
 }
+
 
 use crate::engine::game::VulkrapApplication;
 use winit::event_loop::EventLoop;
 
-mod console;
+mod log;
 mod engine;
 mod renderer;
 mod util;

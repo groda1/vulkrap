@@ -2,7 +2,6 @@ use std::path::Path;
 
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 
-use crate::engine::console::{Console, LineType};
 use crate::engine::datatypes::{
     ModelColorPushConstant, SimpleVertex, TextPushConstant, TexturedVertex, ViewProjectionUniform,
 };
@@ -14,6 +13,9 @@ use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand};
 use crate::renderer::uniform::UniformStage;
 use crate::util::file;
 use crate::ENGINE_VERSION;
+use crate::engine::console::Console;
+use crate::log::logger;
+use crate::log::logger::MessageLevel;
 
 const COLOR_WHITE: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
 const COLOR_BLACK: Vector3<f32> = Vector3::new(0.0, 0.0, 0.0);
@@ -23,6 +25,8 @@ const COLOR_INPUT_TEXT_A: Vector4<f32> = Vector4::new(1.0, 1.0, 1.0, 1.0);
 const COLOR_TEXT: Vector3<f32> = Vector3::new(0.7, 0.7, 0.8);
 const COLOR_TEXT_ERROR: Vector3<f32> = Vector3::new(0.9, 0.3, 0.3);
 const COLOR_TEXT_CVAR: Vector3<f32> = Vector3::new(0.3, 0.3, 0.9);
+const COLOR_TEXT_INFO: Vector3<f32> = Vector3::new(0.3, 0.9, 0.3);
+const COLOR_TEXT_DEBUG: Vector3<f32> = Vector3::new(0.3, 0.9, 0.9);
 
 // Console
 const BORDER_OFFSET: u32 = 4;
@@ -38,6 +42,7 @@ pub struct HUD {
     quad_textured_mesh: Mesh,
     quad_simple_mesh: Mesh,
 
+    // TODO: this is so bad. Figure out a way to store this dynamically in a PipelineDrawCommand
     text_push_constant_buffer: Vec<TextPushConstant>,
     flat_push_constant_buffer: Vec<ModelColorPushConstant>,
 
@@ -89,6 +94,7 @@ impl HUD {
 
     pub fn draw(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>, console: &Console) {
         self.text_push_constant_buffer.clear();
+        self.flat_push_constant_buffer.clear();
 
         self._draw_render_status(draw_command_buffer);
         draw::draw_text_shadowed(
@@ -150,24 +156,27 @@ impl HUD {
             );
         }
 
-        self._draw_console_history(draw_command_buffer, console, height, offset)
+        self._draw_console_history(console, draw_command_buffer, height, offset)
     }
 
     fn _draw_console_history(
         &mut self,
+        console : &Console,
         draw_command_buffer: &mut Vec<PipelineDrawCommand>,
-        console: &Console,
         height: u32,
         offset: u32,
     ) {
         let history_count_visible = height / (TEXT_SIZE_PX + LINE_SPACING) - 1;
-        let history = console.get_history(history_count_visible as usize);
+
+        let logger_mutex = logger::get();
+
+        let history = logger_mutex.get_history(history_count_visible as usize, console.get_scroll());
 
         for (i, line) in history.iter().rev().enumerate() {
             let mut x_offset: u32 = 0;
 
-            match &line.line_type {
-                LineType::Input => {
+            match &line.level {
+                MessageLevel::Input => {
                     x_offset = 1;
                     draw::draw_text(
                         draw_command_buffer,
@@ -187,7 +196,7 @@ impl HUD {
                         COLOR_TEXT,
                     );
                 }
-                LineType::Error => {
+                MessageLevel::Error => {
                     let error_message = "[error] ";
                     x_offset += error_message.len() as u32;
                     draw::draw_text(
@@ -208,7 +217,49 @@ impl HUD {
                         COLOR_TEXT_ERROR,
                     );
                 }
-                LineType::Cvar => {
+                MessageLevel::Info => {
+                    let error_message = "[info] ";
+                    x_offset += error_message.len() as u32;
+                    draw::draw_text(
+                        draw_command_buffer,
+                        &mut self.text_push_constant_buffer,
+                        self.text_pipeline,
+                        &self.quad_textured_mesh,
+                        error_message,
+                        Vector2::new(
+                            BORDER_OFFSET,
+                            self.window_height - height
+                                + offset
+                                + BORDER_OFFSET
+                                + INPUT_BOX_OFFSET
+                                + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
+                        ),
+                        TEXT_SIZE_PX,
+                        COLOR_TEXT_INFO,
+                    );
+                }
+                MessageLevel::Debug => {
+                    let error_message = "[dbg] ";
+                    x_offset += error_message.len() as u32;
+                    draw::draw_text(
+                        draw_command_buffer,
+                        &mut self.text_push_constant_buffer,
+                        self.text_pipeline,
+                        &self.quad_textured_mesh,
+                        error_message,
+                        Vector2::new(
+                            BORDER_OFFSET,
+                            self.window_height - height
+                                + offset
+                                + BORDER_OFFSET
+                                + INPUT_BOX_OFFSET
+                                + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
+                        ),
+                        TEXT_SIZE_PX,
+                        COLOR_TEXT_DEBUG,
+                    );
+                }
+                MessageLevel::Cvar => {
                     let error_message = "[cvar] ";
                     x_offset += error_message.len() as u32;
                     draw::draw_text(
@@ -238,7 +289,7 @@ impl HUD {
                 &mut self.text_push_constant_buffer,
                 self.text_pipeline,
                 &self.quad_textured_mesh,
-                &line.line,
+                &line.message,
                 Vector2::new(
                     BORDER_OFFSET + (x_offset * TEXT_SIZE_PX),
                     self.window_height - height

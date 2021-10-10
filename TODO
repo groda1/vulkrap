@@ -1,4 +1,6 @@
 Renderer:
+    [ ] push constant buffer handling. it is so bad that the user has to manage these. so easy to fuck up by forgetting to clear them which
+            leads to crashing and memory issues. fix asap. This needs to be handled automatically by the renderer. See hud.rs for fucked up usage.
     [ ] Render to texture. Support for multiple renderpasses.
     [ ] Texture mipmaps
     [ ] Memory handling for images is weird. Handled by image.rs instead of the memory manager. fix!

@@ -1,13 +1,17 @@
 use crate::engine::cvars::{ConfigVariables, CvarType};
 use winit::event::{ElementState, VirtualKeyCode};
+use crate::log::logger;
 
 const TOGGLE_SPEED: f32 = 7.5;
 const CARET_BLINK_SPEED: f32 = 1.5;
 
+const SCROLL_LINES :usize = 15;
+
 pub struct Console {
-    history: Vec<HistoryLine>,
     input_history: Vec<String>,
     input_history_index: usize,
+
+    scroll : usize,
 
     active: bool,
     input_buffer: Vec<char>,
@@ -26,9 +30,10 @@ impl Console {
 
     pub fn new() -> Console {
         Console {
-            history: Vec::new(),
             input_history: Vec::new(),
             input_history_index: 0,
+
+            scroll : 0,
 
             active: false,
             input_buffer: Vec::new(),
@@ -72,6 +77,12 @@ impl Console {
             }
             (VirtualKeyCode::Down, ElementState::Pressed) => {
                 self._handle_down();
+            }
+            (VirtualKeyCode::PageUp, ElementState::Pressed) => {
+                self._scroll_up();
+            }
+            (VirtualKeyCode::PageDown, ElementState::Pressed) => {
+                self._scroll_down();
             }
             (Console::TOGGLE_BUTTON, ElementState::Pressed) => {
                 self.toggle();
@@ -120,6 +131,7 @@ impl Console {
 
     pub fn toggle(&mut self) {
         self.active = !self.active;
+        self.scroll = 0;
     }
 
     pub fn is_active(&self) -> bool {
@@ -130,36 +142,8 @@ impl Console {
         self.current_draw_offset < 1.0
     }
 
-    pub fn error(&mut self, message: String) {
-        self.history.push(HistoryLine {
-            line_type: LineType::Error,
-            line: message,
-        });
-    }
-
-    pub fn input(&mut self, message: String) {
-        self.history.push(HistoryLine {
-            line_type: LineType::Input,
-            line: message,
-        });
-    }
-
-    pub fn output(&mut self, message: String) {
-        self.history.push(HistoryLine {
-            line_type: LineType::Output,
-            line: message,
-        });
-    }
-
-    pub fn cvar(&mut self, message: String) {
-        self.history.push(HistoryLine {
-            line_type: LineType::Cvar,
-            line: message,
-        });
-    }
-
-    pub fn get_history(&self, line_count: usize) -> &[HistoryLine] {
-        &self.history[self.history.len() - line_count.min(self.history.len())..]
+    pub fn get_scroll(&self) -> usize {
+        self.scroll
     }
 
     fn _reset_caret(&mut self) {
@@ -168,10 +152,13 @@ impl Console {
     }
 
     fn _handle_input(&mut self, cfg: &mut ConfigVariables) {
+        self.scroll = 0;
+
         if self.input_buffer.is_empty() {
             return;
         }
-        self.input(self.get_current_input());
+
+        logger::input(&*self.get_current_input());
         let input = self.get_current_input();
 
         let split: Vec<&str> = input.split(' ').collect();
@@ -207,12 +194,12 @@ impl Console {
                     }
                 }
                 if !parsed {
-                    self.error(format!("failed to parse cvar argument: {}", split[1]));
+                    log_error!("failed to parse cvar argument: {}", split[1]);
                 }
             }
-            self.cvar(cfg.get_desc(cvar_id));
+            logger::cvar(&*cfg.get_desc(cvar_id));
         } else {
-            self.error(format!("unknown command or cvar: {}", self.get_current_input()));
+            log_error!("unknown command or cvar: {}", self.get_current_input());
         }
 
         if self.input_history_index > 0 {
@@ -263,18 +250,22 @@ impl Console {
         }
         self.input_index = self.input_buffer.len() as u32;
     }
+
+    fn _scroll_up(&mut self) {
+        let history_length = logger::len();
+        self.scroll += SCROLL_LINES;
+
+        if self.scroll > history_length {
+            self.scroll = history_length;
+        }
+    }
+
+    fn _scroll_down(&mut self) {
+        if self.scroll >= SCROLL_LINES {
+            self.scroll -= SCROLL_LINES;
+        } else {
+            self.scroll = 0;
+        }
+    }
 }
 
-pub struct HistoryLine {
-    pub line_type: LineType,
-    pub line: String,
-}
-
-pub enum LineType {
-    Input,
-    Output,
-    Info,
-    Warning,
-    Error,
-    Cvar,
-}
