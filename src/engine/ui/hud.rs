@@ -305,25 +305,53 @@ impl HUD {
     }
 
     fn _draw_render_status(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
-        draw::draw_text_shadowed(
-            draw_command_buffer,
-            &mut self.text_push_constant_buffer,
-            self.text_pipeline,
-            &self.quad_textured_mesh,
-            &*format!("FPS: {}", renderstats::get_fps()),
-            Vector2::new(8, self.window_height - 24),
-            16,
-            COLOR_WHITE,
-            COLOR_BLACK,
-        );
+
+        let renderstats = renderstats::get();
+        let fps = renderstats.get_fps();
+        let frametime = renderstats.get_frametime();
+        let draw_count = renderstats.get_draw_count();
+        let index_count = renderstats.get_index_count();
 
         draw::draw_text_shadowed(
             draw_command_buffer,
             &mut self.text_push_constant_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
-            &*format!("Frame time: {0:.3} ms", renderstats::get_frametime() * 1000f32),
+            &*format!("FPS: {}", fps),
+            Vector2::new(8, self.window_height - 24),
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
+        );
+        draw::draw_text_shadowed(
+            draw_command_buffer,
+            &mut self.text_push_constant_buffer,
+            self.text_pipeline,
+            &self.quad_textured_mesh,
+            &*format!("Frame time: {0:.3} ms", frametime * 1000f32),
             Vector2::new(8, self.window_height - 42),
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
+        );
+        draw::draw_text_shadowed(
+            draw_command_buffer,
+            &mut self.text_push_constant_buffer,
+            self.text_pipeline,
+            &self.quad_textured_mesh,
+            &*format!("Draw count: {}", draw_count),
+            Vector2::new(8, self.window_height - 60),
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
+        );
+        draw::draw_text_shadowed(
+            draw_command_buffer,
+            &mut self.text_push_constant_buffer,
+            self.text_pipeline,
+            &self.quad_textured_mesh,
+            &*format!("Index count: {}", index_count),
+            Vector2::new(8, self.window_height - 78),
             16,
             COLOR_WHITE,
             COLOR_BLACK,

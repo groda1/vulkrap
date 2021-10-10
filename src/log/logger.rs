@@ -12,7 +12,7 @@ pub struct Logger {
 
 impl Logger {
     pub fn new() -> Logger {
-        Logger { history: Vec::with_capacity(10000) }
+        Logger { history: Vec::with_capacity(CAPACITY) }
     }
 
     pub fn input(&mut self, message: String) {

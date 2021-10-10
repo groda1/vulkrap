@@ -353,7 +353,6 @@ impl PipelineContainer {
             &descriptor_sets_to_bind,
             &[],
         );
-
         logical_device.cmd_draw_indexed(command_buffer, draw_command.index_count, 1, 0, 0, 0);
     }
 
@@ -559,7 +558,7 @@ pub struct PipelineDrawCommand {
     pub(crate) pipeline: PipelineHandle,
     vertex_buffer: vk::Buffer,
     index_buffer: vk::Buffer,
-    index_count: u32,
+    pub(crate) index_count: u32,
     push_constant_ptr: *const u8,
 }
 

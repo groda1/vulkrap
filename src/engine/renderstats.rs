@@ -1,30 +1,24 @@
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 const SAMPLE_WINDOW: f32 = 0.2;
 
 lazy_static! {
-    static ref BUFFER: Mutex<RenderStats> = Mutex::new(RenderStats::new());
+    static ref RENDERSTATS: Mutex<RenderStats> = Mutex::new(RenderStats::new());
 }
 
-pub(crate) fn update_delta_time(delta_time_s: f32) {
-    BUFFER.lock().unwrap().update_delta_time(delta_time_s);
+pub(crate) fn get() -> MutexGuard<'static, RenderStats> {
+    RENDERSTATS.lock().unwrap()
 }
 
-pub(crate) fn get_fps() -> u32 {
-    BUFFER.lock().unwrap().get_fps()
-}
-
-pub(crate) fn get_frametime() -> f32 {
-    //0.5
-    BUFFER.lock().unwrap().get_frametime()
-}
-
-struct RenderStats {
+pub struct RenderStats {
     fps: u32,
     frame_time: f32,
 
     frame_time_samples: f32,
     frame_time_sample_count: u32,
+
+    index_count: u64,
+    draw_count : u32,
 }
 
 impl RenderStats {
@@ -34,6 +28,8 @@ impl RenderStats {
             frame_time: 0.0,
             frame_time_samples: 0.0,
             frame_time_sample_count: 0,
+            index_count : 0,
+            draw_count: 0,
         }
     }
 
@@ -50,11 +46,25 @@ impl RenderStats {
         }
     }
 
+    pub fn set_index_count(&mut self, index_count: u64) {
+        self.index_count = index_count;
+    }
+    pub fn set_draw_count(&mut self, draw_count: u32) {
+        self.draw_count = draw_count;
+    }
+
     pub fn get_fps(&self) -> u32 {
         self.fps
     }
 
     pub fn get_frametime(&self) -> f32 {
         self.frame_time
+    }
+
+    pub fn get_index_count(&self) -> u64 {
+        self.index_count
+    }
+    pub fn get_draw_count(&self) -> u32 {
+        self.draw_count
     }
 }
