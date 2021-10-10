@@ -1,4 +1,4 @@
-use crate::engine::cvars::ConfigVariables;
+use crate::engine::cvars::{ConfigVariables, CvarType};
 use winit::event::{ElementState, VirtualKeyCode};
 
 const TOGGLE_SPEED: f32 = 7.5;
@@ -7,7 +7,7 @@ const CARET_BLINK_SPEED: f32 = 1.5;
 pub struct Console {
     history: Vec<HistoryLine>,
     input_history: Vec<String>,
-    input_history_index : usize,
+    input_history_index: usize,
 
     active: bool,
     input_buffer: Vec<char>,
@@ -174,16 +174,39 @@ impl Console {
         self.input(self.get_current_input());
         let input = self.get_current_input();
 
-        let split: Vec<&str> = input.split(" ").collect();
+        let split: Vec<&str> = input.split(' ').collect();
         let cvar_opt = cfg.get_cvar_id_from_str(split[0]);
 
         if let Some(cvar) = cvar_opt {
             let cvar_id = *cvar;
             if split.len() >= 2 {
-                let parsed_arg = split[1].parse::<f32>();
-                if let Ok(arg) = parsed_arg {
-                    cfg.set(cvar_id, arg);
-                } else {
+                let datatype = cfg.get(cvar_id).get_type();
+                let mut parsed = false;
+
+                match datatype {
+                    CvarType::Float => {
+                        let parsed_arg = split[1].parse::<f32>();
+                        if let Ok(arg) = parsed_arg {
+                            cfg.set(cvar_id, arg);
+                            parsed = true;
+                        }
+                    }
+                    CvarType::Integer => {
+                        let parsed_arg = split[1].parse::<u32>();
+                        if let Ok(arg) = parsed_arg {
+                            cfg.set(cvar_id, arg);
+                            parsed = true;
+                        }
+                    }
+                    CvarType::String => {
+                        let string_split: Vec<&str> = input.split('"').collect();
+                        if string_split.len() > 2 {
+                            cfg.set(cvar_id, String::from(string_split[1]));
+                            parsed = true;
+                        }
+                    }
+                }
+                if !parsed {
                     self.error(format!("failed to parse cvar argument: {}", split[1]));
                 }
             }
@@ -215,7 +238,9 @@ impl Console {
         self.input_history_index += 1;
 
         if self.input_history.len() > self.input_history_index {
-            self.input_buffer = self.input_history[self.input_history.len() - self.input_history_index - 1].chars().collect();
+            self.input_buffer = self.input_history[self.input_history.len() - self.input_history_index - 1]
+                .chars()
+                .collect();
         } else {
             self.input_history_index = 0;
             self.input_buffer = self.input_history.pop().unwrap().chars().collect();
@@ -232,7 +257,9 @@ impl Console {
         if self.input_history_index == 0 {
             self.input_buffer = self.input_history.pop().unwrap().chars().collect()
         } else {
-            self.input_buffer = self.input_history[self.input_history.len() - self.input_history_index- 1].chars().collect();
+            self.input_buffer = self.input_history[self.input_history.len() - self.input_history_index - 1]
+                .chars()
+                .collect();
         }
         self.input_index = self.input_buffer.len() as u32;
     }

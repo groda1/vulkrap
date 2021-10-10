@@ -53,7 +53,7 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut vulkrap_app: Vul
     })
 }
 
-pub fn map_input_to_chr(key: VirtualKeyCode, state: ElementState, shift_active : bool) -> Option<char> {
+pub fn map_input_to_chr(key: VirtualKeyCode, state: ElementState, shift_active: bool) -> Option<char> {
     match (key, state, shift_active) {
         (VirtualKeyCode::Key1, ElementState::Pressed, false) => Some('1'),
         (VirtualKeyCode::Key2, ElementState::Pressed, false) => Some('2'),

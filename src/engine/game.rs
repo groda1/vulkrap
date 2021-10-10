@@ -9,7 +9,7 @@ use crate::engine::datatypes::{ColoredVertex, ModelWoblyPushConstant, VertexNorm
 use crate::engine::entity::WobblyEntity;
 
 use crate::engine::console::Console;
-use crate::engine::cvars::{ConfigVariables};
+use crate::engine::cvars::ConfigVariables;
 use crate::engine::mesh::{MeshManager, PredefinedMesh};
 use crate::engine::renderstats;
 use crate::engine::scene::Scene;

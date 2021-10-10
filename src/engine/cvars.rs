@@ -6,6 +6,8 @@ pub const M_PITCH: u32 = 1002;
 
 pub const FOV: u32 = 1050;
 
+pub const TEST: u32 = 5000;
+
 pub struct ConfigVariables {
     id_to_cvar: HashMap<u32, ConfigVariable>,
     cvar_str_to_id: HashMap<String, u32>,
@@ -26,6 +28,8 @@ impl ConfigVariables {
 
         id_to_cvar.insert(FOV, ConfigVariable::new("fov", 60.0f32, "Vertical field of view"));
 
+        id_to_cvar.insert(TEST, ConfigVariable::new("test", String::from("pepsi!"), "Test1"));
+
         let cvar_str_to_id = id_to_cvar
             .iter()
             .map(|(id, cvar)| (cvar.name.to_string(), *id))
@@ -45,14 +49,35 @@ impl ConfigVariables {
 
     pub fn get_desc(&self, id: u32) -> String {
         let cvar = self.id_to_cvar.get(&id).expect("unknown cvar id");
-
-        format!(
-            "{} = {} ({}, default: {})",
-            cvar.name,
-            cvar.value.get_float(),
-            cvar.description,
-            cvar.default.get_float()
-        )
+        match cvar.value.get_type() {
+            CvarType::Float => {
+                format!(
+                    "{} = {} ({}, type: float, default: {})",
+                    cvar.name,
+                    cvar.value.get_float(),
+                    cvar.description,
+                    cvar.default.get_float()
+                )
+            }
+            CvarType::Integer => {
+                format!(
+                    "{} = {} ({}, type: int, default: {})",
+                    cvar.name,
+                    cvar.value.get_int(),
+                    cvar.description,
+                    cvar.default.get_int()
+                )
+            }
+            CvarType::String => {
+                format!(
+                    "{} = \"{}\" ({}, type: str, default: \"{}\")",
+                    cvar.name,
+                    cvar.value.get_str(),
+                    cvar.description,
+                    cvar.default.get_str()
+                )
+            }
+        }
     }
 
     pub fn get_cvar_id_from_str(&self, cvar_str: &str) -> Option<&u32> {
@@ -82,20 +107,28 @@ struct ConfigVariable {
 }
 
 impl ConfigVariable {
-    pub fn new<T: CvarValue + Copy + 'static>(name: &'static str, default: T, description: &'static str) -> Self {
+    pub fn new<T: CvarValue + Clone + 'static>(name: &'static str, default: T, description: &'static str) -> Self {
         ConfigVariable {
             name,
-            value: Box::new(default),
+            value: Box::new(default.clone()),
             default: Box::new(default),
             description,
         }
     }
 }
 
+#[derive(Debug)]
+pub enum CvarType {
+    Float,
+    Integer,
+    String,
+}
+
 pub trait CvarValue {
     fn get_float(&self) -> f32;
     fn get_int(&self) -> u32;
-
+    fn get_str(&self) -> String;
+    fn get_type(&self) -> CvarType;
     fn set(&mut self, val: &dyn CvarValue);
 }
 
@@ -106,6 +139,14 @@ impl CvarValue for f32 {
 
     fn get_int(&self) -> u32 {
         *self as u32
+    }
+
+    fn get_str(&self) -> String {
+        format!("{}", *self)
+    }
+
+    fn get_type(&self) -> CvarType {
+        CvarType::Float
     }
 
     fn set(&mut self, val: &dyn CvarValue) {
@@ -122,7 +163,37 @@ impl CvarValue for u32 {
         *self
     }
 
+    fn get_str(&self) -> String {
+        format!("{}", *self)
+    }
+
+    fn get_type(&self) -> CvarType {
+        CvarType::Integer
+    }
+
     fn set(&mut self, val: &dyn CvarValue) {
         *self = val.get_int();
+    }
+}
+
+impl CvarValue for String {
+    fn get_float(&self) -> f32 {
+        panic!()
+    }
+
+    fn get_int(&self) -> u32 {
+        panic!()
+    }
+
+    fn get_str(&self) -> String {
+        self.clone()
+    }
+
+    fn get_type(&self) -> CvarType {
+        CvarType::String
+    }
+
+    fn set(&mut self, val: &dyn CvarValue) {
+        *self = String::from(val.get_str());
     }
 }
