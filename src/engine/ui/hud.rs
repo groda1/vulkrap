@@ -170,122 +170,38 @@ impl HUD {
         offset: u32,
     ) {
         let history_count_visible = height / (TEXT_SIZE_PX + LINE_SPACING) - 1;
-
         let logger_mutex = logger::get();
 
         let history = logger_mutex.get_history(history_count_visible as usize, console.get_scroll());
 
         for (i, line) in history.iter().rev().enumerate() {
-            let mut x_offset: u32 = 0;
-
+            let (prefix_text, prefix_color) =
             match &line.level {
-                MessageLevel::Input => {
-                    x_offset = 1;
-                    draw::draw_text(
-                        push_constant_buf,
-                        draw_command_buffer,
-                        self.text_pipeline,
-                        &self.quad_textured_mesh,
-                        ">",
-                        Vector2::new(
-                            BORDER_OFFSET,
-                            self.window_height - height
-                                + offset
-                                + BORDER_OFFSET
-                                + INPUT_BOX_OFFSET
-                                + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
-                        ),
-                        TEXT_SIZE_PX,
-                        COLOR_TEXT,
-                    );
-                }
-                MessageLevel::Error => {
-                    let error_message = "[error] ";
-                    x_offset += error_message.len() as u32;
-                    draw::draw_text(
-                        push_constant_buf,
-                        draw_command_buffer,
-                        self.text_pipeline,
-                        &self.quad_textured_mesh,
-                        error_message,
-                        Vector2::new(
-                            BORDER_OFFSET,
-                            self.window_height - height
-                                + offset
-                                + BORDER_OFFSET
-                                + INPUT_BOX_OFFSET
-                                + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
-                        ),
-                        TEXT_SIZE_PX,
-                        COLOR_TEXT_ERROR,
-                    );
-                }
-                MessageLevel::Info => {
-                    let error_message = "[info] ";
-                    x_offset += error_message.len() as u32;
-                    draw::draw_text(
-                        push_constant_buf,
-                        draw_command_buffer,
-                        self.text_pipeline,
-                        &self.quad_textured_mesh,
-                        error_message,
-                        Vector2::new(
-                            BORDER_OFFSET,
-                            self.window_height - height
-                                + offset
-                                + BORDER_OFFSET
-                                + INPUT_BOX_OFFSET
-                                + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
-                        ),
-                        TEXT_SIZE_PX,
-                        COLOR_TEXT_INFO,
-                    );
-                }
-                MessageLevel::Debug => {
-                    let error_message = "[dbg] ";
-                    x_offset += error_message.len() as u32;
-                    draw::draw_text(
-                        push_constant_buf,
-                        draw_command_buffer,
-                        self.text_pipeline,
-                        &self.quad_textured_mesh,
-                        error_message,
-                        Vector2::new(
-                            BORDER_OFFSET,
-                            self.window_height - height
-                                + offset
-                                + BORDER_OFFSET
-                                + INPUT_BOX_OFFSET
-                                + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
-                        ),
-                        TEXT_SIZE_PX,
-                        COLOR_TEXT_DEBUG,
-                    );
-                }
-                MessageLevel::Cvar => {
-                    let error_message = "[cvar] ";
-                    x_offset += error_message.len() as u32;
-                    draw::draw_text(
-                        push_constant_buf,
-                        draw_command_buffer,
-                        self.text_pipeline,
-                        &self.quad_textured_mesh,
-                        error_message,
-                        Vector2::new(
-                            BORDER_OFFSET,
-                            self.window_height - height
-                                + offset
-                                + BORDER_OFFSET
-                                + INPUT_BOX_OFFSET
-                                + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
-                        ),
-                        TEXT_SIZE_PX,
-                        COLOR_TEXT_CVAR,
-                    );
-                }
+                MessageLevel::Input => (">", COLOR_TEXT ),
+                MessageLevel::Error => ("[error]", COLOR_TEXT_ERROR),
+                MessageLevel::Info => ("[info]", COLOR_TEXT_INFO),
+                MessageLevel::Debug => ("[dbg]", COLOR_TEXT_DEBUG),
+                MessageLevel::Cvar => ("[cvar]", COLOR_TEXT_CVAR),
+                _ => ("---", COLOR_TEXT)
+            };
 
-                _ => {}
-            }
+            draw::draw_text(
+                push_constant_buf,
+                draw_command_buffer,
+                self.text_pipeline,
+                &self.quad_textured_mesh,
+                prefix_text,
+                Vector2::new(
+                    BORDER_OFFSET,
+                    self.window_height - height
+                        + offset
+                        + BORDER_OFFSET
+                        + INPUT_BOX_OFFSET
+                        + ((i + 1) as u32 * (TEXT_SIZE_PX + LINE_SPACING)),
+                ),
+                TEXT_SIZE_PX,
+                prefix_color,
+            );
 
             draw::draw_text(
                 push_constant_buf,
@@ -294,7 +210,7 @@ impl HUD {
                 &self.quad_textured_mesh,
                 &line.message,
                 Vector2::new(
-                    BORDER_OFFSET + (x_offset * TEXT_SIZE_PX),
+                    BORDER_OFFSET + ((1 + prefix_text.len()) as u32 * TEXT_SIZE_PX),
                     self.window_height - height
                         + offset
                         + BORDER_OFFSET
