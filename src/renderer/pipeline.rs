@@ -9,6 +9,7 @@ use ash::vk::{
 };
 
 use crate::renderer::context::{PipelineHandle, UniformHandle};
+use crate::renderer::pushconstants::{PushConstantBuffer, PushConstantPtr};
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
 use crate::renderer::uniform::UniformStage;
 
@@ -34,7 +35,7 @@ pub(super) struct PipelineContainer {
     fragment_uniform_buffers: Vec<vk::Buffer>,
     sampler_cfgs: Vec<SamplerBindingConfiguration>,
 
-    push_constant_size: u8,
+    push_constant_buffer: Option<PushConstantBuffer>,
     vertex_topology: vk::PrimitiveTopology,
 
     descriptor_pool: vk::DescriptorPool,
@@ -57,7 +58,7 @@ impl PipelineContainer {
         fragment_uniform_cfg: Option<UniformBindingConfiguration>,
         sampler_cfgs: Vec<SamplerBindingConfiguration>,
         vertex_topology: PrimitiveTopology,
-        push_constant_size: u8,
+        push_constant_buffer: Option<PushConstantBuffer>,
         alpha_blending: bool,
     ) -> PipelineContainer {
         let vertex_shader = create_shader_module(logical_device, &vertex_shader_code);
@@ -85,7 +86,7 @@ impl PipelineContainer {
             vertex_uniform_buffers: Vec::new(),
             fragment_uniform_buffers: Vec::new(),
             sampler_cfgs,
-            push_constant_size,
+            push_constant_buffer,
             vertex_topology,
             descriptor_pool: vk::DescriptorPool::null(),
             descriptor_sets: Vec::with_capacity(0),
@@ -258,11 +259,11 @@ impl PipelineContainer {
 
         let set_layouts = [self.descriptor_set_layout];
         let mut push_constant_ranges = Vec::with_capacity(2);
-        if self.push_constant_size > 0 {
+        if let Some(push_constant_buf) = &self.push_constant_buffer {
             push_constant_ranges.push(
                 vk::PushConstantRange::builder()
                     .stage_flags(ShaderStageFlags::VERTEX)
-                    .size(self.push_constant_size as u32)
+                    .size(push_constant_buf.data_size() as u32)
                     .offset(0)
                     .build(),
             );
@@ -332,13 +333,13 @@ impl PipelineContainer {
         let offsets = [0_u64];
         let descriptor_sets_to_bind = [self.descriptor_sets[image_index]];
 
-        if self.push_constant_size > 0 {
+        if let Some(push_constant_buf) = &self.push_constant_buffer {
             logical_device.cmd_push_constants(
                 command_buffer,
                 self.layout,
                 ShaderStageFlags::VERTEX,
                 0,
-                std::slice::from_raw_parts(draw_command.push_constant_ptr, self.push_constant_size as usize),
+                std::slice::from_raw_parts(draw_command.push_constant_ptr, push_constant_buf.data_size() as usize),
             );
         }
 
@@ -483,6 +484,20 @@ impl PipelineContainer {
     pub unsafe fn destroy_descriptor_set_layout(&self, logical_device: &ash::Device) {
         logical_device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
     }
+
+    pub fn create_push_constant<T>(&mut self, data: T) -> PushConstantPtr {
+        if self.push_constant_buffer.is_none() {
+            panic!("No push constant buffer");
+        }
+        self.push_constant_buffer.as_mut().unwrap().push(data)
+    }
+
+    pub fn reset_push_contant_buffer(&mut self) {
+        if self.push_constant_buffer.is_none() {
+            return;
+        }
+        self.push_constant_buffer.as_mut().unwrap().reset();
+    }
 }
 
 fn create_shader_module(device: &ash::Device, code: &[u8]) -> vk::ShaderModule {
@@ -559,7 +574,7 @@ pub struct PipelineDrawCommand {
     vertex_buffer: vk::Buffer,
     index_buffer: vk::Buffer,
     pub(crate) index_count: u32,
-    push_constant_ptr: *const u8,
+    push_constant_ptr: PushConstantPtr,
 }
 
 impl PipelineDrawCommand {
@@ -568,7 +583,7 @@ impl PipelineDrawCommand {
         vertex_buffer: vk::Buffer,
         index_buffer: vk::Buffer,
         index_count: u32,
-        push_constant_ptr: *const u8,
+        push_constant_ptr: PushConstantPtr,
     ) -> PipelineDrawCommand {
         PipelineDrawCommand {
             pipeline,
@@ -586,14 +601,10 @@ pub enum VertexTopology {
     TriangeStrip,
 }
 
-pub trait PushConstant {
-    fn size() -> u8;
-}
-
 pub struct PipelineConfiguration {
     pub(super) vertex_shader_code: Vec<u8>,
     pub(super) fragment_shader_code: Vec<u8>,
-    pub(super) push_constant_size: u8,
+    pub(super) push_constant_buffer: Option<PushConstantBuffer>,
     pub(super) vertex_topology: VertexTopology,
     pub(super) vertex_uniform_cfg: Option<UniformConfiguration>,
     pub(super) fragment_uniform_cfg: Option<UniformConfiguration>,
@@ -606,7 +617,7 @@ impl PipelineConfiguration {
         PipelineConfigurationBuilder {
             vertex_shader_code: Option::None,
             fragment_shader_code: Option::None,
-            push_constant_size: Option::None,
+            push_constant_buffer: Option::None,
             vertex_topology: Option::None,
             vertex_uniform_cfg: Option::None,
             fragment_uniform_cfg: Option::None,
@@ -619,7 +630,7 @@ impl PipelineConfiguration {
 pub struct PipelineConfigurationBuilder {
     vertex_shader_code: Option<Vec<u8>>,
     fragment_shader_code: Option<Vec<u8>>,
-    push_constant_size: Option<u8>,
+    push_constant_buffer: Option<PushConstantBuffer>,
     vertex_topology: Option<VertexTopology>,
     vertex_uniform_cfg: Option<UniformConfiguration>,
     fragment_uniform_cfg: Option<UniformConfiguration>,
@@ -640,8 +651,14 @@ impl PipelineConfigurationBuilder {
         self
     }
 
-    pub fn with_push_constant<T: PushConstant>(&mut self) -> &mut Self {
-        self.push_constant_size = Some(T::size());
+    pub fn with_push_constant_buffer<T>(&mut self, capacity: usize) -> &mut Self {
+        self.push_constant_buffer = Some(PushConstantBuffer::new::<T>(capacity));
+
+        self
+    }
+
+    pub fn with_push_constant<T>(&mut self) -> &mut Self {
+        self.push_constant_buffer = Some(PushConstantBuffer::new::<T>(0));
 
         self
     }
@@ -677,18 +694,17 @@ impl PipelineConfigurationBuilder {
         self
     }
 
-    pub fn build(&self) -> PipelineConfiguration {
+    pub fn build(&mut self) -> PipelineConfiguration {
         // TODO Load a default shader if not present
         let vertex_shader_code = self.vertex_shader_code.borrow().as_ref().expect("error").clone();
         let fragment_shader_code = self.fragment_shader_code.borrow().as_ref().expect("error").clone();
 
-        let push_constant_size = self.push_constant_size.unwrap_or(0);
         let vertex_topology = self.vertex_topology.unwrap_or(VertexTopology::Triangle);
 
         PipelineConfiguration {
             vertex_shader_code,
             fragment_shader_code,
-            push_constant_size,
+            push_constant_buffer: self.push_constant_buffer.take(),
             vertex_topology,
             vertex_uniform_cfg: self.vertex_uniform_cfg,
             fragment_uniform_cfg: self.fragment_uniform_cfg,
@@ -764,6 +780,7 @@ pub trait VertexInput {
     fn attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription>;
 }
 
+// TODO remove!
 pub trait UniformData {
     fn get_size() -> usize;
 }

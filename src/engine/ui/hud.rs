@@ -2,20 +2,20 @@ use std::path::Path;
 
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 
+use crate::engine::console::Console;
 use crate::engine::datatypes::{
     ModelColorPushConstant, SimpleVertex, TextPushConstant, TexturedVertex, ViewProjectionUniform,
 };
 use crate::engine::mesh::{Mesh, MeshManager, PredefinedMesh};
 use crate::engine::ui::draw;
 use crate::engine::{image, renderstats};
+use crate::log::logger;
+use crate::log::logger::MessageLevel;
 use crate::renderer::context::{Context, PipelineHandle, UniformHandle};
 use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand};
 use crate::renderer::uniform::UniformStage;
 use crate::util::file;
 use crate::ENGINE_VERSION;
-use crate::engine::console::Console;
-use crate::log::logger;
-use crate::log::logger::MessageLevel;
 
 const COLOR_WHITE: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
 const COLOR_BLACK: Vector3<f32> = Vector3::new(0.0, 0.0, 0.0);
@@ -42,10 +42,6 @@ pub struct HUD {
     quad_textured_mesh: Mesh,
     quad_simple_mesh: Mesh,
 
-    // TODO: this is so bad. Figure out a way to store this dynamically in a PipelineDrawCommand
-    text_push_constant_buffer: Vec<TextPushConstant>,
-    flat_push_constant_buffer: Vec<ModelColorPushConstant>,
-
     window_width: u32,
     window_height: u32,
 }
@@ -59,7 +55,7 @@ impl HUD {
         let pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/flat_color_vert.spv")))
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/flat_color_frag.spv")))
-            .with_push_constant::<ModelColorPushConstant>()
+            .with_push_constant_buffer::<ModelColorPushConstant>(10)
             .with_vertex_uniform(0, uniform)
             .with_alpha_blending()
             .build();
@@ -72,7 +68,7 @@ impl HUD {
         let text_pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/text_vert.spv")))
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/text_frag.spv")))
-            .with_push_constant::<TextPushConstant>()
+            .with_push_constant_buffer::<TextPushConstant>(5000)
             .with_vertex_uniform(0, uniform)
             .with_alpha_blending()
             .add_texture(1, font_texture, sampler)
@@ -85,21 +81,21 @@ impl HUD {
             text_pipeline,
             quad_textured_mesh: *mesh_manager.get_predefined_mesh(PredefinedMesh::TexturedQuad),
             quad_simple_mesh: *mesh_manager.get_predefined_mesh(PredefinedMesh::SimpleQuad),
-            text_push_constant_buffer: Vec::new(),
-            flat_push_constant_buffer: Vec::new(),
             window_width,
             window_height,
         }
     }
 
-    pub fn draw(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>, console: &Console) {
-        self.text_push_constant_buffer.clear();
-        self.flat_push_constant_buffer.clear();
-
-        self._draw_render_status(draw_command_buffer);
+    pub fn draw(
+        &mut self,
+        context: &mut Context,
+        draw_command_buffer: &mut Vec<PipelineDrawCommand>,
+        console: &Console,
+    ) {
+        self._draw_render_status(context, draw_command_buffer);
         draw::draw_text_shadowed(
+            context,
             draw_command_buffer,
-            &mut self.text_push_constant_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
             &*format!("VULKRAP {}.{}.{}", ENGINE_VERSION.0, ENGINE_VERSION.1, ENGINE_VERSION.2),
@@ -109,10 +105,15 @@ impl HUD {
             COLOR_BLACK,
         );
 
-        self._draw_console(draw_command_buffer, console)
+        self._draw_console(context, draw_command_buffer, console)
     }
 
-    fn _draw_console(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>, console: &Console) {
+    fn _draw_console(
+        &mut self,
+        context: &mut Context,
+        draw_command_buffer: &mut Vec<PipelineDrawCommand>,
+        console: &Console,
+    ) {
         if !console.is_visible() {
             return;
         }
@@ -121,8 +122,8 @@ impl HUD {
         let offset = (console.get_current_y_offset() * height as f32) as u32;
 
         draw::draw_quad(
+            context,
             draw_command_buffer,
-            &mut self.flat_push_constant_buffer,
             self.main_pipeline,
             &self.quad_simple_mesh,
             Vector2::new(0, self.window_height - height + offset),
@@ -131,8 +132,8 @@ impl HUD {
         );
 
         draw::draw_text(
+            context,
             draw_command_buffer,
-            &mut self.text_push_constant_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
             &*format!("> {}", console.get_current_input()),
@@ -143,8 +144,8 @@ impl HUD {
 
         if console.is_caret_visible() && console.is_active() {
             draw::draw_quad(
+                context,
                 draw_command_buffer,
-                &mut self.flat_push_constant_buffer,
                 self.main_pipeline,
                 &self.quad_simple_mesh,
                 Vector2::new(
@@ -156,12 +157,13 @@ impl HUD {
             );
         }
 
-        self._draw_console_history(console, draw_command_buffer, height, offset)
+        self._draw_console_history(context, console, draw_command_buffer, height, offset)
     }
 
     fn _draw_console_history(
         &mut self,
-        console : &Console,
+        context: &mut Context,
+        console: &Console,
         draw_command_buffer: &mut Vec<PipelineDrawCommand>,
         height: u32,
         offset: u32,
@@ -179,8 +181,8 @@ impl HUD {
                 MessageLevel::Input => {
                     x_offset = 1;
                     draw::draw_text(
+                        context,
                         draw_command_buffer,
-                        &mut self.text_push_constant_buffer,
                         self.text_pipeline,
                         &self.quad_textured_mesh,
                         ">",
@@ -200,8 +202,8 @@ impl HUD {
                     let error_message = "[error] ";
                     x_offset += error_message.len() as u32;
                     draw::draw_text(
+                        context,
                         draw_command_buffer,
-                        &mut self.text_push_constant_buffer,
                         self.text_pipeline,
                         &self.quad_textured_mesh,
                         error_message,
@@ -221,8 +223,8 @@ impl HUD {
                     let error_message = "[info] ";
                     x_offset += error_message.len() as u32;
                     draw::draw_text(
+                        context,
                         draw_command_buffer,
-                        &mut self.text_push_constant_buffer,
                         self.text_pipeline,
                         &self.quad_textured_mesh,
                         error_message,
@@ -242,8 +244,8 @@ impl HUD {
                     let error_message = "[dbg] ";
                     x_offset += error_message.len() as u32;
                     draw::draw_text(
+                        context,
                         draw_command_buffer,
-                        &mut self.text_push_constant_buffer,
                         self.text_pipeline,
                         &self.quad_textured_mesh,
                         error_message,
@@ -263,8 +265,8 @@ impl HUD {
                     let error_message = "[cvar] ";
                     x_offset += error_message.len() as u32;
                     draw::draw_text(
+                        context,
                         draw_command_buffer,
-                        &mut self.text_push_constant_buffer,
                         self.text_pipeline,
                         &self.quad_textured_mesh,
                         error_message,
@@ -285,8 +287,8 @@ impl HUD {
             }
 
             draw::draw_text(
+                context,
                 draw_command_buffer,
-                &mut self.text_push_constant_buffer,
                 self.text_pipeline,
                 &self.quad_textured_mesh,
                 &line.message,
@@ -304,8 +306,7 @@ impl HUD {
         }
     }
 
-    fn _draw_render_status(&mut self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
-
+    fn _draw_render_status(&mut self, context: &mut Context, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
         let renderstats = renderstats::get();
         let fps = renderstats.get_fps();
         let frametime = renderstats.get_frametime();
@@ -313,8 +314,8 @@ impl HUD {
         let index_count = renderstats.get_index_count();
 
         draw::draw_text_shadowed(
+            context,
             draw_command_buffer,
-            &mut self.text_push_constant_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
             &*format!("FPS: {}", fps),
@@ -324,8 +325,8 @@ impl HUD {
             COLOR_BLACK,
         );
         draw::draw_text_shadowed(
+            context,
             draw_command_buffer,
-            &mut self.text_push_constant_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
             &*format!("Frame time: {0:.3} ms", frametime * 1000f32),
@@ -335,8 +336,8 @@ impl HUD {
             COLOR_BLACK,
         );
         draw::draw_text_shadowed(
+            context,
             draw_command_buffer,
-            &mut self.text_push_constant_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
             &*format!("Draw count: {}", draw_count),
@@ -346,8 +347,8 @@ impl HUD {
             COLOR_BLACK,
         );
         draw::draw_text_shadowed(
+            context,
             draw_command_buffer,
-            &mut self.text_push_constant_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
             &*format!("Index count: {}", index_count),

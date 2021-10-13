@@ -1,6 +1,6 @@
 use cgmath::{Deg, Quaternion, Rotation3};
 
-use crate::engine::datatypes::ModelWoblyPushConstant;
+use crate::engine::datatypes::{ModelColorPushConstant, ModelWoblyPushConstant};
 use crate::engine::entity::WobblyEntity;
 use crate::engine::mesh::MeshManager;
 use crate::engine::terrain::Terrain;
@@ -9,6 +9,7 @@ use crate::engine::console::Console;
 use crate::engine::ui::hud::HUD;
 use crate::renderer::context::{Context, PipelineHandle};
 use crate::renderer::pipeline::PipelineDrawCommand;
+use crate::renderer::pushconstants::PushConstantPtr;
 
 pub struct Scene {
     // TODO replace with entity content system ( specs? )
@@ -53,7 +54,7 @@ impl Scene {
         }
     }
 
-    pub fn fetch_render_job(&mut self, console: &Console) -> &Vec<PipelineDrawCommand> {
+    pub fn build_render_job(&mut self, context: &mut Context, console: &Console) -> &Vec<PipelineDrawCommand> {
         self.render_job_buffer.clear();
 
         for entity in self.wobbly_objects.iter() {
@@ -62,12 +63,12 @@ impl Scene {
                 entity.mesh.vertex_buffer,
                 entity.mesh.index_buffer,
                 entity.mesh.index_count,
-                &entity.push_constant_buf as *const ModelWoblyPushConstant as *const u8,
+                &entity.push_constant_buf as *const ModelWoblyPushConstant as PushConstantPtr,
             ));
         }
 
         self.terrain.draw(&mut self.render_job_buffer);
-        self.hud.draw(&mut self.render_job_buffer, console);
+        self.hud.draw(context, &mut self.render_job_buffer, console);
 
         &self.render_job_buffer
     }

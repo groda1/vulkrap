@@ -1,17 +1,17 @@
 use crate::engine::cvars::{ConfigVariables, CvarType};
-use winit::event::{ElementState, VirtualKeyCode};
 use crate::log::logger;
+use winit::event::{ElementState, VirtualKeyCode};
 
 const TOGGLE_SPEED: f32 = 7.5;
 const CARET_BLINK_SPEED: f32 = 1.5;
 
-const SCROLL_LINES :usize = 15;
+const SCROLL_LINES: usize = 15;
 
 pub struct Console {
     input_history: Vec<String>,
     input_history_index: usize,
 
-    scroll : usize,
+    scroll: usize,
 
     active: bool,
     input_buffer: Vec<char>,
@@ -33,7 +33,7 @@ impl Console {
             input_history: Vec::new(),
             input_history_index: 0,
 
-            scroll : 0,
+            scroll: 0,
 
             active: false,
             input_buffer: Vec::new(),
@@ -268,4 +268,3 @@ impl Console {
         }
     }
 }
-

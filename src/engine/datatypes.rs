@@ -1,4 +1,4 @@
-use crate::renderer::pipeline::{PushConstant, UniformData, VertexInput};
+use crate::renderer::pipeline::{UniformData, VertexInput};
 use ash::vk;
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4, Zero};
 
@@ -198,12 +198,6 @@ impl ModelWoblyPushConstant {
     }
 }
 
-impl PushConstant for ModelWoblyPushConstant {
-    fn size() -> u8 {
-        std::mem::size_of::<Self>() as u8
-    }
-}
-
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
 pub struct ModelColorPushConstant {
@@ -224,12 +218,6 @@ impl ModelColorPushConstant {
     }
 }
 
-impl PushConstant for ModelColorPushConstant {
-    fn size() -> u8 {
-        std::mem::size_of::<Self>() as u8
-    }
-}
-
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
 pub struct TextPushConstant {
@@ -245,11 +233,5 @@ impl TextPushConstant {
             color,
             char: char as u32,
         }
-    }
-}
-
-impl PushConstant for TextPushConstant {
-    fn size() -> u8 {
-        std::mem::size_of::<Self>() as u8
     }
 }

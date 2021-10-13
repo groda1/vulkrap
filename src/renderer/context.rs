@@ -23,6 +23,7 @@ use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
+use crate::renderer::pushconstants::{PushConstantBuffer, PushConstantPtr};
 use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
 use crate::renderer::uniform::{Uniform, UniformStage};
 use ash::extensions::ext::DebugUtils;
@@ -230,6 +231,7 @@ impl Context {
         );
 
         self.update_uniforms(image_index_usize);
+        self._reset_push_constant_buffers();
         let command_buffers = [command_buffer];
 
         let wait_semaphores = [self.sync_handler.image_available_semaphore()];
@@ -392,7 +394,7 @@ impl Context {
             fragment_uniform_binding_cfg,
             sampler_cfgs,
             vertex_topology,
-            config.push_constant_size,
+            config.push_constant_buffer,
             config.alpha_blending,
         );
 
@@ -615,6 +617,16 @@ impl Context {
             self.wait_idle();
         }
         self.is_framebuffer_resized = true;
+    }
+
+    pub fn add_push_constant<T>(&mut self, pipeline: PipelineHandle, data: T) -> PushConstantPtr {
+        self.pipelines[pipeline].create_push_constant(data)
+    }
+
+    fn _reset_push_constant_buffers(&mut self) {
+        for pipeline in self.pipelines.iter_mut() {
+            pipeline.reset_push_contant_buffer();
+        }
     }
 }
 

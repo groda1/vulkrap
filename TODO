@@ -1,7 +1,5 @@
 Renderer:
-    [ ] push constants buffer handling. it is so bad that the user has to manage these. so easy to fuck up by forgetting to clear them which
-            leads to crashing and memory issues. fix asap. This needs to be handled automatically by the renderer.
-            See hud.rs for fucked up push contant buffers.
+
     [ ] Render to texture. Support for multiple renderpasses.
     [ ] Texture mipmaps
     [ ] Memory handling for images is weird. Handled by image.rs instead of the memory manager. fix!
@@ -9,6 +7,9 @@ Renderer:
     [ ] Dont allocate buffer memory on every vertex/index buffer creation. This could be managed by an allocator. See memory.rs
     [ ] Maybe create a separate queue for transfering data instead of graphics_queue for everything?
     [ ] Multiple textures could be stored as an array with a single binding. See descriptor_count in create_descriptor_set_layout (pipeline.rs)
+    [x] push constants buffer handling. it is so bad that the user has to manage these. so easy to fuck up by forgetting to clear them which
+                leads to crashing and memory issues. fix asap. This needs to be handled automatically by the renderer.
+                See hud.rs for fucked up push contant buffers.
     [x] Alpha blending
     [x] texture mapping
     [x] Fix fragment uniforms

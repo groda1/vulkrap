@@ -1,6 +1,6 @@
 use std::sync::{Mutex, MutexGuard};
 
-const CAPACITY :usize = 10000;
+const CAPACITY: usize = 10000;
 
 lazy_static! {
     static ref LOGGER: Mutex<Logger> = Mutex::new(Logger::new());
@@ -12,7 +12,9 @@ pub struct Logger {
 
 impl Logger {
     pub fn new() -> Logger {
-        Logger { history: Vec::with_capacity(CAPACITY) }
+        Logger {
+            history: Vec::with_capacity(CAPACITY),
+        }
     }
 
     pub fn input(&mut self, message: String) {
@@ -51,11 +53,7 @@ impl Logger {
         };
 
         let start = self.history.len() - line_count.min(self.history.len());
-        let start_offset = if start >= scroll {
-            start - scroll
-        } else {
-            0
-        };
+        let start_offset = if start >= scroll { start - scroll } else { 0 };
 
         &self.history[start_offset..end]
     }
@@ -121,4 +119,3 @@ pub fn get() -> MutexGuard<'static, Logger> {
 pub fn len() -> usize {
     LOGGER.lock().unwrap().history.len()
 }
-

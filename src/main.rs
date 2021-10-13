@@ -5,7 +5,6 @@ extern crate memoffset;
 #[macro_use]
 extern crate bitflags;
 
-
 #[macro_export]
 macro_rules! log_debug {
     () => (crate::log::logger::debug(""));
@@ -35,12 +34,11 @@ macro_rules! log_error {
     })
 }
 
-
 use crate::engine::game::VulkrapApplication;
 use winit::event_loop::EventLoop;
 
-mod log;
 mod engine;
+mod log;
 mod renderer;
 mod util;
 mod window;

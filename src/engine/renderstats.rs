@@ -18,7 +18,7 @@ pub struct RenderStats {
     frame_time_sample_count: u32,
 
     index_count: u64,
-    draw_count : u32,
+    draw_count: u32,
 }
 
 impl RenderStats {
@@ -28,7 +28,7 @@ impl RenderStats {
             frame_time: 0.0,
             frame_time_samples: 0.0,
             frame_time_sample_count: 0,
-            index_count : 0,
+            index_count: 0,
             draw_count: 0,
         }
     }

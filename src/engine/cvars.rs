@@ -194,6 +194,6 @@ impl CvarValue for String {
     }
 
     fn set(&mut self, val: &dyn CvarValue) {
-        *self = String::from(val.get_str());
+        *self = val.get_str();
     }
 }

@@ -84,15 +84,13 @@ impl VulkrapApplication {
     }
 
     pub fn update(&mut self, delta_time_s: f32) {
-
-
         self.camera.update(&mut self.context, self.movement, delta_time_s);
         self.scene.update(delta_time_s);
         self.console.update(delta_time_s);
 
-        let render_job = self.scene.fetch_render_job(&self.console);
+        let render_job = self.scene.build_render_job(&mut self.context, &self.console);
 
-        let draw_command_count = render_job.iter().map(|_|1u32).sum();
+        let draw_command_count = render_job.iter().map(|_| 1u32).sum();
         let index_count = render_job.iter().map(|command| command.index_count as u64).sum();
         {
             let mut renderstats = renderstats::get();
