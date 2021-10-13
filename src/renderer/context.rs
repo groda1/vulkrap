@@ -23,7 +23,7 @@ use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
-use crate::renderer::pushconstants::{PushConstantPtr};
+use crate::renderer::pushconstants::PushConstantBuffer;
 use crate::renderer::stats::RenderStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
 use crate::renderer::uniform::{Uniform, UniformStage};
@@ -628,8 +628,9 @@ impl Context {
         self.is_framebuffer_resized = true;
     }
 
-    pub fn add_push_constant<T>(&mut self, pipeline: PipelineHandle, data: T) -> PushConstantPtr {
-        self.pipelines[pipeline].create_push_constant(data)
+    pub fn borrow_mut_push_constant_buf(&mut self, pipeline : PipelineHandle) -> &mut PushConstantBuffer {
+        debug_assert!(self.pipelines.len() > pipeline);
+        self.pipelines[pipeline].borrow_mut_push_constant_buf()
     }
 
     fn _reset_push_constant_buffers(&mut self) {

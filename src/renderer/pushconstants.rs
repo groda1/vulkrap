@@ -35,9 +35,7 @@ impl PushConstantBuffer {
     }
 
     pub fn push<T>(&mut self, data: T) -> PushConstantPtr {
-        if self.write_index == self.len {
-            panic!("PushConstantBuffer overflow!");
-        }
+        debug_assert!(self.write_index < self.len);
 
         unsafe {
             let ptr = self.buf_ptr.unwrap().add(self.write_index * self.data_size);
@@ -70,12 +68,3 @@ impl Drop for PushConstantBuffer {
         }
     }
 }
-
-/*
-impl std::ops::Index<usize> for PushConstantBuffer {
-    type Output = T;
-    fn index(&self, index: usize) -> &Self::Output {
-        self.get(index)
-    }
-}
-*/

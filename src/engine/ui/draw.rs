@@ -1,11 +1,12 @@
 use crate::engine::datatypes::{ModelColorPushConstant, TextPushConstant};
 use crate::engine::mesh::Mesh;
-use crate::renderer::context::{Context, PipelineHandle};
 use crate::renderer::pipeline::PipelineDrawCommand;
 use cgmath::{Matrix4, Vector2, Vector3, Vector4};
+use crate::renderer::pushconstants::PushConstantBuffer;
+use crate::renderer::context::PipelineHandle;
 
 pub fn draw_quad(
-    context: &mut Context,
+    push_constant_buf: &mut PushConstantBuffer,
     target_buf: &mut Vec<PipelineDrawCommand>,
     pipeline: PipelineHandle,
     mesh: &Mesh,
@@ -18,7 +19,7 @@ pub fn draw_quad(
         (position.y + (extent.y / 2)) as f32,
         0.0,
     )) * Matrix4::from_nonuniform_scale(extent.x as f32, extent.y as f32, 1.0);
-    let push_constant_ptr = context.add_push_constant(pipeline, ModelColorPushConstant::new(transform, color));
+    let push_constant_ptr = push_constant_buf.push( ModelColorPushConstant::new(transform, color));
 
     let draw_command = PipelineDrawCommand::new(
         pipeline,
@@ -31,7 +32,7 @@ pub fn draw_quad(
 }
 
 pub fn draw_text(
-    context: &mut Context,
+    push_constant_buf: &mut PushConstantBuffer,
     target_buf: &mut Vec<PipelineDrawCommand>,
     pipeline: PipelineHandle,
     mesh: &Mesh,
@@ -48,12 +49,12 @@ pub fn draw_text(
             (position.y + (text_size_px / 2)) as f32,
             0.0,
         )) * scale;
-        target_buf.push(draw_character(context, pipeline, mesh, transform, color, char));
+        target_buf.push(draw_character(push_constant_buf, pipeline, mesh, transform, color, char));
     }
 }
 
 pub fn draw_text_shadowed(
-    context: &mut Context,
+    push_constant_buf: &mut PushConstantBuffer,
     target_buf: &mut Vec<PipelineDrawCommand>,
     pipeline: PipelineHandle,
     mesh: &Mesh,
@@ -64,7 +65,7 @@ pub fn draw_text_shadowed(
     shadow_color: Vector3<f32>,
 ) {
     draw_text(
-        context,
+        push_constant_buf,
         target_buf,
         pipeline,
         mesh,
@@ -73,11 +74,11 @@ pub fn draw_text_shadowed(
         text_size_px,
         shadow_color,
     );
-    draw_text(context, target_buf, pipeline, mesh, text, position, text_size_px, color);
+    draw_text(push_constant_buf, target_buf, pipeline, mesh, text, position, text_size_px, color);
 }
 
 pub fn _draw_text_random_color(
-    context: &mut Context,
+    push_constant_buf: &mut PushConstantBuffer,
     target_buf: &mut Vec<PipelineDrawCommand>,
     pipeline: PipelineHandle,
     mesh: &Mesh,
@@ -94,7 +95,7 @@ pub fn _draw_text_random_color(
             0.0,
         )) * scale;
         target_buf.push(draw_character(
-            context,
+            push_constant_buf,
             pipeline,
             mesh,
             transform,
@@ -105,14 +106,14 @@ pub fn _draw_text_random_color(
 }
 
 pub fn draw_character(
-    context: &mut Context,
+    push_constant_buf: &mut PushConstantBuffer,
     pipeline: PipelineHandle,
     mesh: &Mesh,
     model_transform: Matrix4<f32>,
     color: Vector3<f32>,
     char: char,
 ) -> PipelineDrawCommand {
-    let push_constant_ptr = context.add_push_constant(pipeline, TextPushConstant::new(model_transform, color, char));
+    let push_constant_ptr = push_constant_buf.push( TextPushConstant::new(model_transform, color, char));
 
     PipelineDrawCommand::new(
         pipeline,

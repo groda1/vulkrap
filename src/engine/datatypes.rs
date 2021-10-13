@@ -1,6 +1,6 @@
 use crate::renderer::pipeline::{UniformData, VertexInput};
 use ash::vk;
-use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4, Zero};
+use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
@@ -208,13 +208,6 @@ pub struct ModelColorPushConstant {
 impl ModelColorPushConstant {
     pub fn new(model_transform: Matrix4<f32>, color: Vector4<f32>) -> Self {
         ModelColorPushConstant { model_transform, color }
-    }
-
-    pub fn default() -> Self {
-        Self {
-            model_transform: Matrix4::identity(),
-            color: Vector4::zero(),
-        }
     }
 }
 

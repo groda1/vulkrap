@@ -99,7 +99,7 @@ impl Camera {
         }
     }
 
-    pub fn set_position(&mut self, position: Vector3<f32>) {
+    pub fn _set_position(&mut self, position: Vector3<f32>) {
         self.position = position;
     }
 

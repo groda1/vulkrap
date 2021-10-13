@@ -13,7 +13,6 @@ use crate::renderer::pushconstants::{PushConstantBuffer, PushConstantPtr};
 use crate::renderer::stats::DrawCommandStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
 use crate::renderer::uniform::UniformStage;
-use winapi::um::wingdi::PaintRgn;
 
 const SHADER_ENTRYPOINT: &str = "main";
 
@@ -498,11 +497,9 @@ impl PipelineContainer {
         logical_device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
     }
 
-    pub fn create_push_constant<T>(&mut self, data: T) -> PushConstantPtr {
-        if self.push_constant_buffer.is_none() {
-            panic!("No push constant buffer");
-        }
-        self.push_constant_buffer.as_mut().unwrap().push(data)
+    pub fn borrow_mut_push_constant_buf(&mut self) -> &mut PushConstantBuffer {
+        debug_assert!(self.push_constant_buffer.is_some());
+       self.push_constant_buffer.as_mut().unwrap()
     }
 
     pub fn reset_push_contant_buffer(&mut self) {
