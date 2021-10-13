@@ -1,6 +1,6 @@
 use cgmath::{Deg, Quaternion, Rotation3};
 
-use crate::engine::datatypes::{ModelWoblyPushConstant};
+use crate::engine::datatypes::ModelWoblyPushConstant;
 use crate::engine::entity::WobblyEntity;
 use crate::engine::mesh::MeshManager;
 use crate::engine::terrain::Terrain;

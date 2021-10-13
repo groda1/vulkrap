@@ -628,7 +628,7 @@ impl Context {
         self.is_framebuffer_resized = true;
     }
 
-    pub fn borrow_mut_push_constant_buf(&mut self, pipeline : PipelineHandle) -> &mut PushConstantBuffer {
+    pub fn borrow_mut_push_constant_buf(&mut self, pipeline: PipelineHandle) -> &mut PushConstantBuffer {
         debug_assert!(self.pipelines.len() > pipeline);
         self.pipelines[pipeline].borrow_mut_push_constant_buf()
     }

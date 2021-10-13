@@ -499,7 +499,7 @@ impl PipelineContainer {
 
     pub fn borrow_mut_push_constant_buf(&mut self) -> &mut PushConstantBuffer {
         debug_assert!(self.push_constant_buffer.is_some());
-       self.push_constant_buffer.as_mut().unwrap()
+        self.push_constant_buffer.as_mut().unwrap()
     }
 
     pub fn reset_push_contant_buffer(&mut self) {

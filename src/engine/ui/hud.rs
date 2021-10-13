@@ -11,12 +11,12 @@ use crate::engine::ui::draw;
 use crate::engine::{image, stats};
 use crate::log::logger;
 use crate::log::logger::MessageLevel;
+use crate::renderer::context::{Context, PipelineHandle, UniformHandle};
 use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand};
+use crate::renderer::pushconstants::PushConstantBuffer;
 use crate::renderer::uniform::UniformStage;
 use crate::util::file;
 use crate::ENGINE_VERSION;
-use crate::renderer::pushconstants::PushConstantBuffer;
-use crate::renderer::context::{UniformHandle, PipelineHandle, Context};
 
 const COLOR_WHITE: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
 const COLOR_BLACK: Vector3<f32> = Vector3::new(0.0, 0.0, 0.0);
@@ -89,11 +89,14 @@ impl HUD {
 
     pub fn draw(
         &mut self,
-        context : &mut Context,
+        context: &mut Context,
         draw_command_buffer: &mut Vec<PipelineDrawCommand>,
         console: &Console,
     ) {
-        self._draw_render_status(context.borrow_mut_push_constant_buf(self.text_pipeline), draw_command_buffer);
+        self._draw_render_status(
+            context.borrow_mut_push_constant_buf(self.text_pipeline),
+            draw_command_buffer,
+        );
         draw::draw_text_shadowed(
             context.borrow_mut_push_constant_buf(self.text_pipeline),
             draw_command_buffer,
@@ -158,7 +161,13 @@ impl HUD {
             );
         }
 
-        self._draw_console_history(context.borrow_mut_push_constant_buf(self.text_pipeline), console, draw_command_buffer, height, offset)
+        self._draw_console_history(
+            context.borrow_mut_push_constant_buf(self.text_pipeline),
+            console,
+            draw_command_buffer,
+            height,
+            offset,
+        )
     }
 
     fn _draw_console_history(
@@ -175,14 +184,13 @@ impl HUD {
         let history = logger_mutex.get_history(history_count_visible as usize, console.get_scroll());
 
         for (i, line) in history.iter().rev().enumerate() {
-            let (prefix_text, prefix_color) =
-            match &line.level {
-                MessageLevel::Input => (">", COLOR_TEXT ),
+            let (prefix_text, prefix_color) = match &line.level {
+                MessageLevel::Input => (">", COLOR_TEXT),
                 MessageLevel::Error => ("[error]", COLOR_TEXT_ERROR),
                 MessageLevel::Info => ("[info]", COLOR_TEXT_INFO),
                 MessageLevel::Debug => ("[dbg]", COLOR_TEXT_DEBUG),
                 MessageLevel::Cvar => ("[cvar]", COLOR_TEXT_CVAR),
-                _ => ("---", COLOR_TEXT)
+                _ => ("---", COLOR_TEXT),
             };
 
             draw::draw_text(
@@ -223,7 +231,11 @@ impl HUD {
         }
     }
 
-    fn _draw_render_status(&mut self, push_constant_buf: &mut PushConstantBuffer, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
+    fn _draw_render_status(
+        &mut self,
+        push_constant_buf: &mut PushConstantBuffer,
+        draw_command_buffer: &mut Vec<PipelineDrawCommand>,
+    ) {
         let renderstats = stats::get();
         let fps = renderstats.get_fps();
         let frametime = renderstats.get_frametime();
