@@ -11,8 +11,8 @@ use crate::engine::entity::WobblyEntity;
 use crate::engine::console::Console;
 use crate::engine::cvars::ConfigVariables;
 use crate::engine::mesh::{MeshManager, PredefinedMesh};
-use crate::engine::renderstats;
 use crate::engine::scene::Scene;
+use crate::engine::stats;
 use crate::renderer::context::{Context, UniformHandle};
 use crate::renderer::pipeline::{PipelineConfiguration, VertexTopology};
 use crate::renderer::uniform::UniformStage;
@@ -90,16 +90,14 @@ impl VulkrapApplication {
 
         let render_job = self.scene.build_render_job(&mut self.context, &self.console);
 
-        let draw_command_count = render_job.iter().map(|_| 1u32).sum();
-        let index_count = render_job.iter().map(|command| command.index_count as u64).sum();
-        {
-            let mut renderstats = renderstats::get();
-            renderstats.update_delta_time(delta_time_s);
-            renderstats.set_index_count(index_count);
-            renderstats.set_draw_count(draw_command_count);
-        }
+        let render_stats = self.context.draw_frame(render_job);
 
-        self.context.draw_frame(render_job);
+        {
+            let mut engine_stats = stats::get();
+            engine_stats.update_delta_time(delta_time_s);
+            engine_stats.set_triangle_count(render_stats.triangle_count);
+            engine_stats.set_draw_count(render_stats.draw_command_count);
+        }
     }
 
     pub fn handle_mouse_input(&mut self, x_delta: f64, y_delta: f64) {

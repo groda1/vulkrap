@@ -7,7 +7,7 @@ mod cvars;
 mod entity;
 mod image;
 mod mesh;
-mod renderstats;
 mod scene;
+mod stats;
 mod terrain;
 mod ui;

@@ -8,7 +8,7 @@ use crate::engine::datatypes::{
 };
 use crate::engine::mesh::{Mesh, MeshManager, PredefinedMesh};
 use crate::engine::ui::draw;
-use crate::engine::{image, renderstats};
+use crate::engine::{image, stats};
 use crate::log::logger;
 use crate::log::logger::MessageLevel;
 use crate::renderer::context::{Context, PipelineHandle, UniformHandle};
@@ -307,11 +307,11 @@ impl HUD {
     }
 
     fn _draw_render_status(&mut self, context: &mut Context, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
-        let renderstats = renderstats::get();
+        let renderstats = stats::get();
         let fps = renderstats.get_fps();
         let frametime = renderstats.get_frametime();
         let draw_count = renderstats.get_draw_count();
-        let index_count = renderstats.get_index_count();
+        let triangle_count = renderstats.get_triangle_count();
 
         draw::draw_text_shadowed(
             context,
@@ -351,7 +351,7 @@ impl HUD {
             draw_command_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
-            &*format!("Index count: {}", index_count),
+            &*format!("Triangle count: {}", triangle_count),
             Vector2::new(8, self.window_height - 78),
             16,
             COLOR_WHITE,

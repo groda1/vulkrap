@@ -23,7 +23,8 @@ use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
-use crate::renderer::pushconstants::{PushConstantBuffer, PushConstantPtr};
+use crate::renderer::pushconstants::{PushConstantPtr};
+use crate::renderer::stats::RenderStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
 use crate::renderer::uniform::{Uniform, UniformStage};
 use ash::extensions::ext::DebugUtils;
@@ -189,7 +190,9 @@ impl Context {
         }
     }
 
-    pub fn draw_frame(&mut self, render_job: &[PipelineDrawCommand]) {
+    pub fn draw_frame(&mut self, render_job: &[PipelineDrawCommand]) -> RenderStats {
+        let mut stats = RenderStats::new();
+
         let (image_index, _is_sub_optimal) = unsafe {
             let result = self.swapchain_loader.acquire_next_image(
                 self.swapchain,
@@ -203,7 +206,7 @@ impl Context {
                     vk::Result::ERROR_OUT_OF_DATE_KHR => {
                         log_info!("Recreating swapchain...");
                         self.recreate_swapchain();
-                        return;
+                        return stats;
                     }
                     _ => panic!("Failed to acquire Swap Chain Image!"),
                 },
@@ -228,6 +231,7 @@ impl Context {
             self.swapchain_framebuffers[image_index_usize],
             image_index_usize,
             render_job,
+            &mut stats,
         );
 
         self.update_uniforms(image_index_usize);
@@ -290,6 +294,8 @@ impl Context {
         }
 
         self.sync_handler.step();
+
+        stats
     }
 
     pub fn allocate_vertex_buffer<T: VertexInput>(&mut self, vertices: &[T]) -> vk::Buffer {
@@ -538,6 +544,7 @@ impl Context {
         framebuffer: vk::Framebuffer,
         image_index: usize,
         render_job: &[PipelineDrawCommand],
+        render_stats: &mut RenderStats,
     ) -> bool {
         let command_buffer_begin_info = vk::CommandBufferBeginInfo {
             s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
@@ -585,7 +592,7 @@ impl Context {
 
             let mut bound_pipeline = PipelineHandle::MAX;
             for draw_command in render_job {
-                self.pipelines[draw_command.pipeline].bake_command_buffer(
+                let stats = self.pipelines[draw_command.pipeline].bake_command_buffer(
                     &self.logical_device,
                     command_buffer,
                     draw_command,
@@ -593,6 +600,8 @@ impl Context {
                     bound_pipeline != draw_command.pipeline,
                 );
                 bound_pipeline = draw_command.pipeline;
+
+                render_stats.add_draw_command(stats);
             }
 
             self.logical_device.cmd_end_render_pass(command_buffer);

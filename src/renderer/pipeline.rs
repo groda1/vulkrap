@@ -10,8 +10,10 @@ use ash::vk::{
 
 use crate::renderer::context::{PipelineHandle, UniformHandle};
 use crate::renderer::pushconstants::{PushConstantBuffer, PushConstantPtr};
+use crate::renderer::stats::DrawCommandStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
 use crate::renderer::uniform::UniformStage;
+use winapi::um::wingdi::PaintRgn;
 
 const SHADER_ENTRYPOINT: &str = "main";
 
@@ -324,7 +326,7 @@ impl PipelineContainer {
         draw_command: &PipelineDrawCommand,
         image_index: usize,
         bind: bool,
-    ) {
+    ) -> DrawCommandStats {
         if bind {
             logical_device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.vk_pipeline);
         }
@@ -355,6 +357,17 @@ impl PipelineContainer {
             &[],
         );
         logical_device.cmd_draw_indexed(command_buffer, draw_command.index_count, 1, 0, 0, 0);
+
+        // Stats
+        let triangle_count = if self.vertex_topology == PrimitiveTopology::TRIANGLE_LIST {
+            draw_command.index_count / 3
+        } else if self.vertex_topology == PrimitiveTopology::TRIANGLE_STRIP {
+            draw_command.index_count - 2
+        } else {
+            0
+        };
+
+        DrawCommandStats::new(triangle_count)
     }
 
     pub(super) fn set_uniform_buffers(&mut self, stage: UniformStage, buffers: &[vk::Buffer]) {

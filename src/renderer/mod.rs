@@ -8,6 +8,7 @@ mod debug;
 mod image;
 mod memory;
 mod queue;
+mod stats;
 mod surface;
 mod swapchain;
 mod synchronization;
