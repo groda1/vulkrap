@@ -18,9 +18,14 @@ impl PushConstantBuffer {
 
         let buf = if capacity > 0 {
             let buf_ptr = unsafe {
-                let layout = Layout::from_size_align_unchecked(capacity * size, size);
+                let layout = Layout::from_size_align_unchecked(capacity * size, 1);
+
                 alloc(layout) as PushConstantInternal
             };
+
+            if buf_ptr.is_null() {
+                panic!("Failed to allocate PushConstantBuffer");
+            }
             Option::Some(buf_ptr)
         } else {
             Option::None
