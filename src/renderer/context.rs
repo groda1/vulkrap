@@ -23,11 +23,15 @@ use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
+use crate::renderer::buffer::{DynamicBufferHandle, DynamicBufferManager};
+use crate::renderer::pipeline::VertexData::Raw;
 use crate::renderer::pushconstants::PushConstantBuffer;
 use crate::renderer::stats::RenderStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
 use crate::renderer::uniform::{Uniform, UniformStage};
 use ash::extensions::ext::DebugUtils;
+use std::slice::from_raw_parts;
+use std::time::Instant;
 
 const UNIFORM_DESCRIPTOR_POOL_SIZE: u32 = 10;
 const SAMPLER_DESCRIPTOR_POOL_SIZE: u32 = 5;
@@ -69,10 +73,12 @@ pub struct Context {
     texture_manager: TextureManager,
 
     memory_manager: MemoryManager,
+    dynamic_vertex_buffer_manager: DynamicBufferManager,
     descriptor_pool: vk::DescriptorPool,
 
     command_pool: vk::CommandPool,
-    command_buffers: Vec<vk::CommandBuffer>,
+    draw_command_buffers: Vec<vk::CommandBuffer>,
+    transfer_command_buffers: Vec<vk::CommandBuffer>,
 
     sync_handler: SynchronizationHandler,
 
@@ -153,7 +159,8 @@ impl Context {
         let image_count = swapchain_container.image_views.len();
         let memory_manager = MemoryManager::new(physical_device_memory_properties);
         let descriptor_pool = _create_descriptor_pool(&logical_device);
-        let command_buffers = _create_command_buffers(&logical_device, command_pool, image_count);
+        let draw_command_buffers = _create_command_buffers(&logical_device, command_pool, image_count);
+        let transfer_command_buffers = _create_command_buffers(&logical_device, command_pool, image_count);
         let sync_handler = SynchronizationHandler::new(&logical_device);
 
         Context {
@@ -180,9 +187,11 @@ impl Context {
             uniforms: Vec::new(),
             texture_manager: TextureManager::new(),
             memory_manager,
+            dynamic_vertex_buffer_manager: DynamicBufferManager::new(image_count),
             descriptor_pool,
             command_pool,
-            command_buffers,
+            draw_command_buffers,
+            transfer_command_buffers,
             sync_handler,
             debug_utils_loader,
             debug_utils_messenger,
@@ -225,9 +234,18 @@ impl Context {
                 .expect("Failed to reset Fence!");
         }
 
-        let command_buffer = self.command_buffers[image_index_usize];
-        self.bake_command_buffer(
-            command_buffer,
+        // Transfer data
+        {
+            let is_baked = self.bake_transfer_command_buffer(render_job, image_index_usize, &mut stats);
+            if is_baked {
+                // Submit
+            }
+        }
+
+        // Draw
+        let draw_command_buffer = self.draw_command_buffers[image_index_usize];
+        self.bake_draw_command_buffer(
+            draw_command_buffer,
             self.swapchain_framebuffers[image_index_usize],
             image_index_usize,
             render_job,
@@ -236,23 +254,18 @@ impl Context {
 
         self.update_uniforms(image_index_usize);
         self.reset_push_constant_buffers();
-        let command_buffers = [command_buffer];
+        let command_buffers = [draw_command_buffer];
 
         let wait_semaphores = [self.sync_handler.image_available_semaphore()];
         let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
         let signal_semaphores = [self.sync_handler.render_finished_semaphore()];
 
-        let submit_infos = [vk::SubmitInfo {
-            s_type: vk::StructureType::SUBMIT_INFO,
-            p_next: ptr::null(),
-            wait_semaphore_count: wait_semaphores.len() as u32,
-            p_wait_semaphores: wait_semaphores.as_ptr(),
-            p_wait_dst_stage_mask: wait_stages.as_ptr(),
-            command_buffer_count: command_buffers.len() as u32,
-            p_command_buffers: command_buffers.as_ptr(),
-            signal_semaphore_count: signal_semaphores.len() as u32,
-            p_signal_semaphores: signal_semaphores.as_ptr(),
-        }];
+        let submit_infos = [vk::SubmitInfo::builder()
+            .wait_semaphores(&wait_semaphores)
+            .wait_dst_stage_mask(&wait_stages)
+            .command_buffers(&command_buffers)
+            .signal_semaphores(&signal_semaphores)
+            .build()];
 
         unsafe {
             self.logical_device
@@ -264,18 +277,15 @@ impl Context {
                 .expect("Failed to execute queue submit.");
         }
 
+        // Present
         let swapchains = [self.swapchain];
+        let image_index_array = [image_index];
 
-        let present_info = vk::PresentInfoKHR {
-            s_type: vk::StructureType::PRESENT_INFO_KHR,
-            p_next: ptr::null(),
-            wait_semaphore_count: 1,
-            p_wait_semaphores: signal_semaphores.as_ptr(),
-            swapchain_count: 1,
-            p_swapchains: swapchains.as_ptr(),
-            p_image_indices: &image_index,
-            p_results: ptr::null_mut(),
-        };
+        let present_info = vk::PresentInfoKHR::builder()
+            .wait_semaphores(&signal_semaphores)
+            .swapchains(&swapchains)
+            .image_indices(&image_index_array)
+            .build();
 
         unsafe {
             let result = self.swapchain_loader.queue_present(self.present_queue, &present_info);
@@ -298,12 +308,16 @@ impl Context {
         stats
     }
 
-    pub fn allocate_vertex_buffer<T: VertexInputDescription>(&mut self, vertices: &[T]) -> vk::Buffer {
-        self.memory_manager
-            .create_vertex_buffer(&self.logical_device, self.command_pool, self.graphics_queue, vertices)
+    pub fn create_static_vertex_buffer_sync<T: VertexInputDescription>(&mut self, vertices: &[T]) -> vk::Buffer {
+        self.memory_manager.create_static_vertex_buffer_sync(
+            &self.logical_device,
+            self.command_pool,
+            self.graphics_queue,
+            vertices,
+        )
     }
 
-    pub fn allocate_index_buffer(&mut self, indices: &[Index]) -> vk::Buffer {
+    pub fn create_static_index_buffer_sync(&mut self, indices: &[Index]) -> vk::Buffer {
         self.memory_manager
             .create_index_buffer(&self.logical_device, self.command_pool, self.graphics_queue, indices)
     }
@@ -424,6 +438,14 @@ impl Context {
         pipeline_handle
     }
 
+    pub fn add_dynamic_vertex_buffer(&mut self, capacity: usize) -> DynamicBufferHandle {
+        self.dynamic_vertex_buffer_manager.create_dynamic_buffer(
+            &self.logical_device,
+            &mut self.memory_manager,
+            capacity,
+        )
+    }
+
     pub unsafe fn wait_idle(&self) {
         self.logical_device
             .device_wait_idle()
@@ -437,7 +459,9 @@ impl Context {
             self.logical_device.free_memory(self.depth_image_memory, None);
 
             self.logical_device
-                .free_command_buffers(self.command_pool, &self.command_buffers);
+                .free_command_buffers(self.command_pool, &self.draw_command_buffers);
+            self.logical_device
+                .free_command_buffers(self.command_pool, &self.transfer_command_buffers);
 
             // Framebuffers
             for framebuffer in self.swapchain_framebuffers.iter() {
@@ -463,6 +487,10 @@ impl Context {
 
             // Descriptor pool
             self.logical_device.destroy_descriptor_pool(self.descriptor_pool, None);
+
+            // Dynamic vertex buffers
+            self.dynamic_vertex_buffer_manager
+                .destroy(&self.logical_device, &mut self.memory_manager);
         }
     }
 
@@ -517,7 +545,8 @@ impl Context {
             self.render_pass,
         );
 
-        self.command_buffers = _create_command_buffers(&self.logical_device, self.command_pool, image_count);
+        self.draw_command_buffers = _create_command_buffers(&self.logical_device, self.command_pool, image_count);
+        self.transfer_command_buffers = _create_command_buffers(&self.logical_device, self.command_pool, image_count);
 
         for uniform in self.uniforms.iter_mut() {
             uniform.build(&self.logical_device, &mut self.memory_manager, image_count);
@@ -536,9 +565,62 @@ impl Context {
                 image_count,
             );
         }
+
+        self.dynamic_vertex_buffer_manager
+            .rebuild(&self.logical_device, &mut self.memory_manager, image_count);
     }
 
-    fn bake_command_buffer(
+    fn bake_transfer_command_buffer(
+        &mut self,
+        render_job: &[PipelineDrawCommand],
+        image_index: usize,
+        render_stats: &mut RenderStats,
+    ) -> bool {
+        let start_time = Instant::now();
+        let transfer_command_buffer = self.transfer_command_buffers[image_index];
+
+        let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
+            .build();
+
+        let mut transfer_needed = false;
+        for draw_command in render_job {
+            if let Raw(vertex_data) = draw_command.vertex_data() {
+                let dynamic_buffer = self.dynamic_vertex_buffer_manager.get(vertex_data.buf);
+
+                let staging_buffer = dynamic_buffer.staging(image_index);
+
+                unsafe {
+                    let data_slice = from_raw_parts(vertex_data.data_ptr, vertex_data.data_size);
+                    self.memory_manager
+                        .copy_to_buffer_memory(&self.logical_device, staging_buffer, data_slice);
+                }
+                transfer_needed = true
+            }
+        }
+
+        if !transfer_needed {
+            return false;
+        }
+
+        unsafe {
+            self.logical_device
+                .reset_command_buffer(transfer_command_buffer, vk::CommandBufferResetFlags::empty())
+                .expect("Failed to reset Transfer command buffer!");
+            self.logical_device
+                .begin_command_buffer(transfer_command_buffer, &command_buffer_begin_info)
+                .expect("Failed to begin recording of Transfer command buffer!");
+            self.logical_device
+                .end_command_buffer(transfer_command_buffer)
+                .expect("Failed to end recording of Transfer command buffer!");
+        }
+
+        render_stats.transfer_commands_bake_time = start_time.elapsed();
+
+        true
+    }
+
+    fn bake_draw_command_buffer(
         &self,
         command_buffer: vk::CommandBuffer,
         framebuffer: vk::Framebuffer,
@@ -546,12 +628,11 @@ impl Context {
         render_job: &[PipelineDrawCommand],
         render_stats: &mut RenderStats,
     ) -> bool {
-        let command_buffer_begin_info = vk::CommandBufferBeginInfo {
-            s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
-            p_next: ptr::null(),
-            p_inheritance_info: ptr::null(),
-            flags: vk::CommandBufferUsageFlags::SIMULTANEOUS_USE,
-        };
+        let start_time = Instant::now();
+        let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
+            .build();
+
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
@@ -579,10 +660,10 @@ impl Context {
         unsafe {
             self.logical_device
                 .reset_command_buffer(command_buffer, vk::CommandBufferResetFlags::empty())
-                .expect("Failed to reset command buffer!");
+                .expect("Failed to reset Draw command buffer!");
             self.logical_device
                 .begin_command_buffer(command_buffer, &command_buffer_begin_info)
-                .expect("Failed to begin recording Command Buffer at beginning!");
+                .expect("Failed to begin recording of Draw command buffer!");
 
             self.logical_device.cmd_begin_render_pass(
                 command_buffer,
@@ -607,9 +688,10 @@ impl Context {
             self.logical_device.cmd_end_render_pass(command_buffer);
             self.logical_device
                 .end_command_buffer(command_buffer)
-                .expect("Failed to record Command Buffer at Ending!");
+                .expect("Failed to end recording of Draw command buffer!");
         }
 
+        render_stats.draw_commands_bake_time = start_time.elapsed();
         true
     }
 
@@ -959,13 +1041,12 @@ fn _create_command_buffers(
     command_pool: vk::CommandPool,
     framebuffer_count: usize,
 ) -> Vec<vk::CommandBuffer> {
-    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo {
-        s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
-        p_next: ptr::null(),
-        command_buffer_count: framebuffer_count as u32,
-        command_pool,
-        level: vk::CommandBufferLevel::PRIMARY,
-    };
+    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
+        .command_buffer_count(framebuffer_count as u32)
+        .command_pool(command_pool)
+        .level(vk::CommandBufferLevel::PRIMARY)
+        .build();
+
     unsafe {
         device
             .allocate_command_buffers(&command_buffer_allocate_info)

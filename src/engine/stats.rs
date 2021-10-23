@@ -1,3 +1,4 @@
+use crate::renderer::stats::RenderStats;
 use std::sync::{Mutex, MutexGuard};
 
 const SAMPLE_WINDOW: f32 = 0.2;
@@ -17,8 +18,7 @@ pub struct EngineStatistics {
     frame_time_samples: f32,
     frame_time_sample_count: u32,
 
-    triangle_count: u64,
-    draw_count: u32,
+    render_stats: RenderStats,
 }
 
 impl EngineStatistics {
@@ -28,8 +28,7 @@ impl EngineStatistics {
             frame_time: 0.0,
             frame_time_samples: 0.0,
             frame_time_sample_count: 0,
-            triangle_count: 0,
-            draw_count: 0,
+            render_stats: RenderStats::new(),
         }
     }
 
@@ -46,11 +45,8 @@ impl EngineStatistics {
         }
     }
 
-    pub fn set_triangle_count(&mut self, index_count: u64) {
-        self.triangle_count = index_count;
-    }
-    pub fn set_draw_count(&mut self, draw_count: u32) {
-        self.draw_count = draw_count;
+    pub fn set_render_stats(&mut self, stats: RenderStats) {
+        self.render_stats = stats;
     }
 
     pub fn get_fps(&self) -> u32 {
@@ -61,10 +57,7 @@ impl EngineStatistics {
         self.frame_time
     }
 
-    pub fn get_triangle_count(&self) -> u64 {
-        self.triangle_count
-    }
-    pub fn get_draw_count(&self) -> u32 {
-        self.draw_count
+    pub fn get_render_stats(&self) -> &RenderStats {
+        &self.render_stats
     }
 }

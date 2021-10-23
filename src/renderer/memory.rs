@@ -23,18 +23,14 @@ impl MemoryManager {
         }
     }
 
-    pub fn get_device_memory(&self, buffer: vk::Buffer) -> vk::DeviceMemory {
-        *self.buffer_to_chunk_map.get(&buffer).expect("Unknown buffer memory!")
-    }
-
-    pub fn create_vertex_buffer<T: VertexInputDescription>(
+    pub fn create_static_vertex_buffer_sync<T: VertexInputDescription>(
         &mut self,
         device: &ash::Device,
         command_pool: vk::CommandPool,
         submit_queue: vk::Queue,
         vertices: &[T],
     ) -> vk::Buffer {
-        let (buffer, device_memory) = create_device_local_buffer(
+        let (buffer, device_memory) = create_device_local_buffer_sync(
             device,
             &self.physical_device_memory_properties,
             command_pool,
@@ -55,7 +51,7 @@ impl MemoryManager {
         submit_queue: vk::Queue,
         indicies: &[Index],
     ) -> vk::Buffer {
-        let (buffer, device_memory) = create_device_local_buffer(
+        let (buffer, device_memory) = create_device_local_buffer_sync(
             device,
             &self.physical_device_memory_properties,
             command_pool,
@@ -78,7 +74,7 @@ impl MemoryManager {
         let mut uniform_buffers = Vec::with_capacity(swapchain_image_count);
 
         for _ in 0..swapchain_image_count {
-            let (uniform_buffer, uniform_buffer_memory) = create_buffer(
+            let (uniform_buffer, uniform_buffer_memory) = _create_buffer(
                 logical_device,
                 buffer_size as u64,
                 vk::BufferUsageFlags::UNIFORM_BUFFER,
@@ -93,7 +89,7 @@ impl MemoryManager {
     }
 
     pub fn create_staging_buffer(&mut self, logical_device: &ash::Device, buffer_size: vk::DeviceSize) -> vk::Buffer {
-        let (staging_buffer, staging_buffer_memory) = create_buffer(
+        let (staging_buffer, staging_buffer_memory) = _create_buffer(
             logical_device,
             buffer_size,
             vk::BufferUsageFlags::TRANSFER_SRC,
@@ -104,6 +100,25 @@ impl MemoryManager {
         self.buffer_to_chunk_map.insert(staging_buffer, staging_buffer_memory);
 
         staging_buffer
+    }
+
+    pub fn create_device_buffer(&mut self, logical_device: &ash::Device, buffer_size: vk::DeviceSize) -> vk::Buffer {
+        let (staging_buffer, staging_buffer_memory) = _create_buffer(
+            logical_device,
+            buffer_size,
+            vk::BufferUsageFlags::TRANSFER_DST,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            &self.physical_device_memory_properties,
+        );
+
+        self.buffer_to_chunk_map.insert(staging_buffer, staging_buffer_memory);
+
+        staging_buffer
+    }
+
+    pub unsafe fn copy_to_buffer_memory<T>(&mut self, logical_device: &ash::Device, buffer: vk::Buffer, data: &[T]) {
+        let memory = self.get_device_memory(buffer);
+        _copy_to_device_memory(logical_device, data, memory);
     }
 
     pub unsafe fn destroy_buffer(&mut self, logical_device: &ash::Device, buffer: vk::Buffer) {
@@ -125,9 +140,13 @@ impl MemoryManager {
     pub fn physical_device_memory_properties(&self) -> &PhysicalDeviceMemoryProperties {
         &self.physical_device_memory_properties
     }
+
+    pub fn get_device_memory(&self, buffer: vk::Buffer) -> vk::DeviceMemory {
+        *self.buffer_to_chunk_map.get(&buffer).expect("Unknown buffer memory!")
+    }
 }
 
-fn create_device_local_buffer<T>(
+fn create_device_local_buffer_sync<T>(
     device: &ash::Device,
     device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
     command_pool: vk::CommandPool,
@@ -137,7 +156,7 @@ fn create_device_local_buffer<T>(
 ) -> (vk::Buffer, vk::DeviceMemory) {
     let buffer_size = std::mem::size_of_val(data) as vk::DeviceSize;
 
-    let (staging_buffer, staging_buffer_memory) = create_buffer(
+    let (staging_buffer, staging_buffer_memory) = _create_buffer(
         device,
         buffer_size,
         vk::BufferUsageFlags::TRANSFER_SRC,
@@ -146,16 +165,10 @@ fn create_device_local_buffer<T>(
     );
 
     unsafe {
-        let data_ptr = device
-            .map_memory(staging_buffer_memory, 0, buffer_size, vk::MemoryMapFlags::empty())
-            .expect("Failed to Map Memory") as *mut T;
-
-        data_ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
-
-        device.unmap_memory(staging_buffer_memory);
+        _copy_to_device_memory(device, data, staging_buffer_memory);
     }
 
-    let (device_local_buffer, device_local_buffer_memory) = create_buffer(
+    let (device_local_buffer, device_local_buffer_memory) = _create_buffer(
         device,
         buffer_size,
         vk::BufferUsageFlags::TRANSFER_DST | usage,
@@ -163,7 +176,7 @@ fn create_device_local_buffer<T>(
         device_memory_properties,
     );
 
-    copy_buffer_device_blocking(
+    _copy_buffer_device_blocking(
         device,
         submit_queue,
         command_pool,
@@ -180,7 +193,7 @@ fn create_device_local_buffer<T>(
     (device_local_buffer, device_local_buffer_memory)
 }
 
-fn create_buffer(
+fn _create_buffer(
     device: &ash::Device,
     size: vk::DeviceSize,
     usage: vk::BufferUsageFlags,
@@ -247,7 +260,21 @@ fn find_memory_type(
     panic!("Failed to find suitable memory type!")
 }
 
-fn copy_buffer_device_blocking(
+unsafe fn _copy_to_device_memory<T>(device: &ash::Device, data: &[T], dst_memory: vk::DeviceMemory) {
+    let buffer_size = std::mem::size_of_val(data) as vk::DeviceSize;
+
+    // TODO the size should be checked here. Need to track the capcity of the memory.
+
+    let data_ptr = device
+        .map_memory(dst_memory, 0, buffer_size, vk::MemoryMapFlags::empty())
+        .expect("Failed to Map Memory") as *mut T;
+
+    data_ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
+
+    device.unmap_memory(dst_memory);
+}
+
+fn _copy_buffer_device_blocking(
     device: &ash::Device,
     submit_queue: vk::Queue,
     command_pool: vk::CommandPool,

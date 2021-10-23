@@ -41,8 +41,8 @@ impl Terrain {
         //
         let chunk_data = create_flat_normaled_chunk(quad_width, quad_height, &raw_vertices);
 
-        let vertex_buffer = context.allocate_vertex_buffer(&chunk_data.vertices);
-        let index_buffer = context.allocate_index_buffer(&chunk_data.indices);
+        let vertex_buffer = context.create_static_vertex_buffer_sync(&chunk_data.vertices);
+        let index_buffer = context.create_static_index_buffer_sync(&chunk_data.indices);
 
         Terrain {
             pipeline,

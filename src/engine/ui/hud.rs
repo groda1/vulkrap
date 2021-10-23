@@ -53,6 +53,8 @@ impl HUD {
         let data = _create_view_projection_uniform(window_width, window_height);
         context.set_uniform_data(uniform, data);
 
+        let dynamic_vertex_buffer = context.add_dynamic_vertex_buffer(2000);
+
         let pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/flat_color_vert.spv")))
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/flat_color_frag.spv")))
@@ -93,7 +95,7 @@ impl HUD {
         draw_command_buffer: &mut Vec<PipelineDrawCommand>,
         console: &Console,
     ) {
-        self._draw_render_status(
+        self._draw_render_stats(
             push_constant_handler.borrow_mut_push_constant_buf(self.text_pipeline),
             draw_command_buffer,
         );
@@ -231,24 +233,22 @@ impl HUD {
         }
     }
 
-    fn _draw_render_status(
+    fn _draw_render_stats(
         &mut self,
         push_constant_buf: &mut PushConstantBuffer,
         draw_command_buffer: &mut Vec<PipelineDrawCommand>,
     ) {
         let renderstats = stats::get();
-        let fps = renderstats.get_fps();
-        let frametime = renderstats.get_frametime();
-        let draw_count = renderstats.get_draw_count();
-        let triangle_count = renderstats.get_triangle_count();
+
+        let position = Vector2::new(8, self.window_height - 24);
 
         draw::draw_text_shadowed(
             push_constant_buf,
             draw_command_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
-            &*format!("FPS: {}", fps),
-            Vector2::new(8, self.window_height - 24),
+            &*format!("FPS: {}", renderstats.get_fps()),
+            position,
             16,
             COLOR_WHITE,
             COLOR_BLACK,
@@ -258,8 +258,8 @@ impl HUD {
             draw_command_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
-            &*format!("Frame time: {0:.3} ms", frametime * 1000f32),
-            Vector2::new(8, self.window_height - 42),
+            &*format!("Frame time: {0:.3} ms", renderstats.get_frametime() * 1000f32),
+            position - Vector2::new(0, 18 * 1),
             16,
             COLOR_WHITE,
             COLOR_BLACK,
@@ -269,8 +269,8 @@ impl HUD {
             draw_command_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
-            &*format!("Draw count: {}", draw_count),
-            Vector2::new(8, self.window_height - 60),
+            &*format!("Draw count: {}", renderstats.get_render_stats().draw_command_count),
+            position - Vector2::new(0, 18 * 3),
             16,
             COLOR_WHITE,
             COLOR_BLACK,
@@ -280,8 +280,36 @@ impl HUD {
             draw_command_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
-            &*format!("Triangle count: {}", triangle_count),
-            Vector2::new(8, self.window_height - 78),
+            &*format!("Triangle count: {}", renderstats.get_render_stats().triangle_count),
+            position - Vector2::new(0, 18 * 4),
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
+        );
+        draw::draw_text_shadowed(
+            push_constant_buf,
+            draw_command_buffer,
+            self.text_pipeline,
+            &self.quad_textured_mesh,
+            &*format!(
+                "TransferCmdBuf: {0:.3} ms",
+                renderstats.get_render_stats().transfer_commands_bake_time.as_micros() as f32 / 1000f32
+            ),
+            position - Vector2::new(0, 18 * 6),
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
+        );
+        draw::draw_text_shadowed(
+            push_constant_buf,
+            draw_command_buffer,
+            self.text_pipeline,
+            &self.quad_textured_mesh,
+            &*format!(
+                "    DrawCmdBuf: {0:.3} ms",
+                renderstats.get_render_stats().draw_commands_bake_time.as_micros() as f32 / 1000f32
+            ),
+            position - Vector2::new(0, 18 * 7),
             16,
             COLOR_WHITE,
             COLOR_BLACK,

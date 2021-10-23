@@ -8,13 +8,13 @@ use ash::vk::{
     VertexInputBindingDescription,
 };
 
+use crate::renderer::buffer::DynamicBufferHandle;
 use crate::renderer::context::{PipelineHandle, UniformHandle};
 use crate::renderer::pipeline::VertexData::{Buffered, Raw};
 use crate::renderer::pushconstants::{PushConstantBuffer, PushConstantPtr};
 use crate::renderer::stats::DrawCommandStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
 use crate::renderer::uniform::UniformStage;
-use cgmath::Vector3;
 
 const SHADER_ENTRYPOINT: &str = "main";
 
@@ -91,6 +91,7 @@ impl PipelineContainer {
             sampler_cfgs,
             push_constant_buffer,
             vertex_topology,
+
             descriptor_pool: vk::DescriptorPool::null(),
             descriptor_sets: Vec::with_capacity(0),
             descriptor_set_layout,
@@ -363,8 +364,18 @@ impl PipelineContainer {
                 vk::IndexType::UINT32,
             );
             logical_device.cmd_draw_indexed(draw_command_buffer, buffer_data.index_count, 1, 0, 0, 0);
-        } else {
+        } else if let Raw(raw_data) = &draw_command.vertex_data {
+            // Copy vertices to host memory
+
+            // Create command for transferring vertex data from host memory to device memory
+
+            // add this command to a pre-draw requirement command buffer
+
+            // Draw
+
             unimplemented!()
+        } else {
+            unreachable!();
         }
 
         // Stats
@@ -604,6 +615,10 @@ impl PipelineDrawCommand {
         }
     }
 
+    pub fn vertex_data(&self) -> &VertexData {
+        &self.vertex_data
+    }
+
     pub fn triangle_count(&self, primitive_topology: PrimitiveTopology) -> u32 {
         match primitive_topology {
             PrimitiveTopology::TRIANGLE_LIST => match &self.vertex_data {
@@ -623,7 +638,7 @@ impl PipelineDrawCommand {
     }
 }
 
-struct BufferData {
+pub struct BufferData {
     vertex_buffer: vk::Buffer,
     index_buffer: vk::Buffer,
     index_count: u32,
@@ -639,9 +654,13 @@ impl BufferData {
     }
 }
 
-type RawVertices = Vec<Vector3<f32>>;
+pub struct RawVertices {
+    pub data_ptr: *const u8,
+    pub data_size: usize,
+    pub buf: DynamicBufferHandle,
+}
 
-enum VertexData {
+pub enum VertexData {
     Raw(RawVertices),
     Buffered(BufferData),
 }

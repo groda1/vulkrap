@@ -17,21 +17,9 @@ pub fn create_texture_image(
     assert_eq!((image_width * image_height * 4) as usize, image_data.len());
 
     let staging_buffer = memory_manager.create_staging_buffer(device, image_data.len() as vk::DeviceSize);
-    let staging_buffer_memory = memory_manager.get_device_memory(staging_buffer);
 
     unsafe {
-        let data_ptr = device
-            .map_memory(
-                staging_buffer_memory,
-                0,
-                image_data.len() as u64,
-                vk::MemoryMapFlags::empty(),
-            )
-            .expect("Failed to Map Memory") as *mut u8;
-
-        data_ptr.copy_from_nonoverlapping(image_data.as_ptr(), image_data.len());
-
-        device.unmap_memory(staging_buffer_memory);
+        memory_manager.copy_to_buffer_memory(device, staging_buffer, image_data);
     }
 
     let (texture_image, texture_image_memory) = create_image(

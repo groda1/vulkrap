@@ -62,8 +62,7 @@ impl Console {
             self._reset_caret();
         }
 
-        let mut ret = ControlSignal::ZERO;
-
+        let mut control = ControlSignal::ZERO;
         match (key, state) {
             (VirtualKeyCode::Back, ElementState::Pressed) => {
                 if self.input_index > 0 {
@@ -73,7 +72,7 @@ impl Console {
                 }
             }
             (VirtualKeyCode::Return | VirtualKeyCode::NumpadEnter, ElementState::Pressed) => {
-                ret = self._handle_input(cfg);
+                control = self._handle_input(cfg);
             }
             (VirtualKeyCode::RShift | VirtualKeyCode::LShift, ElementState::Pressed) => {
                 self.shift_active = true;
@@ -101,7 +100,7 @@ impl Console {
             }
         }
 
-        ret
+        control
     }
 
     pub fn update(&mut self, delta_time_s: f32) {
@@ -164,10 +163,10 @@ impl Console {
 
     fn _handle_input(&mut self, cfg: &mut ConfigVariables) -> ControlSignal {
         self.scroll = 0;
-        let mut ret = ControlSignal::ZERO;
+        let mut control = ControlSignal::ZERO;
 
         if self.input_buffer.is_empty() {
-            return ret;
+            return control;
         }
 
         logger::input(&*self.get_current_input());
@@ -185,7 +184,7 @@ impl Console {
                     log_error!("unknown command or cvar: {}", self.get_current_input());
                 }
                 Quit => {
-                    ret.set(ControlSignal::QUIT, true);
+                    control.set(ControlSignal::QUIT, true);
                 }
             }
         }
@@ -199,7 +198,7 @@ impl Console {
         self.input_buffer.clear();
         self._reset_caret();
 
-        ret
+        control
     }
 
     fn _clear_input_buffer(&mut self) {

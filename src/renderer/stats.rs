@@ -1,6 +1,11 @@
+use std::time::Duration;
+
 pub struct RenderStats {
     pub draw_command_count: u32,
     pub triangle_count: u64,
+
+    pub transfer_commands_bake_time: Duration,
+    pub draw_commands_bake_time: Duration,
 }
 
 impl RenderStats {
@@ -8,6 +13,8 @@ impl RenderStats {
         RenderStats {
             draw_command_count: 0,
             triangle_count: 0,
+            transfer_commands_bake_time: Duration::ZERO,
+            draw_commands_bake_time: Duration::ZERO,
         }
     }
 

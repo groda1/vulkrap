@@ -75,9 +75,9 @@ impl MeshManager {
                 SimpleVertex::new(Vector3::new(-0.5, -0.5, 0.0)),
             ];
             let indices = vec![0, 1, 2];
-            let colored_vertex_buffer = context.allocate_vertex_buffer(&colored_vertices);
-            let simple_vertex_buffer = context.allocate_vertex_buffer(&simple_vertices);
-            let index_buffer = context.allocate_index_buffer(&indices);
+            let colored_vertex_buffer = context.create_static_vertex_buffer_sync(&colored_vertices);
+            let simple_vertex_buffer = context.create_static_vertex_buffer_sync(&simple_vertices);
+            let index_buffer = context.create_static_index_buffer_sync(&indices);
             let simple_mesh = Mesh {
                 vertex_buffer: simple_vertex_buffer,
                 index_buffer,
@@ -115,10 +115,10 @@ impl MeshManager {
             ];
 
             let indices = vec![0, 1, 2, 2, 1, 3];
-            let colored_vertex_buffer = context.allocate_vertex_buffer(&colored_vertices);
-            let simple_vertex_buffer = context.allocate_vertex_buffer(&simple_vertices);
-            let textured_vertex_buffer = context.allocate_vertex_buffer(&textured_vertices);
-            let index_buffer = context.allocate_index_buffer(&indices);
+            let colored_vertex_buffer = context.create_static_vertex_buffer_sync(&colored_vertices);
+            let simple_vertex_buffer = context.create_static_vertex_buffer_sync(&simple_vertices);
+            let textured_vertex_buffer = context.create_static_vertex_buffer_sync(&textured_vertices);
+            let index_buffer = context.create_static_index_buffer_sync(&indices);
             let simple_mesh = Mesh {
                 vertex_buffer: simple_vertex_buffer,
                 index_buffer,

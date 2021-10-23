@@ -95,8 +95,7 @@ impl VulkrapApplication {
         {
             let mut engine_stats = stats::get();
             engine_stats.update_delta_time(delta_time_s);
-            engine_stats.set_triangle_count(render_stats.triangle_count);
-            engine_stats.set_draw_count(render_stats.draw_command_count);
+            engine_stats.set_render_stats(render_stats);
         }
     }
 
