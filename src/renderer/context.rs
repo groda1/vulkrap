@@ -7,10 +7,7 @@ use ash::vk::{DescriptorPoolCreateFlags, DescriptorType, PhysicalDevice};
 use winit::window::Window;
 
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::{
-    Index, PipelineConfiguration, PipelineContainer, PipelineDrawCommand, SamplerBindingConfiguration,
-    UniformBindingConfiguration, UniformData, VertexInput, VertexTopology,
-};
+use crate::renderer::pipeline::{Index, PipelineConfiguration, PipelineContainer, PipelineDrawCommand, SamplerBindingConfiguration, UniformBindingConfiguration, VertexTopology, VertexInputDescription};
 use crate::renderer::synchronization::SynchronizationHandler;
 use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
@@ -298,7 +295,7 @@ impl Context {
         stats
     }
 
-    pub fn allocate_vertex_buffer<T: VertexInput>(&mut self, vertices: &[T]) -> vk::Buffer {
+    pub fn allocate_vertex_buffer<T: VertexInputDescription>(&mut self, vertices: &[T]) -> vk::Buffer {
         self.memory_manager
             .create_vertex_buffer(&self.logical_device, self.command_pool, self.graphics_queue, vertices)
     }
@@ -308,10 +305,10 @@ impl Context {
             .create_index_buffer(&self.logical_device, self.command_pool, self.graphics_queue, indices)
     }
 
-    pub fn create_uniform<T: UniformData>(&mut self, stage: UniformStage) -> UniformHandle {
+    pub fn create_uniform<T>(&mut self, stage: UniformStage) -> UniformHandle {
         let handle = self.uniforms.len();
 
-        let mut uniform = Uniform::new(T::get_size(), stage);
+        let mut uniform = Uniform::new(std::mem::size_of::<T>(), stage);
         uniform.build(
             &self.logical_device,
             &mut self.memory_manager,
@@ -322,7 +319,7 @@ impl Context {
         handle
     }
 
-    pub fn set_uniform_data<T: UniformData>(&mut self, handle: UniformHandle, data: T) {
+    pub fn set_uniform_data<T>(&mut self, handle: UniformHandle, data: T) {
         self.uniforms[handle].set_data(data);
     }
 
@@ -358,7 +355,7 @@ impl Context {
         self.texture_manager.add_sampler(&self.logical_device)
     }
 
-    pub fn add_pipeline<T: VertexInput>(&mut self, config: PipelineConfiguration) -> PipelineHandle {
+    pub fn add_pipeline<T: VertexInputDescription>(&mut self, config: PipelineConfiguration) -> PipelineHandle {
         let pipeline_handle = self.pipelines.len();
 
         if config.vertex_uniform_cfg.is_some() {

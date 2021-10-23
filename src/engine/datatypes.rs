@@ -1,4 +1,4 @@
-use crate::renderer::pipeline::{UniformData, VertexInput};
+use crate::renderer::pipeline::VertexInputDescription;
 use ash::vk;
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 
@@ -7,18 +7,6 @@ use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 pub struct ViewProjectionUniform {
     pub view: Matrix4<f32>,
     pub proj: Matrix4<f32>,
-}
-
-impl UniformData for ViewProjectionUniform {
-    fn get_size() -> usize {
-        std::mem::size_of::<ViewProjectionUniform>()
-    }
-}
-
-impl UniformData for u32 {
-    fn get_size() -> usize {
-        std::mem::size_of::<u32>()
-    }
 }
 
 #[repr(C)]
@@ -34,7 +22,7 @@ impl ColoredVertex {
     }
 }
 
-impl VertexInput for ColoredVertex {
+impl VertexInputDescription for ColoredVertex {
     fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,
@@ -77,7 +65,7 @@ impl TexturedVertex {
     }
 }
 
-impl VertexInput for TexturedVertex {
+impl VertexInputDescription for TexturedVertex {
     fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,
@@ -116,7 +104,7 @@ impl SimpleVertex {
     }
 }
 
-impl VertexInput for SimpleVertex {
+impl VertexInputDescription for SimpleVertex {
     fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,
@@ -148,7 +136,7 @@ impl VertexNormal {
     }
 }
 
-impl VertexInput for VertexNormal {
+impl VertexInputDescription for VertexNormal {
     fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
         vec![vk::VertexInputBindingDescription {
             binding: 0,

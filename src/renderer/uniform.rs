@@ -1,7 +1,6 @@
 use crate::renderer::constants::MAX_FRAMES_IN_FLIGHT;
 use crate::renderer::context::PipelineHandle;
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::UniformData;
 use ash::vk;
 
 #[derive(Clone, Debug, Copy)]
@@ -43,7 +42,7 @@ impl Uniform {
         &self.assigned_pipelines
     }
 
-    pub(super) fn set_data<T: UniformData>(&mut self, data: T) {
+    pub(super) fn set_data<T>(&mut self, data: T) {
         unsafe {
             let dst_ptr = self.data.as_mut_ptr() as *mut T;
             dst_ptr.copy_from_nonoverlapping(&data as *const T, 1);

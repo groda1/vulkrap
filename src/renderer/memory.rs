@@ -2,7 +2,7 @@ use std::ptr;
 
 use ash::vk;
 
-use crate::renderer::pipeline::{Index, VertexInput};
+use crate::renderer::pipeline::{Index, VertexInputDescription};
 use ash::vk::PhysicalDeviceMemoryProperties;
 use std::collections::HashMap;
 
@@ -27,7 +27,7 @@ impl MemoryManager {
         *self.buffer_to_chunk_map.get(&buffer).expect("Unknown buffer memory!")
     }
 
-    pub fn create_vertex_buffer<T: VertexInput>(
+    pub fn create_vertex_buffer<T: VertexInputDescription>(
         &mut self,
         device: &ash::Device,
         command_pool: vk::CommandPool,

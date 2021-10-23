@@ -13,6 +13,7 @@ use crate::renderer::pushconstants::{PushConstantBuffer, PushConstantPtr};
 use crate::renderer::stats::DrawCommandStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
 use crate::renderer::uniform::UniformStage;
+use cgmath::Vector3;
 
 const SHADER_ENTRYPOINT: &str = "main";
 
@@ -51,7 +52,7 @@ pub(super) struct PipelineContainer {
 }
 
 impl PipelineContainer {
-    pub(super) fn new<T: VertexInput>(
+    pub(super) fn new<T: VertexInputDescription>(
         logical_device: &ash::Device,
         vertex_shader_code: Vec<u8>,
         fragment_shader_code: Vec<u8>,
@@ -593,13 +594,11 @@ struct BufferData {
     index_count: u32,
 }
 
-//struct RawData {
-//    vertex_data : Vec<Vertex
-//}
+type RawVertices = Vec<Vector3<f32>>;
 
-enum DrawData {
-    Test,
-    Buffer(BufferData),
+enum VertexInput {
+    Raw(RawVertices),
+    Buffered(BufferData),
 }
 
 impl PipelineDrawCommand {
@@ -800,14 +799,9 @@ impl UniformBindingConfiguration {
     }
 }
 
-pub trait VertexInput {
+pub trait VertexInputDescription {
     fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription>;
     fn attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription>;
-}
-
-// TODO remove!
-pub trait UniformData {
-    fn get_size() -> usize;
 }
 
 pub type Index = u32;
