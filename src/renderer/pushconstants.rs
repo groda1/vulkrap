@@ -67,7 +67,7 @@ impl Drop for PushConstantBuffer {
             unsafe {
                 dealloc(
                     self.buf_ptr.unwrap() as *mut u8,
-                    Layout::from_size_align_unchecked(self.len, self.data_size),
+                    Layout::from_size_align_unchecked(self.len * self.data_size, 1),
                 )
             };
         }
