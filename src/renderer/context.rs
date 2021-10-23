@@ -7,7 +7,10 @@ use ash::vk::{DescriptorPoolCreateFlags, DescriptorType, PhysicalDevice};
 use winit::window::Window;
 
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::{Index, PipelineConfiguration, PipelineContainer, PipelineDrawCommand, SamplerBindingConfiguration, UniformBindingConfiguration, VertexTopology, VertexInputDescription};
+use crate::renderer::pipeline::{
+    Index, PipelineConfiguration, PipelineContainer, PipelineDrawCommand, SamplerBindingConfiguration,
+    UniformBindingConfiguration, VertexInputDescription, VertexTopology,
+};
 use crate::renderer::synchronization::SynchronizationHandler;
 use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;

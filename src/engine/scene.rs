@@ -64,10 +64,10 @@ impl Scene {
         for entity in self.wobbly_objects.iter() {
             self.render_job_buffer.push(PipelineDrawCommand::new(
                 self.wobbly_pipeline,
+                &entity.push_constant_buf as *const ModelWoblyPushConstant as PushConstantPtr,
                 entity.mesh.vertex_buffer,
                 entity.mesh.index_buffer,
                 entity.mesh.index_count,
-                &entity.push_constant_buf as *const ModelWoblyPushConstant as PushConstantPtr,
             ));
         }
 

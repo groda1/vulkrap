@@ -53,10 +53,10 @@ impl Terrain {
     pub fn draw(&self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
         draw_command_buffer.push(PipelineDrawCommand::new(
             self.pipeline,
+            ptr::null(),
             self.chunk.vertex_buffer,
             self.chunk.index_buffer,
             self.chunk.index_count,
-            ptr::null(),
         ));
     }
 }

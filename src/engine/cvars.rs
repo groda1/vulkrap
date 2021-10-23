@@ -80,8 +80,8 @@ impl ConfigVariables {
         }
     }
 
-    pub fn get_cvar_id_from_str(&self, cvar_str: &str) -> Option<&u32> {
-        self.cvar_str_to_id.get(cvar_str)
+    pub fn get_cvar_id_from_str(&self, cvar_str: &str) -> Option<u32> {
+        self.cvar_str_to_id.get(cvar_str).copied()
     }
 
     pub fn set<T: CvarValue>(&mut self, id: u32, val: T) {

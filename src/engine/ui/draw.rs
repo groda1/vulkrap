@@ -23,10 +23,10 @@ pub fn draw_quad(
 
     let draw_command = PipelineDrawCommand::new(
         pipeline,
+        push_constant_ptr,
         mesh.vertex_buffer,
         mesh.index_buffer,
         mesh.index_count,
-        push_constant_ptr,
     );
     target_buf.push(draw_command);
 }
@@ -133,10 +133,10 @@ pub fn draw_character(
 
     PipelineDrawCommand::new(
         pipeline,
+        push_constant_ptr,
         mesh.vertex_buffer,
         mesh.index_buffer,
         mesh.index_count,
-        push_constant_ptr,
     )
 }
 

@@ -9,6 +9,7 @@ use ash::vk::{
 };
 
 use crate::renderer::context::{PipelineHandle, UniformHandle};
+use crate::renderer::pipeline::VertexData::{Buffered, Raw};
 use crate::renderer::pushconstants::{PushConstantBuffer, PushConstantPtr};
 use crate::renderer::stats::DrawCommandStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
@@ -322,22 +323,21 @@ impl PipelineContainer {
     pub unsafe fn bake_command_buffer(
         &self,
         logical_device: &ash::Device,
-        command_buffer: vk::CommandBuffer,
+        draw_command_buffer: vk::CommandBuffer,
         draw_command: &PipelineDrawCommand,
         image_index: usize,
         bind: bool,
     ) -> DrawCommandStats {
         if bind {
-            logical_device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.vk_pipeline);
+            logical_device.cmd_bind_pipeline(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, self.vk_pipeline);
         }
 
-        let vertex_buffers = [draw_command.vertex_buffer];
         let offsets = [0_u64];
         let descriptor_sets_to_bind = [self.descriptor_sets[image_index]];
 
         if let Some(push_constant_buf) = &self.push_constant_buffer {
             logical_device.cmd_push_constants(
-                command_buffer,
+                draw_command_buffer,
                 self.layout,
                 ShaderStageFlags::VERTEX,
                 0,
@@ -345,27 +345,30 @@ impl PipelineContainer {
             );
         }
 
-        logical_device.cmd_bind_vertex_buffers(command_buffer, 0, &vertex_buffers, &offsets);
-        logical_device.cmd_bind_index_buffer(command_buffer, draw_command.index_buffer, 0, vk::IndexType::UINT32);
-
         logical_device.cmd_bind_descriptor_sets(
-            command_buffer,
+            draw_command_buffer,
             vk::PipelineBindPoint::GRAPHICS,
             self.layout,
             0,
             &descriptor_sets_to_bind,
             &[],
         );
-        logical_device.cmd_draw_indexed(command_buffer, draw_command.index_count, 1, 0, 0, 0);
+        if let Buffered(buffer_data) = &draw_command.vertex_data {
+            let vertex_buffers = [buffer_data.vertex_buffer];
+            logical_device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &vertex_buffers, &offsets);
+            logical_device.cmd_bind_index_buffer(
+                draw_command_buffer,
+                buffer_data.index_buffer,
+                0,
+                vk::IndexType::UINT32,
+            );
+            logical_device.cmd_draw_indexed(draw_command_buffer, buffer_data.index_count, 1, 0, 0, 0);
+        } else {
+            unimplemented!()
+        }
 
         // Stats
-        let triangle_count = if self.vertex_topology == PrimitiveTopology::TRIANGLE_LIST {
-            draw_command.index_count / 3
-        } else if self.vertex_topology == PrimitiveTopology::TRIANGLE_STRIP {
-            draw_command.index_count - 2
-        } else {
-            0
-        };
+        let triangle_count = draw_command.triangle_count(self.vertex_topology);
 
         DrawCommandStats::new(triangle_count)
     }
@@ -582,10 +585,42 @@ fn create_descriptor_set_layout(
 
 pub struct PipelineDrawCommand {
     pub(crate) pipeline: PipelineHandle,
-    vertex_buffer: vk::Buffer,
-    index_buffer: vk::Buffer,
-    pub(crate) index_count: u32,
     push_constant_ptr: PushConstantPtr,
+    vertex_data: VertexData,
+}
+
+impl PipelineDrawCommand {
+    pub fn new(
+        pipeline: PipelineHandle,
+        push_constant_ptr: PushConstantPtr,
+        vertex_buffer: vk::Buffer,
+        index_buffer: vk::Buffer,
+        index_count: u32,
+    ) -> PipelineDrawCommand {
+        PipelineDrawCommand {
+            pipeline,
+            push_constant_ptr,
+            vertex_data: Buffered(BufferData::new(vertex_buffer, index_buffer, index_count)),
+        }
+    }
+
+    pub fn triangle_count(&self, primitive_topology: PrimitiveTopology) -> u32 {
+        match primitive_topology {
+            PrimitiveTopology::TRIANGLE_LIST => match &self.vertex_data {
+                Raw(_) => {
+                    unimplemented!()
+                }
+                Buffered(buffer_data) => buffer_data.index_count / 3,
+            },
+            PrimitiveTopology::TRIANGLE_STRIP => match &self.vertex_data {
+                Raw(_) => {
+                    unimplemented!()
+                }
+                Buffered(buffer_data) => buffer_data.index_count - 2,
+            },
+            _ => unreachable!(),
+        }
+    }
 }
 
 struct BufferData {
@@ -594,29 +629,21 @@ struct BufferData {
     index_count: u32,
 }
 
-type RawVertices = Vec<Vector3<f32>>;
-
-enum VertexInput {
-    Raw(RawVertices),
-    Buffered(BufferData),
-}
-
-impl PipelineDrawCommand {
-    pub fn new(
-        pipeline: PipelineHandle,
-        vertex_buffer: vk::Buffer,
-        index_buffer: vk::Buffer,
-        index_count: u32,
-        push_constant_ptr: PushConstantPtr,
-    ) -> PipelineDrawCommand {
-        PipelineDrawCommand {
-            pipeline,
+impl BufferData {
+    pub fn new(vertex_buffer: vk::Buffer, index_buffer: vk::Buffer, index_count: u32) -> Self {
+        BufferData {
             vertex_buffer,
             index_buffer,
             index_count,
-            push_constant_ptr,
         }
     }
+}
+
+type RawVertices = Vec<Vector3<f32>>;
+
+enum VertexData {
+    Raw(RawVertices),
+    Buffered(BufferData),
 }
 
 #[derive(Clone, Debug, Copy)]

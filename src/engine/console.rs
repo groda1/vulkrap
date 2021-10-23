@@ -162,42 +162,11 @@ impl Console {
         let input = self.get_current_input();
 
         let split: Vec<&str> = input.split(' ').collect();
+
         let cvar_opt = cfg.get_cvar_id_from_str(split[0]);
 
         if let Some(cvar) = cvar_opt {
-            let cvar_id = *cvar;
-            if split.len() >= 2 {
-                let datatype = cfg.get(cvar_id).get_type();
-                let mut parsed = false;
-
-                match datatype {
-                    CvarType::Float => {
-                        let parsed_arg = split[1].parse::<f32>();
-                        if let Ok(arg) = parsed_arg {
-                            cfg.set(cvar_id, arg);
-                            parsed = true;
-                        }
-                    }
-                    CvarType::Integer => {
-                        let parsed_arg = split[1].parse::<u32>();
-                        if let Ok(arg) = parsed_arg {
-                            cfg.set(cvar_id, arg);
-                            parsed = true;
-                        }
-                    }
-                    CvarType::String => {
-                        let string_split: Vec<&str> = input.split('"').collect();
-                        if string_split.len() > 2 {
-                            cfg.set(cvar_id, String::from(string_split[1]));
-                            parsed = true;
-                        }
-                    }
-                }
-                if !parsed {
-                    log_error!("failed to parse cvar argument: {}", split[1]);
-                }
-            }
-            logger::cvar(&*cfg.get_desc(cvar_id));
+            _handle_input_cvar(cfg, cvar, if split.len() >= 2 { Some(split[1]) } else { None });
         } else {
             log_error!("unknown command or cvar: {}", self.get_current_input());
         }
@@ -267,4 +236,39 @@ impl Console {
             self.scroll = 0;
         }
     }
+}
+
+fn _handle_input_cvar(cfg: &mut ConfigVariables, cvar_id: u32, arg_opt: Option<&str>) {
+    if let Some(arg) = arg_opt {
+        let datatype = cfg.get(cvar_id).get_type();
+        let mut parsed = false;
+
+        match datatype {
+            CvarType::Float => {
+                let parsed_arg = arg.parse::<f32>();
+                if let Ok(arg) = parsed_arg {
+                    cfg.set(cvar_id, arg);
+                    parsed = true;
+                }
+            }
+            CvarType::Integer => {
+                let parsed_arg = arg.parse::<u32>();
+                if let Ok(arg) = parsed_arg {
+                    cfg.set(cvar_id, arg);
+                    parsed = true;
+                }
+            }
+            CvarType::String => {
+                let arg_split: Vec<&str> = arg.split('"').collect();
+                if arg_split.len() > 2 {
+                    cfg.set(cvar_id, String::from(arg));
+                    parsed = true;
+                }
+            }
+        }
+        if !parsed {
+            log_error!("failed to parse cvar argument: {}", arg);
+        }
+    }
+    logger::cvar(&*cfg.get_desc(cvar_id));
 }
