@@ -11,7 +11,7 @@ use crate::engine::ui::draw;
 use crate::engine::{image, stats};
 use crate::log::logger;
 use crate::log::logger::MessageLevel;
-use crate::renderer::context::{Context, PipelineHandle, UniformHandle};
+use crate::renderer::context::{Context, PipelineHandle, UniformHandle, PushConstantBufHandler};
 use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand};
 use crate::renderer::pushconstants::PushConstantBuffer;
 use crate::renderer::uniform::UniformStage;
@@ -89,16 +89,16 @@ impl HUD {
 
     pub fn draw(
         &mut self,
-        context: &mut Context,
+        push_constant_handler: &mut dyn PushConstantBufHandler,
         draw_command_buffer: &mut Vec<PipelineDrawCommand>,
         console: &Console,
     ) {
         self._draw_render_status(
-            context.borrow_mut_push_constant_buf(self.text_pipeline),
+            push_constant_handler.borrow_mut_push_constant_buf(self.text_pipeline),
             draw_command_buffer,
         );
         draw::draw_text_shadowed(
-            context.borrow_mut_push_constant_buf(self.text_pipeline),
+            push_constant_handler.borrow_mut_push_constant_buf(self.text_pipeline),
             draw_command_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
@@ -109,12 +109,12 @@ impl HUD {
             COLOR_BLACK,
         );
 
-        self._draw_console(context, draw_command_buffer, console);
+        self._draw_console(push_constant_handler, draw_command_buffer, console);
     }
 
     fn _draw_console(
         &mut self,
-        context: &mut Context,
+        push_constant_handler: &mut dyn PushConstantBufHandler,
         draw_command_buffer: &mut Vec<PipelineDrawCommand>,
         console: &Console,
     ) {
@@ -126,7 +126,7 @@ impl HUD {
         let offset = (console.get_current_y_offset() * height as f32) as u32;
 
         draw::draw_quad(
-            context.borrow_mut_push_constant_buf(self.main_pipeline),
+            push_constant_handler.borrow_mut_push_constant_buf(self.main_pipeline),
             draw_command_buffer,
             self.main_pipeline,
             &self.quad_simple_mesh,
@@ -136,7 +136,7 @@ impl HUD {
         );
 
         draw::draw_text(
-            context.borrow_mut_push_constant_buf(self.text_pipeline),
+            push_constant_handler.borrow_mut_push_constant_buf(self.text_pipeline),
             draw_command_buffer,
             self.text_pipeline,
             &self.quad_textured_mesh,
@@ -148,7 +148,7 @@ impl HUD {
 
         if console.is_caret_visible() && console.is_active() {
             draw::draw_quad(
-                context.borrow_mut_push_constant_buf(self.main_pipeline),
+                push_constant_handler.borrow_mut_push_constant_buf(self.main_pipeline),
                 draw_command_buffer,
                 self.main_pipeline,
                 &self.quad_simple_mesh,
@@ -162,7 +162,7 @@ impl HUD {
         }
 
         self._draw_console_history(
-            context.borrow_mut_push_constant_buf(self.text_pipeline),
+            push_constant_handler.borrow_mut_push_constant_buf(self.text_pipeline),
             console,
             draw_command_buffer,
             height,

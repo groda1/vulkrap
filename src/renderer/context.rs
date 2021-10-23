@@ -235,7 +235,7 @@ impl Context {
         );
 
         self.update_uniforms(image_index_usize);
-        self._reset_push_constant_buffers();
+        self.reset_push_constant_buffers();
         let command_buffers = [command_buffer];
 
         let wait_semaphores = [self.sync_handler.image_available_semaphore()];
@@ -628,15 +628,23 @@ impl Context {
         self.is_framebuffer_resized = true;
     }
 
-    pub fn borrow_mut_push_constant_buf(&mut self, pipeline: PipelineHandle) -> &mut PushConstantBuffer {
-        debug_assert!(self.pipelines.len() > pipeline);
-        self.pipelines[pipeline].borrow_mut_push_constant_buf()
-    }
 
-    fn _reset_push_constant_buffers(&mut self) {
+}
+
+pub trait PushConstantBufHandler {
+    fn reset_push_constant_buffers(&mut self);
+    fn borrow_mut_push_constant_buf(&mut self, pipeline: PipelineHandle) -> &mut PushConstantBuffer;
+}
+
+impl PushConstantBufHandler for Context {
+    fn reset_push_constant_buffers(&mut self) {
         for pipeline in self.pipelines.iter_mut() {
             pipeline.reset_push_contant_buffer();
         }
+    }
+    fn borrow_mut_push_constant_buf(&mut self, pipeline: PipelineHandle) -> &mut PushConstantBuffer {
+        debug_assert!(self.pipelines.len() > pipeline);
+        self.pipelines[pipeline].borrow_mut_push_constant_buf()
     }
 }
 

@@ -7,7 +7,7 @@ use crate::engine::terrain::Terrain;
 
 use crate::engine::console::Console;
 use crate::engine::ui::hud::HUD;
-use crate::renderer::context::{Context, PipelineHandle};
+use crate::renderer::context::{Context, PipelineHandle, PushConstantBufHandler};
 use crate::renderer::pipeline::PipelineDrawCommand;
 use crate::renderer::pushconstants::PushConstantPtr;
 
@@ -54,7 +54,7 @@ impl Scene {
         }
     }
 
-    pub fn build_render_job(&mut self, context: &mut Context, console: &Console) -> &Vec<PipelineDrawCommand> {
+    pub fn build_render_job(&mut self, context: &mut dyn PushConstantBufHandler, console: &Console) -> &Vec<PipelineDrawCommand> {
         self.render_job_buffer.clear();
 
         for entity in self.wobbly_objects.iter() {

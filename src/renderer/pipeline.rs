@@ -587,6 +587,21 @@ pub struct PipelineDrawCommand {
     push_constant_ptr: PushConstantPtr,
 }
 
+struct BufferData {
+    vertex_buffer : vk::Buffer,
+    index_buffer : vk::Buffer,
+    index_count : u32
+}
+
+//struct RawData {
+//    vertex_data : Vec<Vertex
+//}
+
+enum DrawData {
+    Test,
+    Buffer(BufferData)
+}
+
 impl PipelineDrawCommand {
     pub fn new(
         pipeline: PipelineHandle,
