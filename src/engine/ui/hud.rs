@@ -11,7 +11,7 @@ use crate::engine::ui::draw;
 use crate::engine::{image, stats};
 use crate::log::logger;
 use crate::log::logger::MessageLevel;
-use crate::renderer::context::{Context, PipelineHandle, UniformHandle, PushConstantBufHandler};
+use crate::renderer::context::{Context, PipelineHandle, PushConstantBufHandler, UniformHandle};
 use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand};
 use crate::renderer::pushconstants::PushConstantBuffer;
 use crate::renderer::uniform::UniformStage;

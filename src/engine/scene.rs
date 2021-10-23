@@ -54,7 +54,11 @@ impl Scene {
         }
     }
 
-    pub fn build_render_job(&mut self, context: &mut dyn PushConstantBufHandler, console: &Console) -> &Vec<PipelineDrawCommand> {
+    pub fn build_render_job(
+        &mut self,
+        context: &mut dyn PushConstantBufHandler,
+        console: &Console,
+    ) -> &Vec<PipelineDrawCommand> {
         self.render_job_buffer.clear();
 
         for entity in self.wobbly_objects.iter() {

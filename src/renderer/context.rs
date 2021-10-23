@@ -627,8 +627,6 @@ impl Context {
         }
         self.is_framebuffer_resized = true;
     }
-
-
 }
 
 pub trait PushConstantBufHandler {

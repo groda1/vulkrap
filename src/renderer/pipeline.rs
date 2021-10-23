@@ -588,9 +588,9 @@ pub struct PipelineDrawCommand {
 }
 
 struct BufferData {
-    vertex_buffer : vk::Buffer,
-    index_buffer : vk::Buffer,
-    index_count : u32
+    vertex_buffer: vk::Buffer,
+    index_buffer: vk::Buffer,
+    index_count: u32,
 }
 
 //struct RawData {
@@ -599,7 +599,7 @@ struct BufferData {
 
 enum DrawData {
     Test,
-    Buffer(BufferData)
+    Buffer(BufferData),
 }
 
 impl PipelineDrawCommand {
