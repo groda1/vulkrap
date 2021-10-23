@@ -179,8 +179,7 @@ impl Console {
         if let Some(cvar) = cvar_opt {
             _handle_input_cvar(cfg, cvar, if split.len() >= 2 { Some(split[1]) } else { None });
         } else {
-            let command = _handle_input_command(split[0]);
-
+            let command = _parse_input_command(split[0]);
             match command {
                 Unknown => {
                     log_error!("unknown command or cvar: {}", self.get_current_input());
@@ -295,7 +294,7 @@ fn _handle_input_cvar(cfg: &mut ConfigVariables, cvar_id: u32, arg_opt: Option<&
     logger::cvar(&*cfg.get_desc(cvar_id));
 }
 
-fn _handle_input_command(command: &str) -> Command {
+fn _parse_input_command(command: &str) -> Command {
     let command_string = command.to_lowercase();
 
     let command = match command_string.as_str() {
