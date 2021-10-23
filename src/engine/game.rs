@@ -140,15 +140,15 @@ impl VulkrapApplication {
         self.scene.add_wobbly_entity(quad2);
     }
 
-    pub fn handle_keyboard_event(&mut self, key: VirtualKeyCode, state: ElementState) {
+    pub fn handle_keyboard_event(&mut self, key: VirtualKeyCode, state: ElementState) -> ControlSignal {
         if self.console.is_active() {
-            self.console.handle_keyboard_event(&mut self.config, key, state);
+            let control = self.console.handle_keyboard_event(&mut self.config, key, state);
 
             if self.config.is_dirty() {
                 self.reconfigure();
                 self.config.clear_dirty();
             }
-            return;
+            return control;
         }
 
         match (key, state) {
@@ -170,6 +170,8 @@ impl VulkrapApplication {
 
             _ => {}
         }
+
+        ControlSignal::ZERO
     }
 
     fn reconfigure(&mut self) {
@@ -186,5 +188,12 @@ bitflags! {
         const RIGHT = 1 << 3;
         const UP = 1 << 4;
         const DOWN = 1 << 5;
+    }
+}
+
+bitflags! {
+    pub struct ControlSignal: u8 {
+        const ZERO = 0;
+        const QUIT = 1 << 0;
     }
 }

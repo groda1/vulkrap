@@ -1,4 +1,6 @@
+use crate::engine::console::Command::{Quit, Unknown};
 use crate::engine::cvars::{ConfigVariables, CvarType};
+use crate::engine::game::ControlSignal;
 use crate::log::logger;
 use winit::event::{ElementState, VirtualKeyCode};
 
@@ -46,7 +48,12 @@ impl Console {
         }
     }
 
-    pub fn handle_keyboard_event(&mut self, cfg: &mut ConfigVariables, key: VirtualKeyCode, state: ElementState) {
+    pub fn handle_keyboard_event(
+        &mut self,
+        cfg: &mut ConfigVariables,
+        key: VirtualKeyCode,
+        state: ElementState,
+    ) -> ControlSignal {
         let char_inut = crate::window::winit::map_input_to_chr(key, state, self.shift_active);
 
         if let Some(x) = char_inut {
@@ -54,6 +61,8 @@ impl Console {
             self.input_index += 1;
             self._reset_caret();
         }
+
+        let mut ret = ControlSignal::ZERO;
 
         match (key, state) {
             (VirtualKeyCode::Back, ElementState::Pressed) => {
@@ -64,7 +73,7 @@ impl Console {
                 }
             }
             (VirtualKeyCode::Return | VirtualKeyCode::NumpadEnter, ElementState::Pressed) => {
-                self._handle_input(cfg);
+                ret = self._handle_input(cfg);
             }
             (VirtualKeyCode::RShift | VirtualKeyCode::LShift, ElementState::Pressed) => {
                 self.shift_active = true;
@@ -88,9 +97,11 @@ impl Console {
                 self.toggle();
             }
             _ => {
-                println!("key {:?}", key)
+                //println!("key {:?}", key)
             }
         }
+
+        ret
     }
 
     pub fn update(&mut self, delta_time_s: f32) {
@@ -151,24 +162,33 @@ impl Console {
         self.caret_delta = 0.0;
     }
 
-    fn _handle_input(&mut self, cfg: &mut ConfigVariables) {
+    fn _handle_input(&mut self, cfg: &mut ConfigVariables) -> ControlSignal {
         self.scroll = 0;
+        let mut ret = ControlSignal::ZERO;
 
         if self.input_buffer.is_empty() {
-            return;
+            return ret;
         }
 
         logger::input(&*self.get_current_input());
         let input = self.get_current_input();
 
         let split: Vec<&str> = input.split(' ').collect();
-
         let cvar_opt = cfg.get_cvar_id_from_str(split[0]);
 
         if let Some(cvar) = cvar_opt {
             _handle_input_cvar(cfg, cvar, if split.len() >= 2 { Some(split[1]) } else { None });
         } else {
-            log_error!("unknown command or cvar: {}", self.get_current_input());
+            let command = _handle_input_command(split[0]);
+
+            match command {
+                Unknown => {
+                    log_error!("unknown command or cvar: {}", self.get_current_input());
+                }
+                Quit => {
+                    ret.set(ControlSignal::QUIT, true);
+                }
+            }
         }
 
         if self.input_history_index > 0 {
@@ -179,6 +199,8 @@ impl Console {
         self.input_index = 0;
         self.input_buffer.clear();
         self._reset_caret();
+
+        ret
     }
 
     fn _clear_input_buffer(&mut self) {
@@ -271,4 +293,21 @@ fn _handle_input_cvar(cfg: &mut ConfigVariables, cvar_id: u32, arg_opt: Option<&
         }
     }
     logger::cvar(&*cfg.get_desc(cvar_id));
+}
+
+fn _handle_input_command(command: &str) -> Command {
+    let command_string = command.to_lowercase();
+
+    let command = match command_string.as_str() {
+        "exit" => Quit,
+        "quit" => Quit,
+        _ => Unknown,
+    };
+
+    command
+}
+
+enum Command {
+    Unknown,
+    Quit,
 }

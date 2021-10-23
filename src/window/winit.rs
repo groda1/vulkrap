@@ -2,7 +2,7 @@ use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCo
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
-use crate::engine::game::VulkrapApplication;
+use crate::engine::game::{ControlSignal, VulkrapApplication};
 use crate::util::frametimer::FrameTimer;
 
 pub fn init_window(title: &'static str, width: u32, height: u32, event_loop: &EventLoop<()>) -> Window {
@@ -24,7 +24,12 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut vulkrap_app: Vul
                     virtual_keycode, state, ..
                 } => match (virtual_keycode, state) {
                     (Some(VirtualKeyCode::Escape), ElementState::Pressed) => *control_flow = ControlFlow::Exit,
-                    (Some(key), state) => vulkrap_app.handle_keyboard_event(key, state),
+                    (Some(key), state) => {
+                        let signal = vulkrap_app.handle_keyboard_event(key, state);
+                        if signal.contains(ControlSignal::QUIT) {
+                            *control_flow = ControlFlow::Exit;
+                        }
+                    }
                     _ => {}
                 },
             },
