@@ -173,12 +173,3 @@ fn create_raw_vertices(
 
     vertices
 }
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn test() {
-        println!("derp");
-    }
-}

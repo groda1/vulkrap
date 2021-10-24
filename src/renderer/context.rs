@@ -37,6 +37,8 @@ const UNIFORM_DESCRIPTOR_POOL_SIZE: u32 = 10;
 const SAMPLER_DESCRIPTOR_POOL_SIZE: u32 = 5;
 const MAXIMUM_PIPELINE_COUNT: u32 = 25;
 
+const DYNAMIC_BUFFER_INITIAL_CAPACITY: usize = 100;
+
 pub type PipelineHandle = usize;
 pub type UniformHandle = usize;
 
@@ -49,7 +51,7 @@ pub struct Context {
 
     queue_families: QueueFamilyIndices,
     graphics_queue: vk::Queue,
-    transfer_queue : vk::Queue,
+    transfer_queue: vk::Queue,
     present_queue: vk::Queue,
 
     surface_container: SurfaceContainer,
@@ -125,7 +127,7 @@ impl Context {
 
         let logical_device = _create_logical_device(&instance, &physical_device, &layers, &queue_families);
         let graphics_queue = unsafe { logical_device.get_device_queue(queue_families.graphics.unwrap(), 0) };
-        let transfer_queue =  unsafe { logical_device.get_device_queue(queue_families.graphics.unwrap(), 1) };
+        let transfer_queue = unsafe { logical_device.get_device_queue(queue_families.graphics.unwrap(), 1) };
         let present_queue = unsafe { logical_device.get_device_queue(queue_families.present.unwrap(), 0) };
 
         let command_pool = _create_command_pool(&logical_device, &queue_families);
@@ -467,11 +469,11 @@ impl Context {
         pipeline_handle
     }
 
-    pub fn add_dynamic_vertex_buffer<T>(&mut self, capacity: usize) -> DynamicBufferHandle {
+    pub fn add_dynamic_vertex_buffer<T>(&mut self) -> DynamicBufferHandle {
         self.dynamic_vertex_buffer_manager.create_dynamic_buffer::<T>(
             &self.logical_device,
             &mut self.memory_manager,
-            capacity,
+            DYNAMIC_BUFFER_INITIAL_CAPACITY,
         )
     }
 
@@ -616,7 +618,7 @@ impl Context {
         for draw_command in render_job {
             if let Raw(vertex_data) = draw_command.vertex_data() {
                 // Copy vertex data to the staging buffer
-                let dynamic_buffer = self.dynamic_vertex_buffer_manager.borrow_mut_buffer(vertex_data.buf);
+                let dynamic_buffer = self.dynamic_vertex_buffer_manager.borrow_buffer(vertex_data.buf);
                 let staging_buffer = dynamic_buffer.staging(image_index);
 
                 unsafe {
@@ -642,7 +644,7 @@ impl Context {
 
             for draw_command in render_job {
                 if let Raw(vertex_data) = draw_command.vertex_data() {
-                    let dynamic_buffer = self.dynamic_vertex_buffer_manager.borrow_mut_buffer(vertex_data.buf);
+                    let dynamic_buffer = self.dynamic_vertex_buffer_manager.borrow_buffer(vertex_data.buf);
 
                     let staging_buffer = dynamic_buffer.staging(image_index);
                     let device_buffer = dynamic_buffer.device(image_index);
@@ -762,10 +764,18 @@ impl Context {
         self.is_framebuffer_resized = true;
     }
 
-    pub fn borrow_mut_raw_array(&mut self, dynamic_buffer: DynamicBufferHandle) -> &mut RawArray {
-        self.dynamic_vertex_buffer_manager
-            .borrow_mut_buffer(dynamic_buffer)
-            .borrow_mut_rawarray()
+    pub fn push_to_dynamic_buf<T>(&mut self, dynamic_buffer: DynamicBufferHandle, data: T) {
+        let result = self.dynamic_vertex_buffer_manager.push_to_buf(dynamic_buffer, data);
+
+        if let Err(_) = result {
+            self.dynamic_vertex_buffer_manager.handle_buffer_overflow(
+                &self.logical_device,
+                &mut self.memory_manager,
+                dynamic_buffer,
+                self.swapchain_images.len(),
+            );
+            //self.dynamic_vertex_buffer_manager.push_to_buf(dynamic_buffer, data);
+        }
     }
 
     pub fn borrow_raw_array(&self, dynamic_buffer: DynamicBufferHandle) -> &RawArray {

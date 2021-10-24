@@ -1,5 +1,5 @@
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::rawarray::RawArray;
+use crate::renderer::rawarray::{PushError, RawArray, RawArrayPtr};
 use ash::vk;
 
 pub type DynamicBufferHandle = usize;
@@ -33,9 +33,9 @@ impl DynamicBufferManager {
         handle
     }
 
-    pub fn borrow_mut_buffer(&mut self, handle: DynamicBufferHandle) -> &mut DynamicBuffer {
+    pub fn push_to_buf<T>(&mut self, handle: DynamicBufferHandle, data: T) -> Result<RawArrayPtr, PushError> {
         debug_assert!(self.dynamic_buffers.len() > handle);
-        &mut self.dynamic_buffers[handle]
+        self.dynamic_buffers[handle].raw_array.push(data)
     }
 
     pub fn borrow_buffer(&self, handle: DynamicBufferHandle) -> &DynamicBuffer {
@@ -58,6 +58,18 @@ impl DynamicBufferManager {
         for buffer in self.dynamic_buffers.iter_mut() {
             buffer.raw_array.reset();
         }
+    }
+
+    pub fn handle_buffer_overflow(
+        &mut self,
+        device: &ash::Device,
+        memory_manager: &mut MemoryManager,
+        handle: DynamicBufferHandle,
+        image_count: usize,
+    ) {
+        debug_assert!(self.dynamic_buffers.len() > handle);
+        log_debug!("dynamicbuffer overflow handle={}:", handle);
+        self.dynamic_buffers[handle].handle_buffer_overflow(device, memory_manager, image_count);
     }
 
     pub fn destroy(&mut self, device: &ash::Device, memory_manager: &mut MemoryManager) {
@@ -87,7 +99,7 @@ impl DynamicBuffer {
             capacity_bytes,
             staging_buffer,
             device_buffer,
-            raw_array: RawArray::new::<T>(capacity),
+            raw_array: RawArray::new::<T>(capacity).unwrap(),
         }
     }
 
@@ -129,10 +141,27 @@ impl DynamicBuffer {
         self.device_buffer[image_index]
     }
 
-    pub fn borrow_mut_rawarray(&mut self) -> &mut RawArray {
-        &mut self.raw_array
-    }
     pub fn borrow_rawarray(&self) -> &RawArray {
         &self.raw_array
+    }
+
+    pub fn handle_buffer_overflow(
+        &mut self,
+        device: &ash::Device,
+        memory_manager: &mut MemoryManager,
+        image_count: usize,
+    ) {
+        let new_cap = self.raw_array.len() * 2;
+        self.raw_array.resize(new_cap);
+        self.capacity_bytes = self.capacity_bytes * 2;
+
+        log_debug!(" - resized device buffers to {}", self.capacity_bytes);
+        log_debug!(" - {:?}", self.raw_array);
+
+        unsafe {
+            device.device_wait_idle();
+            self.destroy(device, memory_manager);
+            self.build(device, memory_manager, image_count);
+        }
     }
 }

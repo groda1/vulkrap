@@ -84,13 +84,11 @@ impl HUD {
         }
 
         if self.render_stats_renderer.is_active() {
-            self.render_stats_renderer
-                .draw(context, draw_command_buffer);
+            self.render_stats_renderer.draw(context, draw_command_buffer);
         }
 
         if console.is_visible() {
-            self.console_renderer
-                .draw(context, draw_command_buffer, console);
+            self.console_renderer.draw(context, draw_command_buffer, console);
         }
     }
 

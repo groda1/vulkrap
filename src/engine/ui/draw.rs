@@ -1,48 +1,69 @@
 use crate::engine::datatypes::TexturedColoredVertex2D;
 
-use crate::renderer::rawarray::RawArray;
+use crate::renderer::buffer::DynamicBufferHandle;
+use crate::renderer::context::Context;
 use cgmath::{Vector2, Vector4, Zero};
 
-pub fn draw_quad_ng(
-    dynamic_vertex_buf: &mut RawArray,
+pub fn draw_quad(
+    context: &mut Context,
+    handle: DynamicBufferHandle,
     position: Vector2<u32>,
     extent: Vector2<u32>,
     color: Vector4<f32>,
 ) {
-    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
-        Vector2::new(position.x as f32 + 0f32, (position.y + extent.y) as f32),
-        color,
-        Vector2::zero(),
-    ));
-    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
-        Vector2::new((position.x + extent.x) as f32, (position.y + extent.y) as f32),
-        color,
-        Vector2::zero(),
-    ));
-    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
-        Vector2::new(position.x as f32, position.y as f32),
-        color,
-        Vector2::zero(),
-    ));
-    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
-        Vector2::new(position.x as f32, position.y as f32),
-        color,
-        Vector2::zero(),
-    ));
-    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
-        Vector2::new((position.x + extent.x) as f32, (position.y + extent.y) as f32),
-        color,
-        Vector2::zero(),
-    ));
-    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
-        Vector2::new((position.x + extent.x) as f32, position.y as f32),
-        color,
-        Vector2::zero(),
-    ));
+    context.push_to_dynamic_buf(
+        handle,
+        TexturedColoredVertex2D::new(
+            Vector2::new(position.x as f32 + 0f32, (position.y + extent.y) as f32),
+            color,
+            Vector2::zero(),
+        ),
+    );
+    context.push_to_dynamic_buf(
+        handle,
+        TexturedColoredVertex2D::new(
+            Vector2::new((position.x + extent.x) as f32, (position.y + extent.y) as f32),
+            color,
+            Vector2::zero(),
+        ),
+    );
+    context.push_to_dynamic_buf(
+        handle,
+        TexturedColoredVertex2D::new(
+            Vector2::new(position.x as f32, position.y as f32),
+            color,
+            Vector2::zero(),
+        ),
+    );
+    context.push_to_dynamic_buf(
+        handle,
+        TexturedColoredVertex2D::new(
+            Vector2::new(position.x as f32, position.y as f32),
+            color,
+            Vector2::zero(),
+        ),
+    );
+    context.push_to_dynamic_buf(
+        handle,
+        TexturedColoredVertex2D::new(
+            Vector2::new((position.x + extent.x) as f32, (position.y + extent.y) as f32),
+            color,
+            Vector2::zero(),
+        ),
+    );
+    context.push_to_dynamic_buf(
+        handle,
+        TexturedColoredVertex2D::new(
+            Vector2::new((position.x + extent.x) as f32, position.y as f32),
+            color,
+            Vector2::zero(),
+        ),
+    );
 }
 
-pub fn draw_text_ng(
-    dynamic_vertex_buf: &mut RawArray,
+pub fn draw_text(
+    context: &mut Context,
+    handle: DynamicBufferHandle,
     text: &str,
     position: Vector2<u32>,
     char_size_px: u32,
@@ -50,30 +71,33 @@ pub fn draw_text_ng(
 ) {
     for (i, char) in text.chars().enumerate() {
         let char_position = Vector2::new((position.x + (i as u32 * char_size_px)) as f32, position.y as f32);
-        draw_character_ng(dynamic_vertex_buf, char_position, color, char_size_px as f32, char);
+        draw_character(context, handle, char_position, color, char_size_px as f32, char);
     }
 }
 
-pub fn draw_text_shadowed_ng(
-    dynamic_vertex_buf: &mut RawArray,
+pub fn draw_text_shadowed(
+    context: &mut Context,
+    handle: DynamicBufferHandle,
     text: &str,
     position: Vector2<u32>,
     text_size_px: u32,
     color: Vector4<f32>,
     shadow_color: Vector4<f32>,
 ) {
-    draw_text_ng(
-        dynamic_vertex_buf,
+    draw_text(
+        context,
+        handle,
         text,
         Vector2::new(position.x + 2, position.y - 2),
         text_size_px,
         shadow_color,
     );
-    draw_text_ng(dynamic_vertex_buf, text, position, text_size_px, color);
+    draw_text(context, handle, text, position, text_size_px, color);
 }
 
-pub fn draw_character_ng(
-    dynamic_vertex_buf: &mut RawArray,
+pub fn draw_character(
+    context: &mut Context,
+    handle: DynamicBufferHandle,
     position: Vector2<f32>,
     color: Vector4<f32>,
     char_size: f32,
@@ -92,34 +116,48 @@ pub fn draw_character_ng(
         offset_y as f32 * TEXTURE_CHAR_HEIGHT,
     );
 
-    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
-        position + Vector2::new(0f32, char_size),
-        color,
-        offset,
-    ));
-    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
-        position + Vector2::new(char_size, char_size),
-        color,
-        offset + Vector2::new(TEXTURE_CHAR_WIDTH, 0.0),
-    ));
-    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
-        position + Vector2::new(0f32, 0f32),
-        color,
-        offset + Vector2::new(0.0, TEXTURE_CHAR_HEIGHT),
-    ));
-    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
-        position + Vector2::new(0f32, 0f32),
-        color,
-        offset + Vector2::new(0.0, TEXTURE_CHAR_HEIGHT),
-    ));
-    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
-        position + Vector2::new(char_size, char_size),
-        color,
-        offset + Vector2::new(TEXTURE_CHAR_WIDTH, 0.0),
-    ));
-    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
-        position + Vector2::new(char_size, 0f32),
-        color,
-        offset + Vector2::new(TEXTURE_CHAR_WIDTH, TEXTURE_CHAR_HEIGHT),
-    ));
+    context.push_to_dynamic_buf(
+        handle,
+        TexturedColoredVertex2D::new(position + Vector2::new(0f32, char_size), color, offset),
+    );
+    context.push_to_dynamic_buf(
+        handle,
+        TexturedColoredVertex2D::new(
+            position + Vector2::new(char_size, char_size),
+            color,
+            offset + Vector2::new(TEXTURE_CHAR_WIDTH, 0.0),
+        ),
+    );
+    context.push_to_dynamic_buf(
+        handle,
+        TexturedColoredVertex2D::new(
+            position + Vector2::new(0f32, 0f32),
+            color,
+            offset + Vector2::new(0.0, TEXTURE_CHAR_HEIGHT),
+        ),
+    );
+    context.push_to_dynamic_buf(
+        handle,
+        TexturedColoredVertex2D::new(
+            position + Vector2::new(0f32, 0f32),
+            color,
+            offset + Vector2::new(0.0, TEXTURE_CHAR_HEIGHT),
+        ),
+    );
+    context.push_to_dynamic_buf(
+        handle,
+        TexturedColoredVertex2D::new(
+            position + Vector2::new(char_size, char_size),
+            color,
+            offset + Vector2::new(TEXTURE_CHAR_WIDTH, 0.0),
+        ),
+    );
+    context.push_to_dynamic_buf(
+        handle,
+        TexturedColoredVertex2D::new(
+            position + Vector2::new(char_size, 0f32),
+            color,
+            offset + Vector2::new(TEXTURE_CHAR_WIDTH, TEXTURE_CHAR_HEIGHT),
+        ),
+    );
 }

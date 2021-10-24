@@ -95,9 +95,12 @@ impl Console {
             (Console::TOGGLE_BUTTON, ElementState::Pressed) => {
                 self.toggle();
             }
-            _ => {
-                //println!("key {:?}", key)
+            (_, ElementState::Pressed) => {
+                if char_inut.is_none() {
+                    log_debug!("unhandled key {:?}", key)
+                }
             }
+            _ => {}
         }
 
         control
