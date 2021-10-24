@@ -1053,12 +1053,11 @@ fn _create_logical_device(
         .cloned()
         .collect();
     let mut queue_create_infos = Vec::new();
-    let queue_priorities = [1.0_f32];
 
+    let queue_priorities = [1.0_f32, 1.0_f32];
+    let queue_count = 2;
 
     for queue_family_index in distinct_queue_familes {
-        let queue_count = 2;
-
         let queue_create_info = vk::DeviceQueueCreateInfo {
             s_type: vk::StructureType::DEVICE_QUEUE_CREATE_INFO,
             p_next: ptr::null(),
