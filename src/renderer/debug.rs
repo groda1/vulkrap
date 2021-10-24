@@ -15,15 +15,18 @@ pub fn setup_debug_utils(
     {
         return (debug_utils_loader, ash::vk::DebugUtilsMessengerEXT::null());
     }
-    let messenger_ci = create_debug_messenger_create_info();
+    #[cfg(debug_assertions)]
+    {
+        let messenger_ci = create_debug_messenger_create_info();
 
-    let utils_messenger = unsafe {
-        debug_utils_loader
-            .create_debug_utils_messenger(&messenger_ci, None)
-            .expect("Debug Utils Callback")
-    };
+        let utils_messenger = unsafe {
+            debug_utils_loader
+                .create_debug_utils_messenger(&messenger_ci, None)
+                .expect("Debug Utils Callback")
+        };
 
-    (debug_utils_loader, utils_messenger)
+        (debug_utils_loader, utils_messenger)
+    }
 }
 
 pub fn create_debug_messenger_create_info() -> vk::DebugUtilsMessengerCreateInfoEXT {

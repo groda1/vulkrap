@@ -15,6 +15,7 @@ pub struct RawArray {
     write_index: usize,
 }
 
+#[allow(dead_code)]
 impl RawArray {
     pub fn new<T>(capacity: usize) -> Result<RawArray, &'static str> {
         let size = std::mem::size_of::<T>();

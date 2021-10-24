@@ -85,7 +85,9 @@ pub struct Context {
 
     sync_handler: SynchronizationHandler,
 
+    #[allow(dead_code)]
     debug_utils_loader: ash::extensions::ext::DebugUtils,
+    #[allow(dead_code)]
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
 
     is_framebuffer_resized: bool,
@@ -97,11 +99,12 @@ impl Context {
         debug::log_available_extension_properties(&entry);
         debug::log_validation_layer_support(&entry);
 
-        let mut layers = Vec::new();
-        #[cfg(debug_assertions)]
-        if _check_instance_layer_support(&entry, constants::VALIDATION_LAYER_NAME) {
+
+        #[cfg(debug_assertions)] let mut layers = Vec::new();
+        #[cfg(debug_assertions)] if _check_instance_layer_support(&entry, constants::VALIDATION_LAYER_NAME) {
             layers.push(constants::VALIDATION_LAYER_NAME);
         }
+        #[cfg(not(debug_assertions))] let layers: Vec<&str> = Vec::new();
 
         let instance = _create_instance(&entry, &layers, window);
         let (debug_utils_loader, debug_utils_messenger) = debug::setup_debug_utils(&entry, &instance);

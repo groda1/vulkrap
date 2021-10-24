@@ -10,6 +10,7 @@ pub struct Logger {
     history: Vec<LogMessage>,
 }
 
+#[allow(dead_code)]
 impl Logger {
     pub fn new() -> Logger {
         Logger {
@@ -84,7 +85,7 @@ pub fn input(line: &str) {
     LOGGER.lock().unwrap().input(String::from(line));
 }
 
-pub fn output(line: &str) {
+pub fn _output(line: &str) {
     LOGGER.lock().unwrap().output(String::from(line));
 }
 

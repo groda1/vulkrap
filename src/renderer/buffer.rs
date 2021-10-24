@@ -152,14 +152,14 @@ impl DynamicBuffer {
         image_count: usize,
     ) {
         let new_cap = self.raw_array.len() * 2;
-        self.raw_array.resize(new_cap);
+        self.raw_array.resize(new_cap).expect("Failed to resize dynamic buffer");
         self.capacity_bytes = self.capacity_bytes * 2;
 
         log_debug!(" - resized device buffers to {}", self.capacity_bytes);
         log_debug!(" - {:?}", self.raw_array);
 
         unsafe {
-            device.device_wait_idle();
+            device.device_wait_idle().expect("Failed to wait device idle!");
             self.destroy(device, memory_manager);
             self.build(device, memory_manager, image_count);
         }
