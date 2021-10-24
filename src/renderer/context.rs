@@ -49,6 +49,7 @@ pub struct Context {
 
     queue_families: QueueFamilyIndices,
     graphics_queue: vk::Queue,
+    transfer_queue : vk::Queue,
     present_queue: vk::Queue,
 
     surface_container: SurfaceContainer,
@@ -124,6 +125,7 @@ impl Context {
 
         let logical_device = _create_logical_device(&instance, &physical_device, &layers, &queue_families);
         let graphics_queue = unsafe { logical_device.get_device_queue(queue_families.graphics.unwrap(), 0) };
+        let transfer_queue =  unsafe { logical_device.get_device_queue(queue_families.graphics.unwrap(), 1) };
         let present_queue = unsafe { logical_device.get_device_queue(queue_families.present.unwrap(), 0) };
 
         let command_pool = _create_command_pool(&logical_device, &queue_families);
@@ -170,6 +172,7 @@ impl Context {
             logical_device,
             queue_families,
             graphics_queue,
+            transfer_queue,
             present_queue,
             surface_container,
             swapchain_loader: swapchain_container.loader,
@@ -252,7 +255,7 @@ impl Context {
                 .build()];
             unsafe {
                 self.logical_device
-                    .queue_submit(self.graphics_queue, &transfer_submit_infos, vk::Fence::null())
+                    .queue_submit(self.transfer_queue, &transfer_submit_infos, vk::Fence::null())
                     .expect("Failed to execute queue submit.");
             }
         }
@@ -1052,14 +1055,17 @@ fn _create_logical_device(
     let mut queue_create_infos = Vec::new();
     let queue_priorities = [1.0_f32];
 
+
     for queue_family_index in distinct_queue_familes {
+        let queue_count = 2;
+
         let queue_create_info = vk::DeviceQueueCreateInfo {
             s_type: vk::StructureType::DEVICE_QUEUE_CREATE_INFO,
             p_next: ptr::null(),
             flags: vk::DeviceQueueCreateFlags::empty(),
             queue_family_index,
             p_queue_priorities: queue_priorities.as_ptr(),
-            queue_count: queue_priorities.len() as u32,
+            queue_count,
         };
         queue_create_infos.push(queue_create_info);
     }

@@ -30,8 +30,6 @@ impl HUD {
         let data = _create_view_projection_uniform(window_extent);
         context.set_uniform_data(uniform, data);
 
-        let _text_dynamic_vertex_buffer = context.add_dynamic_vertex_buffer::<TexturedColoredVertex2D>(15000);
-
         let font_image = image::load_image(Path::new("./resources/textures/font.png"));
         let font_texture = context.add_texture(font_image.width, font_image.height, &font_image.data);
         let sampler = context.add_sampler();
