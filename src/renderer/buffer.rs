@@ -92,7 +92,7 @@ impl DynamicBuffer {
     }
 
     pub fn build(&mut self, device: &ash::Device, memory_manager: &mut MemoryManager, image_count: usize) {
-        for i in 0..image_count {
+        for _i in 0..image_count {
             let staging_buf = memory_manager.create_staging_buffer(device, self.capacity_bytes as vk::DeviceSize);
             let device_buf = memory_manager.create_device_buffer(
                 device,

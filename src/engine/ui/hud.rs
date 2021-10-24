@@ -1,34 +1,21 @@
 use std::path::Path;
-use std::ptr;
 
-use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
-use winit::dpi::PhysicalSize;
+use cgmath::{Matrix4, SquareMatrix};
 
 use crate::engine::console::Console;
-use crate::engine::datatypes::{
-    ModelColorPushConstant, SimpleVertex, TexturedColoredVertex2D, TexturedVertex, ViewProjectionUniform, WindowExtent,
-};
-use crate::engine::mesh::{Mesh, MeshManager, PredefinedMesh};
-use crate::engine::ui::colors::{COLOR_BLACK, COLOR_TEXT_CVAR, COLOR_WHITE};
-use crate::engine::ui::draw;
-use crate::engine::ui::draw::{draw_quad_ng, draw_text_ng, draw_text_shadowed_ng};
+use crate::engine::datatypes::{TexturedColoredVertex2D, ViewProjectionUniform, WindowExtent};
+
+use crate::engine::image;
 use crate::engine::ui::widgets::{ConsoleRenderer, RenderStatsRenderer, TopBar};
-use crate::engine::{image, stats};
-use crate::log::logger;
-use crate::log::logger::MessageLevel;
-use crate::renderer::buffer::DynamicBufferHandle;
-use crate::renderer::context::{Context, DynamicBufferHandler, PipelineHandle, UniformHandle};
+
+use crate::renderer::context::{Context, DynamicBufferHandler, UniformHandle};
 use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand};
-use crate::renderer::rawarray::RawArray;
+
 use crate::renderer::uniform::UniformStage;
 use crate::util::file;
-use crate::ENGINE_VERSION;
 
 pub struct HUD {
     uniform: UniformHandle,
-
-    main_pipeline: PipelineHandle,
-    text_pipeline: PipelineHandle,
 
     render_stats_renderer: RenderStatsRenderer,
     console_renderer: ConsoleRenderer,
@@ -43,7 +30,7 @@ impl HUD {
         let data = _create_view_projection_uniform(window_extent);
         context.set_uniform_data(uniform, data);
 
-        let text_dynamic_vertex_buffer = context.add_dynamic_vertex_buffer::<TexturedColoredVertex2D>(15000);
+        let _text_dynamic_vertex_buffer = context.add_dynamic_vertex_buffer::<TexturedColoredVertex2D>(15000);
 
         let font_image = image::load_image(Path::new("./resources/textures/font.png"));
         let font_texture = context.add_texture(font_image.width, font_image.height, &font_image.data);
@@ -80,9 +67,6 @@ impl HUD {
 
         HUD {
             uniform,
-            main_pipeline,
-            text_pipeline,
-
             render_stats_renderer,
             console_renderer,
             top_bar_renderer,
@@ -117,6 +101,7 @@ impl HUD {
         let data = _create_view_projection_uniform(new_extent);
         context.set_uniform_data(self.uniform, data);
 
+        self.top_bar_renderer.handle_window_resize(new_extent);
         self.render_stats_renderer.handle_window_resize(new_extent);
         self.console_renderer.handle_window_resize(new_extent);
     }

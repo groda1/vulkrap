@@ -1,6 +1,5 @@
 use crate::renderer::constants::MAX_FRAMES_IN_FLIGHT;
 use ash::vk;
-use std::ptr;
 
 pub struct SynchronizationHandler {
     image_available_semaphores: Vec<vk::Semaphore>,

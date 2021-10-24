@@ -245,6 +245,7 @@ pub struct ModelColorPushConstant {
     color: Vector4<f32>,
 }
 
+#[allow(dead_code)]
 impl ModelColorPushConstant {
     pub fn new(model_transform: Matrix4<f32>, color: Vector4<f32>) -> Self {
         ModelColorPushConstant { model_transform, color }

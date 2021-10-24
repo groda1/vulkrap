@@ -9,14 +9,13 @@ use crate::engine::ui::draw::{draw_quad_ng, draw_text_ng, draw_text_shadowed_ng}
 use crate::log::logger;
 use crate::log::logger::MessageLevel;
 use crate::renderer::buffer::DynamicBufferHandle;
-use crate::renderer::context::{Context, DynamicBufferHandler, PipelineHandle, UniformHandle};
+use crate::renderer::context::{Context, DynamicBufferHandler, PipelineHandle};
 use crate::renderer::pipeline::PipelineDrawCommand;
 use crate::renderer::rawarray::RawArray;
 use crate::ENGINE_VERSION;
-use ash::vk::Extent2D;
+
 use cgmath::{Vector2, Vector4};
 use std::ptr;
-use winit::dpi::PhysicalSize;
 
 // Console
 const BORDER_OFFSET: u32 = 4;
@@ -70,7 +69,7 @@ impl ConsoleRenderer {
             dynamic_buffer_handler,
             self.main_pipeline,
             ptr::null(),
-                self.simple_dynamic_vertex_buffer,
+            self.simple_dynamic_vertex_buffer,
         );
         let draw_command_text = PipelineDrawCommand::new_raw(
             dynamic_buffer_handler,
@@ -108,7 +107,6 @@ impl ConsoleRenderer {
         );
 
         if console.is_caret_visible() && console.is_active() {
-
             draw_quad_ng(
                 dynamic_buffer_handler.borrow_mut_raw_array(self.simple_dynamic_vertex_buffer),
                 Vector2::new(
@@ -118,7 +116,6 @@ impl ConsoleRenderer {
                 Vector2::new(4, TEXT_SIZE_PX),
                 COLOR_INPUT_TEXT,
             );
-
         }
 
         self._draw_console_history(
@@ -185,10 +182,10 @@ impl ConsoleRenderer {
 }
 
 pub struct RenderStatsRenderer {
-    main_pipeline: PipelineHandle,
+    _main_pipeline: PipelineHandle,
     text_pipeline: PipelineHandle,
 
-    simple_dynamic_vertex_buffer: DynamicBufferHandle,
+    _simple_dynamic_vertex_buffer: DynamicBufferHandle,
     text_dynamic_vertex_buffer: DynamicBufferHandle,
 
     position: Vector2<u32>,
@@ -209,9 +206,9 @@ impl RenderStatsRenderer {
         let position = Vector2::new(8, window_extent.height - 24);
 
         RenderStatsRenderer {
-            main_pipeline,
+            _main_pipeline: main_pipeline,
             text_pipeline,
-            simple_dynamic_vertex_buffer,
+            _simple_dynamic_vertex_buffer: simple_dynamic_vertex_buffer,
             text_dynamic_vertex_buffer,
             position,
             active: true,
@@ -239,7 +236,6 @@ impl RenderStatsRenderer {
             ptr::null(),
             self.text_dynamic_vertex_buffer,
         );
-
 
         draw_command_buffer.push(draw_command_text);
     }
@@ -312,11 +308,7 @@ pub struct TopBar {
 }
 
 impl TopBar {
-    pub fn new(
-        context: &mut Context,
-        text_pipeline: PipelineHandle,
-        window_extent: WindowExtent,
-    ) -> TopBar {
+    pub fn new(context: &mut Context, text_pipeline: PipelineHandle, window_extent: WindowExtent) -> TopBar {
         let text_dynamic_vertex_buffer = context.add_dynamic_vertex_buffer::<TexturedColoredVertex2D>(200);
 
         TopBar {

@@ -1,7 +1,7 @@
-use crate::engine::datatypes::{ModelColorPushConstant, TexturedColoredVertex2D};
-use crate::renderer::pipeline::PipelineDrawCommand;
+use crate::engine::datatypes::TexturedColoredVertex2D;
+
 use crate::renderer::rawarray::RawArray;
-use cgmath::{Matrix4, Vector2, Vector3, Vector4, Zero};
+use cgmath::{Vector2, Vector4, Zero};
 
 pub fn draw_quad_ng(
     dynamic_vertex_buf: &mut RawArray,

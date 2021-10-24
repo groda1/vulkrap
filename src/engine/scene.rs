@@ -24,7 +24,7 @@ pub struct Scene {
 impl Scene {
     pub fn new(
         context: &mut Context,
-        mesh_manager: &MeshManager,
+        _mesh_manager: &MeshManager,
         wobbly_pipeline: PipelineHandle,
         terrain_pipeline: PipelineHandle,
     ) -> Scene {
