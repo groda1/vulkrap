@@ -268,7 +268,6 @@ impl Context {
         );
 
         self.update_uniforms(image_index_usize);
-        self.reset_push_constant_buffers();
         let draw_command_buffers = [draw_command_buffer];
 
         if !transfer_required {
@@ -441,7 +440,7 @@ impl Context {
             fragment_uniform_binding_cfg,
             sampler_cfgs,
             vertex_topology,
-            config.push_constant_buffer,
+            config.push_constant_buffer_size,
             config.alpha_blending,
         );
 
@@ -761,25 +760,9 @@ impl Context {
     }
 }
 
-pub trait PushConstantBufHandler {
-    fn reset_push_constant_buffers(&mut self);
-    fn borrow_mut_push_constant_buf(&mut self, pipeline: PipelineHandle) -> &mut RawArray;
-}
-
-impl PushConstantBufHandler for Context {
-    fn reset_push_constant_buffers(&mut self) {
-        for pipeline in self.pipelines.iter_mut() {
-            pipeline.reset_push_contant_buffer();
-        }
-    }
-    fn borrow_mut_push_constant_buf(&mut self, pipeline: PipelineHandle) -> &mut RawArray {
-        debug_assert!(self.pipelines.len() > pipeline);
-        self.pipelines[pipeline].borrow_mut_push_constant_buf()
-    }
-}
-
 pub trait DynamicBufferHandler {
     fn borrow_mut_raw_array(&mut self, dynamic_buffer: DynamicBufferHandle) -> &mut RawArray;
+    fn borrow_raw_array(&self, dynamic_buffer: DynamicBufferHandle) -> &RawArray;
 }
 
 impl DynamicBufferHandler for Context {
@@ -787,6 +770,12 @@ impl DynamicBufferHandler for Context {
         self.dynamic_vertex_buffer_manager
             .borrow_mut_buffer(dynamic_buffer)
             .borrow_mut_rawarray()
+    }
+
+    fn borrow_raw_array(&self, dynamic_buffer: DynamicBufferHandle) -> &RawArray {
+        self.dynamic_vertex_buffer_manager
+            .borrow_buffer(dynamic_buffer)
+            .borrow_rawarray()
     }
 }
 

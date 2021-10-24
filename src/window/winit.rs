@@ -1,3 +1,5 @@
+use crate::engine::datatypes::WindowExtent;
+use winit::dpi::PhysicalSize;
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
@@ -34,7 +36,7 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut vulkrap_app: Vul
                 },
             },
             WindowEvent::Resized(new_size) => {
-                vulkrap_app.handle_window_resize(new_size.width, new_size.height);
+                vulkrap_app.handle_window_resize(new_size.into());
             }
             _ => {}
         },
@@ -139,5 +141,11 @@ pub fn map_input_to_chr(key: VirtualKeyCode, state: ElementState, shift_active: 
         (VirtualKeyCode::Space, ElementState::Pressed, false) => Some(' '),
 
         _ => None,
+    }
+}
+
+impl Into<WindowExtent> for PhysicalSize<u32> {
+    fn into(self) -> WindowExtent {
+        WindowExtent::new(self.width, self.height)
     }
 }

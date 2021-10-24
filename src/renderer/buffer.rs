@@ -132,4 +132,7 @@ impl DynamicBuffer {
     pub fn borrow_mut_rawarray(&mut self) -> &mut RawArray {
         &mut self.raw_array
     }
+    pub fn borrow_rawarray(&self) -> &RawArray {
+        &self.raw_array
+    }
 }

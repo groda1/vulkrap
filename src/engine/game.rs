@@ -5,7 +5,7 @@ use winit::event::{ElementState, VirtualKeyCode};
 use winit::window::Window;
 
 use crate::engine::camera::Camera;
-use crate::engine::datatypes::{ColoredVertex, ModelWoblyPushConstant, VertexNormal};
+use crate::engine::datatypes::{ColoredVertex, ModelWoblyPushConstant, VertexNormal, WindowExtent};
 use crate::engine::entity::WobblyEntity;
 
 use crate::engine::console::Console;
@@ -103,8 +103,8 @@ impl VulkrapApplication {
         self.camera.update_yaw_pitch(x_delta as f32, y_delta as f32);
     }
 
-    pub fn handle_window_resize(&mut self, width: u32, height: u32) {
-        self.scene.handle_window_resize(&mut self.context, width, height);
+    pub fn handle_window_resize(&mut self, new_size: WindowExtent) {
+        self.scene.handle_window_resize(&mut self.context, new_size);
         self.context.handle_window_resize();
     }
 

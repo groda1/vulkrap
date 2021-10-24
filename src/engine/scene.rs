@@ -1,13 +1,13 @@
 use cgmath::{Deg, Quaternion, Rotation3};
 
-use crate::engine::datatypes::ModelWoblyPushConstant;
+use crate::engine::datatypes::{ModelWoblyPushConstant, WindowExtent};
 use crate::engine::entity::WobblyEntity;
 use crate::engine::mesh::MeshManager;
 use crate::engine::terrain::Terrain;
 
 use crate::engine::console::Console;
-use crate::engine::ui::hud::{HUD_ng, HUD};
-use crate::renderer::context::{Context, PipelineHandle, PushConstantBufHandler};
+use crate::engine::ui::hud::HUD;
+use crate::renderer::context::{Context, PipelineHandle};
 use crate::renderer::pipeline::PipelineDrawCommand;
 use crate::renderer::rawarray::RawArrayPtr;
 
@@ -18,7 +18,6 @@ pub struct Scene {
 
     terrain: Terrain,
     hud: HUD,
-    hud_ng: HUD_ng,
     render_job_buffer: Vec<PipelineDrawCommand>,
 }
 
@@ -31,14 +30,14 @@ impl Scene {
     ) -> Scene {
         let render_job_buffer = Vec::new();
         let (window_width, window_height) = context.get_framebuffer_extent();
+        let window_extent = WindowExtent::new(window_width, window_height);
 
         Scene {
             wobbly_objects: vec![],
             wobbly_pipeline,
             render_job_buffer,
             terrain: Terrain::new(context, terrain_pipeline),
-            hud: HUD::new(context, mesh_manager, window_width, window_height),
-            hud_ng: HUD_ng::new(context, window_width, window_height),
+            hud: HUD::new(context, window_extent),
         }
     }
 
@@ -71,13 +70,11 @@ impl Scene {
 
         self.terrain.draw(&mut self.render_job_buffer);
         self.hud.draw(context, &mut self.render_job_buffer, console);
-        self.hud_ng.draw(context, &mut self.render_job_buffer, console);
 
         &self.render_job_buffer
     }
 
-    pub fn handle_window_resize(&mut self, context: &mut Context, width: u32, height: u32) {
-        self.hud.handle_window_resize(context, width, height);
-        self.hud_ng.handle_window_resize(context, width, height);
+    pub fn handle_window_resize(&mut self, context: &mut Context, new_extent: WindowExtent) {
+        self.hud.handle_window_resize(context, new_extent);
     }
 }

@@ -97,12 +97,12 @@ impl VertexInputDescription for TexturedVertex {
 #[derive(Clone, Debug, Copy)]
 pub struct TexturedColoredVertex2D {
     pub position: Vector2<f32>,
-    pub color: Vector3<f32>,
+    pub color: Vector4<f32>,
     pub texture_coord: Vector2<f32>,
 }
 
 impl TexturedColoredVertex2D {
-    pub fn new(position: Vector2<f32>, color: Vector3<f32>, texture_coord: Vector2<f32>) -> Self {
+    pub fn new(position: Vector2<f32>, color: Vector4<f32>, texture_coord: Vector2<f32>) -> Self {
         TexturedColoredVertex2D {
             position,
             color,
@@ -131,7 +131,7 @@ impl VertexInputDescription for TexturedColoredVertex2D {
             vk::VertexInputAttributeDescription {
                 binding: 0,
                 location: 1,
-                format: vk::Format::R32G32B32_SFLOAT,
+                format: vk::Format::R32G32B32A32_SFLOAT,
                 offset: offset_of!(Self, color) as u32,
             },
             vk::VertexInputAttributeDescription {
@@ -251,20 +251,14 @@ impl ModelColorPushConstant {
     }
 }
 
-#[repr(C)]
 #[derive(Clone, Debug, Copy)]
-pub struct TextPushConstant {
-    model_transform: Matrix4<f32>,
-    color: Vector3<f32>,
-    char: u32,
+pub struct WindowExtent {
+    pub width: u32,
+    pub height: u32,
 }
 
-impl TextPushConstant {
-    pub fn new(model_transform: Matrix4<f32>, color: Vector3<f32>, char: char) -> Self {
-        TextPushConstant {
-            model_transform,
-            color,
-            char: char as u32,
-        }
+impl WindowExtent {
+    pub fn new(width: u32, heigh: u32) -> Self {
+        WindowExtent { width, height: heigh }
     }
 }
