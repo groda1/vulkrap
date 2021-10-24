@@ -1,12 +1,12 @@
-use crate::engine::datatypes::{ModelColorPushConstant, TextPushConstant};
+use crate::engine::datatypes::{ModelColorPushConstant, TextPushConstant, TexturedColoredVertex2D};
 use crate::engine::mesh::Mesh;
 use crate::renderer::context::PipelineHandle;
 use crate::renderer::pipeline::PipelineDrawCommand;
-use crate::renderer::pushconstants::PushConstantBuffer;
+use crate::renderer::rawarray::RawArray;
 use cgmath::{Matrix4, Vector2, Vector3, Vector4};
 
 pub fn draw_quad(
-    push_constant_buf: &mut PushConstantBuffer,
+    push_constant_buf: &mut RawArray,
     target_buf: &mut Vec<PipelineDrawCommand>,
     pipeline: PipelineHandle,
     mesh: &Mesh,
@@ -21,7 +21,7 @@ pub fn draw_quad(
     )) * Matrix4::from_nonuniform_scale(extent.x as f32, extent.y as f32, 1.0);
     let push_constant_ptr = push_constant_buf.push(ModelColorPushConstant::new(transform, color));
 
-    let draw_command = PipelineDrawCommand::new(
+    let draw_command = PipelineDrawCommand::new_buffered(
         pipeline,
         push_constant_ptr,
         mesh.vertex_buffer,
@@ -31,8 +31,39 @@ pub fn draw_quad(
     target_buf.push(draw_command);
 }
 
+pub fn draw_text_ng(
+    dynamic_vertex_buf: &mut RawArray,
+    text: &str,
+    position: Vector2<u32>,
+    char_size_px: u32,
+    color: Vector3<f32>,
+) {
+    for (i, char) in text.chars().enumerate() {
+        let char_position = Vector2::new((position.x + (i as u32 * char_size_px)) as f32, position.y as f32);
+        draw_character_ng(dynamic_vertex_buf, char_position, color, char_size_px as f32, char);
+    }
+}
+
+pub fn draw_text_shadowed_ng(
+    dynamic_vertex_buf: &mut RawArray,
+    text: &str,
+    position: Vector2<u32>,
+    text_size_px: u32,
+    color: Vector3<f32>,
+    shadow_color: Vector3<f32>,
+) {
+    draw_text_ng(
+        dynamic_vertex_buf,
+        text,
+        Vector2::new(position.x + 2, position.y - 2),
+        text_size_px,
+        shadow_color,
+    );
+    draw_text_ng(dynamic_vertex_buf, text, position, text_size_px, color);
+}
+
 pub fn draw_text(
-    push_constant_buf: &mut PushConstantBuffer,
+    push_constant_buf: &mut RawArray,
     target_buf: &mut Vec<PipelineDrawCommand>,
     pipeline: PipelineHandle,
     mesh: &Mesh,
@@ -61,7 +92,7 @@ pub fn draw_text(
 }
 
 pub fn draw_text_shadowed(
-    push_constant_buf: &mut PushConstantBuffer,
+    push_constant_buf: &mut RawArray,
     target_buf: &mut Vec<PipelineDrawCommand>,
     pipeline: PipelineHandle,
     mesh: &Mesh,
@@ -94,7 +125,7 @@ pub fn draw_text_shadowed(
 }
 
 pub fn _draw_text_random_color(
-    push_constant_buf: &mut PushConstantBuffer,
+    push_constant_buf: &mut RawArray,
     target_buf: &mut Vec<PipelineDrawCommand>,
     pipeline: PipelineHandle,
     mesh: &Mesh,
@@ -122,7 +153,7 @@ pub fn _draw_text_random_color(
 }
 
 pub fn draw_character(
-    push_constant_buf: &mut PushConstantBuffer,
+    push_constant_buf: &mut RawArray,
     pipeline: PipelineHandle,
     mesh: &Mesh,
     model_transform: Matrix4<f32>,
@@ -131,13 +162,65 @@ pub fn draw_character(
 ) -> PipelineDrawCommand {
     let push_constant_ptr = push_constant_buf.push(TextPushConstant::new(model_transform, color, char));
 
-    PipelineDrawCommand::new(
+    PipelineDrawCommand::new_buffered(
         pipeline,
         push_constant_ptr,
         mesh.vertex_buffer,
         mesh.index_buffer,
         mesh.index_count,
     )
+}
+
+pub fn draw_character_ng(
+    dynamic_vertex_buf: &mut RawArray,
+    position: Vector2<f32>,
+    color: Vector3<f32>,
+    char_size: f32,
+    char: char,
+) {
+    const WIDTH: u32 = 16;
+    const TEXTURE_CHAR_WIDTH: f32 = 1.0 / 16.0;
+    const TEXTURE_CHAR_HEIGHT: f32 = 1.0 / 6.0;
+
+    // First ASCII character in the texture will be 32
+    let char_u32 = char as u32 - 32;
+    let offset_y = char_u32 / WIDTH;
+    let offset_x = char_u32 % WIDTH;
+    let offset = Vector2::new(
+        offset_x as f32 * TEXTURE_CHAR_WIDTH,
+        offset_y as f32 * TEXTURE_CHAR_HEIGHT,
+    );
+
+    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
+        position + Vector2::new(0f32, char_size),
+        color,
+        offset,
+    ));
+    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
+        position + Vector2::new(char_size, char_size),
+        color,
+        offset + Vector2::new(TEXTURE_CHAR_WIDTH, 0.0),
+    ));
+    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
+        position + Vector2::new(0f32, 0f32),
+        color,
+        offset + Vector2::new(0.0, TEXTURE_CHAR_HEIGHT),
+    ));
+    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
+        position + Vector2::new(0f32, 0f32),
+        color,
+        offset + Vector2::new(0.0, TEXTURE_CHAR_HEIGHT),
+    ));
+    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
+        position + Vector2::new(char_size, char_size),
+        color,
+        offset + Vector2::new(TEXTURE_CHAR_WIDTH, 0.0),
+    ));
+    dynamic_vertex_buf.push(TexturedColoredVertex2D::new(
+        position + Vector2::new(char_size, 0f32),
+        color,
+        offset + Vector2::new(TEXTURE_CHAR_WIDTH, TEXTURE_CHAR_HEIGHT),
+    ));
 }
 
 fn _random_color() -> Vector3<f32> {

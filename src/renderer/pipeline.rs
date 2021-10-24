@@ -8,10 +8,10 @@ use ash::vk::{
     VertexInputBindingDescription,
 };
 
-use crate::renderer::buffer::DynamicBufferHandle;
+use crate::renderer::buffer::{DynamicBufferHandle, DynamicBufferManager};
 use crate::renderer::context::{PipelineHandle, UniformHandle};
 use crate::renderer::pipeline::VertexData::{Buffered, Raw};
-use crate::renderer::pushconstants::{PushConstantBuffer, PushConstantPtr};
+use crate::renderer::rawarray::{RawArray, RawArrayPtr};
 use crate::renderer::stats::DrawCommandStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
 use crate::renderer::uniform::UniformStage;
@@ -38,7 +38,7 @@ pub(super) struct PipelineContainer {
     fragment_uniform_buffers: Vec<vk::Buffer>,
     sampler_cfgs: Vec<SamplerBindingConfiguration>,
 
-    push_constant_buffer: Option<PushConstantBuffer>,
+    push_constant_buffer: Option<RawArray>,
     vertex_topology: vk::PrimitiveTopology,
 
     descriptor_pool: vk::DescriptorPool,
@@ -61,7 +61,7 @@ impl PipelineContainer {
         fragment_uniform_cfg: Option<UniformBindingConfiguration>,
         sampler_cfgs: Vec<SamplerBindingConfiguration>,
         vertex_topology: PrimitiveTopology,
-        push_constant_buffer: Option<PushConstantBuffer>,
+        push_constant_buffer: Option<RawArray>,
         alpha_blending: bool,
     ) -> PipelineContainer {
         let vertex_shader = create_shader_module(logical_device, &vertex_shader_code);
@@ -324,6 +324,7 @@ impl PipelineContainer {
     pub unsafe fn bake_command_buffer(
         &self,
         logical_device: &ash::Device,
+        dynamic_buffer_manager: &DynamicBufferManager,
         draw_command_buffer: vk::CommandBuffer,
         draw_command: &PipelineDrawCommand,
         image_index: usize,
@@ -365,15 +366,9 @@ impl PipelineContainer {
             );
             logical_device.cmd_draw_indexed(draw_command_buffer, buffer_data.index_count, 1, 0, 0, 0);
         } else if let Raw(raw_data) = &draw_command.vertex_data {
-            // Copy vertices to host memory
-
-            // Create command for transferring vertex data from host memory to device memory
-
-            // add this command to a pre-draw requirement command buffer
-
-            // Draw
-
-            unimplemented!()
+            let vertex_buffers = [dynamic_buffer_manager.borrow_buffer(raw_data.buf).device(image_index)];
+            logical_device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &vertex_buffers, &offsets);
+            logical_device.cmd_draw(draw_command_buffer, raw_data.vertex_count, 1, 0, 0);
         } else {
             unreachable!();
         }
@@ -512,7 +507,7 @@ impl PipelineContainer {
         logical_device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
     }
 
-    pub fn borrow_mut_push_constant_buf(&mut self) -> &mut PushConstantBuffer {
+    pub fn borrow_mut_push_constant_buf(&mut self) -> &mut RawArray {
         debug_assert!(self.push_constant_buffer.is_some());
         self.push_constant_buffer.as_mut().unwrap()
     }
@@ -596,14 +591,14 @@ fn create_descriptor_set_layout(
 
 pub struct PipelineDrawCommand {
     pub(crate) pipeline: PipelineHandle,
-    push_constant_ptr: PushConstantPtr,
+    push_constant_ptr: RawArrayPtr,
     vertex_data: VertexData,
 }
 
 impl PipelineDrawCommand {
-    pub fn new(
+    pub fn new_buffered(
         pipeline: PipelineHandle,
-        push_constant_ptr: PushConstantPtr,
+        push_constant_ptr: RawArrayPtr,
         vertex_buffer: vk::Buffer,
         index_buffer: vk::Buffer,
         index_count: u32,
@@ -615,6 +610,23 @@ impl PipelineDrawCommand {
         }
     }
 
+    pub fn new_raw(
+        pipeline: PipelineHandle,
+        dynamic_buffer_handle: DynamicBufferHandle,
+        raw_array: &RawArray,
+    ) -> PipelineDrawCommand {
+        PipelineDrawCommand {
+            pipeline,
+            push_constant_ptr: ptr::null(),
+            vertex_data: Raw(RawVertices::new(
+                raw_array.start(),
+                raw_array.len() * raw_array.data_size(),
+                dynamic_buffer_handle,
+                raw_array.len() as u32,
+            )),
+        }
+    }
+
     pub fn vertex_data(&self) -> &VertexData {
         &self.vertex_data
     }
@@ -622,15 +634,11 @@ impl PipelineDrawCommand {
     pub fn triangle_count(&self, primitive_topology: PrimitiveTopology) -> u32 {
         match primitive_topology {
             PrimitiveTopology::TRIANGLE_LIST => match &self.vertex_data {
-                Raw(_) => {
-                    unimplemented!()
-                }
+                Raw(raw_data) => raw_data.vertex_count / 3,
                 Buffered(buffer_data) => buffer_data.index_count / 3,
             },
             PrimitiveTopology::TRIANGLE_STRIP => match &self.vertex_data {
-                Raw(_) => {
-                    unimplemented!()
-                }
+                Raw(raw_data) => raw_data.vertex_count - 2,
                 Buffered(buffer_data) => buffer_data.index_count - 2,
             },
             _ => unreachable!(),
@@ -656,8 +664,20 @@ impl BufferData {
 
 pub struct RawVertices {
     pub data_ptr: *const u8,
-    pub data_size: usize,
+    pub data_len: usize,
     pub buf: DynamicBufferHandle,
+    pub vertex_count: u32,
+}
+
+impl RawVertices {
+    pub fn new(data_ptr: *const u8, data_len: usize, buf: DynamicBufferHandle, vertex_count: u32) -> Self {
+        RawVertices {
+            data_ptr,
+            data_len,
+            buf,
+            vertex_count,
+        }
+    }
 }
 
 pub enum VertexData {
@@ -674,7 +694,7 @@ pub enum VertexTopology {
 pub struct PipelineConfiguration {
     pub(super) vertex_shader_code: Vec<u8>,
     pub(super) fragment_shader_code: Vec<u8>,
-    pub(super) push_constant_buffer: Option<PushConstantBuffer>,
+    pub(super) push_constant_buffer: Option<RawArray>,
     pub(super) vertex_topology: VertexTopology,
     pub(super) vertex_uniform_cfg: Option<UniformConfiguration>,
     pub(super) fragment_uniform_cfg: Option<UniformConfiguration>,
@@ -700,7 +720,7 @@ impl PipelineConfiguration {
 pub struct PipelineConfigurationBuilder {
     vertex_shader_code: Option<Vec<u8>>,
     fragment_shader_code: Option<Vec<u8>>,
-    push_constant_buffer: Option<PushConstantBuffer>,
+    push_constant_buffer: Option<RawArray>,
     vertex_topology: Option<VertexTopology>,
     vertex_uniform_cfg: Option<UniformConfiguration>,
     fragment_uniform_cfg: Option<UniformConfiguration>,
@@ -722,13 +742,14 @@ impl PipelineConfigurationBuilder {
     }
 
     pub fn with_push_constant_buffer<T>(&mut self, capacity: usize) -> &mut Self {
-        self.push_constant_buffer = Some(PushConstantBuffer::new::<T>(capacity));
+        self.push_constant_buffer = Some(RawArray::new::<T>(capacity));
 
         self
     }
 
     pub fn with_push_constant<T>(&mut self) -> &mut Self {
-        self.push_constant_buffer = Some(PushConstantBuffer::new::<T>(0));
+        // TODO fix this.
+        self.push_constant_buffer = Some(RawArray::new::<T>(0));
 
         self
     }

@@ -1,5 +1,6 @@
 use crate::renderer::pipeline::VertexInputDescription;
 use ash::vk;
+use ash::vk::{VertexInputAttributeDescription, VertexInputBindingDescription};
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 
 #[repr(C)]
@@ -85,6 +86,57 @@ impl VertexInputDescription for TexturedVertex {
             vk::VertexInputAttributeDescription {
                 binding: 0,
                 location: 1,
+                format: vk::Format::R32G32_SFLOAT,
+                offset: offset_of!(Self, texture_coord) as u32,
+            },
+        ]
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Debug, Copy)]
+pub struct TexturedColoredVertex2D {
+    pub position: Vector2<f32>,
+    pub color: Vector3<f32>,
+    pub texture_coord: Vector2<f32>,
+}
+
+impl TexturedColoredVertex2D {
+    pub fn new(position: Vector2<f32>, color: Vector3<f32>, texture_coord: Vector2<f32>) -> Self {
+        TexturedColoredVertex2D {
+            position,
+            color,
+            texture_coord,
+        }
+    }
+}
+
+impl VertexInputDescription for TexturedColoredVertex2D {
+    fn binding_descriptions() -> Vec<VertexInputBindingDescription> {
+        vec![vk::VertexInputBindingDescription {
+            binding: 0,
+            stride: std::mem::size_of::<Self>() as u32,
+            input_rate: vk::VertexInputRate::VERTEX,
+        }]
+    }
+
+    fn attribute_descriptions() -> Vec<VertexInputAttributeDescription> {
+        vec![
+            vk::VertexInputAttributeDescription {
+                binding: 0,
+                location: 0,
+                format: vk::Format::R32G32_SFLOAT,
+                offset: offset_of!(Self, position) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                binding: 0,
+                location: 1,
+                format: vk::Format::R32G32B32_SFLOAT,
+                offset: offset_of!(Self, color) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                binding: 0,
+                location: 2,
                 format: vk::Format::R32G32_SFLOAT,
                 offset: offset_of!(Self, texture_coord) as u32,
             },

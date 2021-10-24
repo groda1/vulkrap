@@ -6,10 +6,10 @@ use crate::engine::mesh::MeshManager;
 use crate::engine::terrain::Terrain;
 
 use crate::engine::console::Console;
-use crate::engine::ui::hud::HUD;
+use crate::engine::ui::hud::{HUD_ng, HUD};
 use crate::renderer::context::{Context, PipelineHandle, PushConstantBufHandler};
 use crate::renderer::pipeline::PipelineDrawCommand;
-use crate::renderer::pushconstants::PushConstantPtr;
+use crate::renderer::rawarray::RawArrayPtr;
 
 pub struct Scene {
     // TODO replace with entity content system ( specs? )
@@ -18,6 +18,7 @@ pub struct Scene {
 
     terrain: Terrain,
     hud: HUD,
+    hud_ng: HUD_ng,
     render_job_buffer: Vec<PipelineDrawCommand>,
 }
 
@@ -37,6 +38,7 @@ impl Scene {
             render_job_buffer,
             terrain: Terrain::new(context, terrain_pipeline),
             hud: HUD::new(context, mesh_manager, window_width, window_height),
+            hud_ng: HUD_ng::new(context, window_width, window_height),
         }
     }
 
@@ -54,17 +56,13 @@ impl Scene {
         }
     }
 
-    pub fn build_render_job(
-        &mut self,
-        context: &mut dyn PushConstantBufHandler,
-        console: &Console,
-    ) -> &Vec<PipelineDrawCommand> {
+    pub fn build_render_job(&mut self, context: &mut Context, console: &Console) -> &Vec<PipelineDrawCommand> {
         self.render_job_buffer.clear();
 
         for entity in self.wobbly_objects.iter() {
-            self.render_job_buffer.push(PipelineDrawCommand::new(
+            self.render_job_buffer.push(PipelineDrawCommand::new_buffered(
                 self.wobbly_pipeline,
-                &entity.push_constant_buf as *const ModelWoblyPushConstant as PushConstantPtr,
+                &entity.push_constant_buf as *const ModelWoblyPushConstant as RawArrayPtr,
                 entity.mesh.vertex_buffer,
                 entity.mesh.index_buffer,
                 entity.mesh.index_count,
@@ -73,11 +71,13 @@ impl Scene {
 
         self.terrain.draw(&mut self.render_job_buffer);
         self.hud.draw(context, &mut self.render_job_buffer, console);
+        self.hud_ng.draw(context, &mut self.render_job_buffer, console);
 
         &self.render_job_buffer
     }
 
     pub fn handle_window_resize(&mut self, context: &mut Context, width: u32, height: u32) {
         self.hud.handle_window_resize(context, width, height);
+        self.hud_ng.handle_window_resize(context, width, height);
     }
 }

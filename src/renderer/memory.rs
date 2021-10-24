@@ -102,11 +102,16 @@ impl MemoryManager {
         staging_buffer
     }
 
-    pub fn create_device_buffer(&mut self, logical_device: &ash::Device, buffer_size: vk::DeviceSize) -> vk::Buffer {
+    pub fn create_device_buffer(
+        &mut self,
+        logical_device: &ash::Device,
+        buffer_size: vk::DeviceSize,
+        usage: vk::BufferUsageFlags,
+    ) -> vk::Buffer {
         let (staging_buffer, staging_buffer_memory) = _create_buffer(
             logical_device,
             buffer_size,
-            vk::BufferUsageFlags::TRANSFER_DST,
+            vk::BufferUsageFlags::TRANSFER_DST | usage,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
             &self.physical_device_memory_properties,
         );
@@ -118,7 +123,7 @@ impl MemoryManager {
 
     pub unsafe fn copy_to_buffer_memory<T>(&mut self, logical_device: &ash::Device, buffer: vk::Buffer, data: &[T]) {
         let memory = self.get_device_memory(buffer);
-        _copy_to_device_memory(logical_device, data, memory);
+        _copy_to_buffer_memory(logical_device, data, memory);
     }
 
     pub unsafe fn destroy_buffer(&mut self, logical_device: &ash::Device, buffer: vk::Buffer) {
@@ -165,7 +170,7 @@ fn create_device_local_buffer_sync<T>(
     );
 
     unsafe {
-        _copy_to_device_memory(device, data, staging_buffer_memory);
+        _copy_to_buffer_memory(device, data, staging_buffer_memory);
     }
 
     let (device_local_buffer, device_local_buffer_memory) = _create_buffer(
@@ -260,7 +265,7 @@ fn find_memory_type(
     panic!("Failed to find suitable memory type!")
 }
 
-unsafe fn _copy_to_device_memory<T>(device: &ash::Device, data: &[T], dst_memory: vk::DeviceMemory) {
+unsafe fn _copy_to_buffer_memory<T>(device: &ash::Device, data: &[T], dst_memory: vk::DeviceMemory) {
     let buffer_size = std::mem::size_of_val(data) as vk::DeviceSize;
 
     // TODO the size should be checked here. Need to track the capcity of the memory.
@@ -295,44 +300,25 @@ fn _copy_buffer_device_blocking(
             .allocate_command_buffers(&allocate_info)
             .expect("Failed to allocate Command Buffer")
     };
-    let command_buffer = command_buffers[0];
 
-    let begin_info = vk::CommandBufferBeginInfo {
-        s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
-        p_next: ptr::null(),
-        flags: vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT,
-        p_inheritance_info: ptr::null(),
-    };
+    let begin_info = vk::CommandBufferBeginInfo::builder()
+        .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
+        .build();
 
     unsafe {
         device
-            .begin_command_buffer(command_buffer, &begin_info)
+            .begin_command_buffer(command_buffers[0], &begin_info)
             .expect("Failed to begin Command Buffer");
 
-        let copy_regions = [vk::BufferCopy {
-            src_offset: 0,
-            dst_offset: 0,
-            size,
-        }];
-
-        device.cmd_copy_buffer(command_buffer, src_buffer, dst_buffer, &copy_regions);
+        let copy_regions = [vk::BufferCopy::builder().src_offset(0).dst_offset(0).size(size).build()];
+        device.cmd_copy_buffer(command_buffers[0], src_buffer, dst_buffer, &copy_regions);
 
         device
-            .end_command_buffer(command_buffer)
+            .end_command_buffer(command_buffers[0])
             .expect("Failed to end Command Buffer");
     }
 
-    let submit_info = [vk::SubmitInfo {
-        s_type: vk::StructureType::SUBMIT_INFO,
-        p_next: ptr::null(),
-        wait_semaphore_count: 0,
-        p_wait_semaphores: ptr::null(),
-        p_wait_dst_stage_mask: ptr::null(),
-        command_buffer_count: 1,
-        p_command_buffers: &command_buffer,
-        signal_semaphore_count: 0,
-        p_signal_semaphores: ptr::null(),
-    }];
+    let submit_info = [vk::SubmitInfo::builder().command_buffers(&command_buffers).build()];
 
     unsafe {
         device

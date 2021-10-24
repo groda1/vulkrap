@@ -51,7 +51,7 @@ impl Terrain {
     }
 
     pub fn draw(&self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
-        draw_command_buffer.push(PipelineDrawCommand::new(
+        draw_command_buffer.push(PipelineDrawCommand::new_buffered(
             self.pipeline,
             ptr::null(),
             self.chunk.vertex_buffer,

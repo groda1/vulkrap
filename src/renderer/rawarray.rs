@@ -1,26 +1,26 @@
 use std::alloc::{alloc, dealloc, Layout};
 
-pub type PushConstantPtr = *const u8;
+pub type RawArrayPtr = *const u8;
 
-type PushConstantInternal = *mut u8;
+type RawArrayInternalPtr = *mut u8;
 
-pub struct PushConstantBuffer {
-    buf_ptr: Option<PushConstantInternal>,
-    len: usize,
+pub struct RawArray {
+    buf_ptr: Option<RawArrayInternalPtr>,
+    capacity: usize,
 
     data_size: usize,
     write_index: usize,
 }
 
-impl PushConstantBuffer {
-    pub fn new<T>(capacity: usize) -> PushConstantBuffer {
+impl RawArray {
+    pub fn new<T>(capacity: usize) -> RawArray {
         let size = std::mem::size_of::<T>();
 
         let buf = if capacity > 0 {
             let buf_ptr = unsafe {
                 let layout = Layout::from_size_align_unchecked(capacity * size, 1);
 
-                alloc(layout) as PushConstantInternal
+                alloc(layout) as RawArrayInternalPtr
             };
 
             if buf_ptr.is_null() {
@@ -31,16 +31,17 @@ impl PushConstantBuffer {
             Option::None
         };
 
-        PushConstantBuffer {
+        RawArray {
             buf_ptr: buf,
-            len: capacity,
+            capacity,
             data_size: size,
             write_index: 0,
         }
     }
 
-    pub fn push<T>(&mut self, data: T) -> PushConstantPtr {
-        debug_assert!(self.write_index < self.len);
+    pub fn push<T>(&mut self, data: T) -> RawArrayPtr {
+        debug_assert!(self.write_index < self.capacity);
+        // TODO grow on overflow?
 
         unsafe {
             let ptr = self.buf_ptr.unwrap().add(self.write_index * self.data_size);
@@ -52,8 +53,17 @@ impl PushConstantBuffer {
         }
     }
 
+    pub fn start(&self) -> RawArrayPtr {
+        debug_assert!(self.buf_ptr.is_some());
+        self.buf_ptr.unwrap()
+    }
+
     pub fn data_size(&self) -> usize {
         self.data_size
+    }
+
+    pub fn len(&self) -> usize {
+        self.write_index
     }
 
     pub fn reset(&mut self) {
@@ -61,13 +71,13 @@ impl PushConstantBuffer {
     }
 }
 
-impl Drop for PushConstantBuffer {
+impl Drop for RawArray {
     fn drop(&mut self) {
         if self.buf_ptr.is_some() {
             unsafe {
                 dealloc(
                     self.buf_ptr.unwrap() as *mut u8,
-                    Layout::from_size_align_unchecked(self.len * self.data_size, 1),
+                    Layout::from_size_align_unchecked(self.capacity * self.data_size, 1),
                 )
             };
         }

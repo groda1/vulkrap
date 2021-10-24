@@ -25,7 +25,7 @@ use super::swapchain;
 use super::vulkan_util;
 use crate::renderer::buffer::{DynamicBufferHandle, DynamicBufferManager};
 use crate::renderer::pipeline::VertexData::Raw;
-use crate::renderer::pushconstants::PushConstantBuffer;
+use crate::renderer::rawarray::RawArray;
 use crate::renderer::stats::RenderStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
 use crate::renderer::uniform::{Uniform, UniformStage};
@@ -235,10 +235,25 @@ impl Context {
         }
 
         // Transfer data
-        {
-            let is_baked = self.bake_transfer_command_buffer(render_job, image_index_usize, &mut stats);
-            if is_baked {
-                // Submit
+        let transfer_command_buffer = self.transfer_command_buffers[image_index_usize];
+        // Bake command buffer
+        let transfer_required =
+            self.bake_transfer_command_buffer(transfer_command_buffer, render_job, image_index_usize, &mut stats);
+
+        // All the data has been copied to a staging buffer by now so reset the buffers for the next frame.
+        self.dynamic_vertex_buffer_manager.reset_buffers();
+        if transfer_required {
+            // Submit
+            let transfer_command_buffers = [transfer_command_buffer];
+            let transfer_signal_semaphores = [self.sync_handler.transfer_finished_semaphore()];
+            let transfer_submit_infos = [vk::SubmitInfo::builder()
+                .command_buffers(&transfer_command_buffers)
+                .signal_semaphores(&transfer_signal_semaphores)
+                .build()];
+            unsafe {
+                self.logical_device
+                    .queue_submit(self.graphics_queue, &transfer_submit_infos, vk::Fence::null())
+                    .expect("Failed to execute queue submit.");
             }
         }
 
@@ -254,24 +269,36 @@ impl Context {
 
         self.update_uniforms(image_index_usize);
         self.reset_push_constant_buffers();
-        let command_buffers = [draw_command_buffer];
+        let draw_command_buffers = [draw_command_buffer];
 
-        let wait_semaphores = [self.sync_handler.image_available_semaphore()];
-        let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-        let signal_semaphores = [self.sync_handler.render_finished_semaphore()];
+        if !transfer_required {
+            // TODO we need so signal semaphore maunally
+            unimplemented!();
+        }
+        let draw_wait_semaphores = [
+            self.sync_handler.transfer_finished_semaphore(),
+            self.sync_handler.image_available_semaphore(),
+        ];
 
-        let submit_infos = [vk::SubmitInfo::builder()
-            .wait_semaphores(&wait_semaphores)
-            .wait_dst_stage_mask(&wait_stages)
-            .command_buffers(&command_buffers)
-            .signal_semaphores(&signal_semaphores)
+        let draw_wait_stages = [
+            vk::PipelineStageFlags::VERTEX_INPUT,
+            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+        ];
+
+        let draw_signal_semaphores = [self.sync_handler.render_finished_semaphore()];
+
+        let draw_submit_infos = [vk::SubmitInfo::builder()
+            .wait_semaphores(&draw_wait_semaphores)
+            .wait_dst_stage_mask(&draw_wait_stages)
+            .command_buffers(&draw_command_buffers)
+            .signal_semaphores(&draw_signal_semaphores)
             .build()];
 
         unsafe {
             self.logical_device
                 .queue_submit(
                     self.graphics_queue,
-                    &submit_infos,
+                    &draw_submit_infos,
                     self.sync_handler.inflight_fence(image_index),
                 )
                 .expect("Failed to execute queue submit.");
@@ -282,7 +309,7 @@ impl Context {
         let image_index_array = [image_index];
 
         let present_info = vk::PresentInfoKHR::builder()
-            .wait_semaphores(&signal_semaphores)
+            .wait_semaphores(&draw_signal_semaphores)
             .swapchains(&swapchains)
             .image_indices(&image_index_array)
             .build();
@@ -438,8 +465,8 @@ impl Context {
         pipeline_handle
     }
 
-    pub fn add_dynamic_vertex_buffer(&mut self, capacity: usize) -> DynamicBufferHandle {
-        self.dynamic_vertex_buffer_manager.create_dynamic_buffer(
+    pub fn add_dynamic_vertex_buffer<T>(&mut self, capacity: usize) -> DynamicBufferHandle {
+        self.dynamic_vertex_buffer_manager.create_dynamic_buffer::<T>(
             &self.logical_device,
             &mut self.memory_manager,
             capacity,
@@ -572,12 +599,12 @@ impl Context {
 
     fn bake_transfer_command_buffer(
         &mut self,
+        transfer_command_buffer: vk::CommandBuffer,
         render_job: &[PipelineDrawCommand],
         image_index: usize,
         render_stats: &mut RenderStats,
     ) -> bool {
         let start_time = Instant::now();
-        let transfer_command_buffer = self.transfer_command_buffers[image_index];
 
         let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
             .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
@@ -586,12 +613,12 @@ impl Context {
         let mut transfer_needed = false;
         for draw_command in render_job {
             if let Raw(vertex_data) = draw_command.vertex_data() {
-                let dynamic_buffer = self.dynamic_vertex_buffer_manager.get(vertex_data.buf);
-
+                // Copy vertex data to the staging buffer
+                let dynamic_buffer = self.dynamic_vertex_buffer_manager.borrow_mut_buffer(vertex_data.buf);
                 let staging_buffer = dynamic_buffer.staging(image_index);
 
                 unsafe {
-                    let data_slice = from_raw_parts(vertex_data.data_ptr, vertex_data.data_size);
+                    let data_slice = from_raw_parts(vertex_data.data_ptr, vertex_data.data_len);
                     self.memory_manager
                         .copy_to_buffer_memory(&self.logical_device, staging_buffer, data_slice);
                 }
@@ -610,6 +637,28 @@ impl Context {
             self.logical_device
                 .begin_command_buffer(transfer_command_buffer, &command_buffer_begin_info)
                 .expect("Failed to begin recording of Transfer command buffer!");
+
+            for draw_command in render_job {
+                if let Raw(vertex_data) = draw_command.vertex_data() {
+                    let dynamic_buffer = self.dynamic_vertex_buffer_manager.borrow_mut_buffer(vertex_data.buf);
+
+                    let staging_buffer = dynamic_buffer.staging(image_index);
+                    let device_buffer = dynamic_buffer.device(image_index);
+
+                    let copy_regions = [vk::BufferCopy::builder()
+                        .src_offset(0)
+                        .dst_offset(0)
+                        .size(vertex_data.data_len as vk::DeviceSize)
+                        .build()];
+
+                    self.logical_device.cmd_copy_buffer(
+                        transfer_command_buffer,
+                        staging_buffer,
+                        device_buffer,
+                        &copy_regions,
+                    );
+                }
+            }
             self.logical_device
                 .end_command_buffer(transfer_command_buffer)
                 .expect("Failed to end recording of Transfer command buffer!");
@@ -675,6 +724,7 @@ impl Context {
             for draw_command in render_job {
                 let stats = self.pipelines[draw_command.pipeline].bake_command_buffer(
                     &self.logical_device,
+                    &self.dynamic_vertex_buffer_manager,
                     command_buffer,
                     draw_command,
                     image_index,
@@ -713,7 +763,7 @@ impl Context {
 
 pub trait PushConstantBufHandler {
     fn reset_push_constant_buffers(&mut self);
-    fn borrow_mut_push_constant_buf(&mut self, pipeline: PipelineHandle) -> &mut PushConstantBuffer;
+    fn borrow_mut_push_constant_buf(&mut self, pipeline: PipelineHandle) -> &mut RawArray;
 }
 
 impl PushConstantBufHandler for Context {
@@ -722,9 +772,21 @@ impl PushConstantBufHandler for Context {
             pipeline.reset_push_contant_buffer();
         }
     }
-    fn borrow_mut_push_constant_buf(&mut self, pipeline: PipelineHandle) -> &mut PushConstantBuffer {
+    fn borrow_mut_push_constant_buf(&mut self, pipeline: PipelineHandle) -> &mut RawArray {
         debug_assert!(self.pipelines.len() > pipeline);
         self.pipelines[pipeline].borrow_mut_push_constant_buf()
+    }
+}
+
+pub trait DynamicBufferHandler {
+    fn borrow_mut_raw_array(&mut self, dynamic_buffer: DynamicBufferHandle) -> &mut RawArray;
+}
+
+impl DynamicBufferHandler for Context {
+    fn borrow_mut_raw_array(&mut self, dynamic_buffer: DynamicBufferHandle) -> &mut RawArray {
+        self.dynamic_vertex_buffer_manager
+            .borrow_mut_buffer(dynamic_buffer)
+            .borrow_mut_rawarray()
     }
 }
 
