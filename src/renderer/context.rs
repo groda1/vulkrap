@@ -761,21 +761,14 @@ impl Context {
         }
         self.is_framebuffer_resized = true;
     }
-}
 
-pub trait DynamicBufferHandler {
-    fn borrow_mut_raw_array(&mut self, dynamic_buffer: DynamicBufferHandle) -> &mut RawArray;
-    fn borrow_raw_array(&self, dynamic_buffer: DynamicBufferHandle) -> &RawArray;
-}
-
-impl DynamicBufferHandler for Context {
-    fn borrow_mut_raw_array(&mut self, dynamic_buffer: DynamicBufferHandle) -> &mut RawArray {
+    pub fn borrow_mut_raw_array(&mut self, dynamic_buffer: DynamicBufferHandle) -> &mut RawArray {
         self.dynamic_vertex_buffer_manager
             .borrow_mut_buffer(dynamic_buffer)
             .borrow_mut_rawarray()
     }
 
-    fn borrow_raw_array(&self, dynamic_buffer: DynamicBufferHandle) -> &RawArray {
+    pub fn borrow_raw_array(&self, dynamic_buffer: DynamicBufferHandle) -> &RawArray {
         self.dynamic_vertex_buffer_manager
             .borrow_buffer(dynamic_buffer)
             .borrow_rawarray()

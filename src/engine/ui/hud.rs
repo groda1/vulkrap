@@ -8,7 +8,7 @@ use crate::engine::datatypes::{TexturedColoredVertex2D, ViewProjectionUniform, W
 use crate::engine::image;
 use crate::engine::ui::widgets::{ConsoleRenderer, RenderStatsRenderer, TopBar};
 
-use crate::renderer::context::{Context, DynamicBufferHandler, UniformHandle};
+use crate::renderer::context::{Context, UniformHandle};
 use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand};
 
 use crate::renderer::uniform::UniformStage;
@@ -75,22 +75,22 @@ impl HUD {
 
     pub fn draw(
         &mut self,
-        dynamic_buffer_handler: &mut dyn DynamicBufferHandler,
+        context: &mut Context,
         draw_command_buffer: &mut Vec<PipelineDrawCommand>,
         console: &Console,
     ) {
         if self.top_bar_renderer.is_active() {
-            self.top_bar_renderer.draw(dynamic_buffer_handler, draw_command_buffer);
+            self.top_bar_renderer.draw(context, draw_command_buffer);
         }
 
         if self.render_stats_renderer.is_active() {
             self.render_stats_renderer
-                .draw(dynamic_buffer_handler, draw_command_buffer);
+                .draw(context, draw_command_buffer);
         }
 
         if console.is_visible() {
             self.console_renderer
-                .draw(dynamic_buffer_handler, draw_command_buffer, console);
+                .draw(context, draw_command_buffer, console);
         }
     }
 

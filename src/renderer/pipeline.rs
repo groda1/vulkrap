@@ -9,9 +9,9 @@ use ash::vk::{
 };
 
 use crate::renderer::buffer::{DynamicBufferHandle, DynamicBufferManager};
-use crate::renderer::context::{DynamicBufferHandler, PipelineHandle, UniformHandle};
+use crate::renderer::context::{Context, PipelineHandle, UniformHandle};
 use crate::renderer::pipeline::VertexData::{Buffered, Raw};
-use crate::renderer::rawarray::RawArrayPtr;
+use crate::renderer::rawarray::{RawArray, RawArrayPtr};
 use crate::renderer::stats::DrawCommandStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
 use crate::renderer::uniform::UniformStage;
@@ -599,12 +599,12 @@ impl PipelineDrawCommand {
     }
 
     pub fn new_raw(
-        dynamic_buffer_handler: &dyn DynamicBufferHandler,
+        context: &Context,
         pipeline: PipelineHandle,
         push_constant_ptr: RawArrayPtr,
         dynamic_buffer_handle: DynamicBufferHandle,
     ) -> PipelineDrawCommand {
-        let raw_array = dynamic_buffer_handler.borrow_raw_array(dynamic_buffer_handle);
+        let raw_array = context.borrow_raw_array(dynamic_buffer_handle);
         PipelineDrawCommand {
             pipeline,
             push_constant_ptr,

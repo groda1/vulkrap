@@ -9,7 +9,7 @@ use crate::engine::ui::draw::{draw_quad_ng, draw_text_ng, draw_text_shadowed_ng}
 use crate::log::logger;
 use crate::log::logger::MessageLevel;
 use crate::renderer::buffer::DynamicBufferHandle;
-use crate::renderer::context::{Context, DynamicBufferHandler, PipelineHandle};
+use crate::renderer::context::{Context, PipelineHandle};
 use crate::renderer::pipeline::PipelineDrawCommand;
 use crate::renderer::rawarray::RawArray;
 use crate::ENGINE_VERSION;
@@ -59,20 +59,20 @@ impl ConsoleRenderer {
 
     pub fn draw(
         &mut self,
-        dynamic_buffer_handler: &mut dyn DynamicBufferHandler,
+        context: &mut Context,
         draw_command_buffer: &mut Vec<PipelineDrawCommand>,
         console: &Console,
     ) {
-        self._draw_console(dynamic_buffer_handler, console);
+        self._draw_console(context, console);
 
         let draw_command_console = PipelineDrawCommand::new_raw(
-            dynamic_buffer_handler,
+            context,
             self.main_pipeline,
             ptr::null(),
             self.simple_dynamic_vertex_buffer,
         );
         let draw_command_text = PipelineDrawCommand::new_raw(
-            dynamic_buffer_handler,
+            context,
             self.text_pipeline,
             ptr::null(),
             self.text_dynamic_vertex_buffer,
@@ -82,7 +82,7 @@ impl ConsoleRenderer {
         draw_command_buffer.push(draw_command_text);
     }
 
-    fn _draw_console(&mut self, dynamic_buffer_handler: &mut dyn DynamicBufferHandler, console: &Console) {
+    fn _draw_console(&mut self, context: &mut Context, console: &Console) {
         if !console.is_visible() {
             return;
         }
@@ -91,7 +91,7 @@ impl ConsoleRenderer {
         let offset = (console.get_current_y_offset() * height as f32) as u32;
 
         draw_quad_ng(
-            dynamic_buffer_handler.borrow_mut_raw_array(self.simple_dynamic_vertex_buffer),
+            context.borrow_mut_raw_array(self.simple_dynamic_vertex_buffer),
             Vector2::new(0, self.extent.height - height + offset),
             Vector2::new(self.extent.width, height),
             //Vector4::new(0.02, 0.02, 0.02, 0.95),
@@ -99,7 +99,7 @@ impl ConsoleRenderer {
         );
 
         draw_text_ng(
-            dynamic_buffer_handler.borrow_mut_raw_array(self.text_dynamic_vertex_buffer),
+            context.borrow_mut_raw_array(self.text_dynamic_vertex_buffer),
             &*format!("> {}", console.get_current_input()),
             Vector2::new(BORDER_OFFSET, self.extent.height - height + offset + BORDER_OFFSET),
             TEXT_SIZE_PX,
@@ -108,7 +108,7 @@ impl ConsoleRenderer {
 
         if console.is_caret_visible() && console.is_active() {
             draw_quad_ng(
-                dynamic_buffer_handler.borrow_mut_raw_array(self.simple_dynamic_vertex_buffer),
+                context.borrow_mut_raw_array(self.simple_dynamic_vertex_buffer),
                 Vector2::new(
                     BORDER_OFFSET + console.get_input_index() * TEXT_SIZE_PX + (2 * TEXT_SIZE_PX),
                     self.extent.height - height + offset + BORDER_OFFSET,
@@ -119,7 +119,7 @@ impl ConsoleRenderer {
         }
 
         self._draw_console_history(
-            dynamic_buffer_handler.borrow_mut_raw_array(self.text_dynamic_vertex_buffer),
+            context.borrow_mut_raw_array(self.text_dynamic_vertex_buffer),
             console,
             height,
             offset,
@@ -225,13 +225,13 @@ impl RenderStatsRenderer {
 
     pub fn draw(
         &mut self,
-        dynamic_buffer_handler: &mut dyn DynamicBufferHandler,
+        context: &mut Context,
         draw_command_buffer: &mut Vec<PipelineDrawCommand>,
     ) {
-        self._draw_render_stats(dynamic_buffer_handler.borrow_mut_raw_array(self.text_dynamic_vertex_buffer));
+        self._draw_render_stats(context.borrow_mut_raw_array(self.text_dynamic_vertex_buffer));
 
         let draw_command_text = PipelineDrawCommand::new_raw(
-            dynamic_buffer_handler,
+            context,
             self.text_pipeline,
             ptr::null(),
             self.text_dynamic_vertex_buffer,
@@ -329,11 +329,11 @@ impl TopBar {
 
     pub fn draw(
         &mut self,
-        dynamic_buffer_handler: &mut dyn DynamicBufferHandler,
+        context: &mut Context,
         draw_command_buffer: &mut Vec<PipelineDrawCommand>,
     ) {
         draw_text_shadowed_ng(
-            dynamic_buffer_handler.borrow_mut_raw_array(self.text_dynamic_vertex_buffer),
+            context.borrow_mut_raw_array(self.text_dynamic_vertex_buffer),
             &*format!("VULKRAP {}.{}.{}", ENGINE_VERSION.0, ENGINE_VERSION.1, ENGINE_VERSION.2),
             Vector2::new(self.extent.width - 218, self.extent.height - 24),
             16,
@@ -342,7 +342,7 @@ impl TopBar {
         );
 
         draw_command_buffer.push(PipelineDrawCommand::new_raw(
-            dynamic_buffer_handler,
+            context,
             self.text_pipeline,
             ptr::null(),
             self.text_dynamic_vertex_buffer,
