@@ -269,7 +269,6 @@ unsafe fn _copy_to_buffer_memory<T>(device: &ash::Device, data: &[T], dst_memory
     let buffer_size = std::mem::size_of_val(data) as vk::DeviceSize;
 
     // TODO the size should be checked here. Need to track the capcity of the memory.
-
     let data_ptr = device
         .map_memory(dst_memory, 0, buffer_size, vk::MemoryMapFlags::empty())
         .expect("Failed to Map Memory") as *mut T;

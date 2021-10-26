@@ -23,8 +23,8 @@ use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
-use crate::renderer::buffer::{DynamicBufferHandle, DynamicBufferManager};
-use crate::renderer::pipeline::VertexData::Raw;
+use crate::renderer::buffer::{BufferObjectHandle, BufferObjectManager, BufferObjectType};
+use crate::renderer::pipeline::VertexData::Immediate;
 use crate::renderer::rawarray::RawArray;
 use crate::renderer::stats::RenderStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
@@ -76,7 +76,7 @@ pub struct Context {
     texture_manager: TextureManager,
 
     memory_manager: MemoryManager,
-    dynamic_vertex_buffer_manager: DynamicBufferManager,
+    buffer_object_manager: BufferObjectManager,
     descriptor_pool: vk::DescriptorPool,
 
     command_pool: vk::CommandPool,
@@ -99,12 +99,14 @@ impl Context {
         debug::log_available_extension_properties(&entry);
         debug::log_validation_layer_support(&entry);
 
-
-        #[cfg(debug_assertions)] let mut layers = Vec::new();
-        #[cfg(debug_assertions)] if _check_instance_layer_support(&entry, constants::VALIDATION_LAYER_NAME) {
+        #[cfg(debug_assertions)]
+        let mut layers = Vec::new();
+        #[cfg(debug_assertions)]
+        if _check_instance_layer_support(&entry, constants::VALIDATION_LAYER_NAME) {
             layers.push(constants::VALIDATION_LAYER_NAME);
         }
-        #[cfg(not(debug_assertions))] let layers: Vec<&str> = Vec::new();
+        #[cfg(not(debug_assertions))]
+        let layers: Vec<&str> = Vec::new();
 
         let instance = _create_instance(&entry, &layers, window);
         let (debug_utils_loader, debug_utils_messenger) = debug::setup_debug_utils(&entry, &instance);
@@ -195,7 +197,7 @@ impl Context {
             uniforms: Vec::new(),
             texture_manager: TextureManager::new(),
             memory_manager,
-            dynamic_vertex_buffer_manager: DynamicBufferManager::new(image_count),
+            buffer_object_manager: BufferObjectManager::new(image_count),
             descriptor_pool,
             command_pool,
             draw_command_buffers,
@@ -249,7 +251,7 @@ impl Context {
             self.bake_transfer_command_buffer(transfer_command_buffer, render_job, image_index_usize, &mut stats);
 
         // All the data has been copied to a staging buffer by now so reset the buffers for the next frame.
-        self.dynamic_vertex_buffer_manager.reset_buffers();
+        self.buffer_object_manager.reset_buffers();
         if transfer_required {
             // Submit
             let transfer_command_buffers = [transfer_command_buffer];
@@ -370,6 +372,26 @@ impl Context {
         handle
     }
 
+    pub fn create_uniform_buffer<T>(&mut self, stage: UniformStage) -> BufferObjectHandle {
+        self.buffer_object_manager.create_buffer::<T>(
+            &self.logical_device,
+            &mut self.memory_manager,
+            1,
+            BufferObjectType::Uniform(stage),
+            false,
+        )
+    }
+
+    pub fn create_vertex_buffer<T>(&mut self) -> BufferObjectHandle {
+        self.buffer_object_manager.create_buffer::<T>(
+            &self.logical_device,
+            &mut self.memory_manager,
+            DYNAMIC_BUFFER_INITIAL_CAPACITY,
+            BufferObjectType::Vertex,
+            true,
+        )
+    }
+
     pub fn set_uniform_data<T>(&mut self, handle: UniformHandle, data: T) {
         self.uniforms[handle].set_data(data);
     }
@@ -472,14 +494,6 @@ impl Context {
         pipeline_handle
     }
 
-    pub fn add_dynamic_vertex_buffer<T>(&mut self) -> DynamicBufferHandle {
-        self.dynamic_vertex_buffer_manager.create_dynamic_buffer::<T>(
-            &self.logical_device,
-            &mut self.memory_manager,
-            DYNAMIC_BUFFER_INITIAL_CAPACITY,
-        )
-    }
-
     pub unsafe fn wait_idle(&self) {
         self.logical_device
             .device_wait_idle()
@@ -523,7 +537,7 @@ impl Context {
             self.logical_device.destroy_descriptor_pool(self.descriptor_pool, None);
 
             // Dynamic vertex buffers
-            self.dynamic_vertex_buffer_manager
+            self.buffer_object_manager
                 .destroy(&self.logical_device, &mut self.memory_manager);
         }
     }
@@ -600,7 +614,7 @@ impl Context {
             );
         }
 
-        self.dynamic_vertex_buffer_manager
+        self.buffer_object_manager
             .rebuild(&self.logical_device, &mut self.memory_manager, image_count);
     }
 
@@ -619,9 +633,9 @@ impl Context {
 
         let mut transfer_needed = false;
         for draw_command in render_job {
-            if let Raw(vertex_data) = draw_command.vertex_data() {
+            if let Immediate(vertex_data) = draw_command.vertex_data() {
                 // Copy vertex data to the staging buffer
-                let dynamic_buffer = self.dynamic_vertex_buffer_manager.borrow_buffer(vertex_data.buf);
+                let dynamic_buffer = self.buffer_object_manager.borrow_buffer(vertex_data.buf);
                 let staging_buffer = dynamic_buffer.staging(image_index);
 
                 unsafe {
@@ -646,8 +660,8 @@ impl Context {
                 .expect("Failed to begin recording of Transfer command buffer!");
 
             for draw_command in render_job {
-                if let Raw(vertex_data) = draw_command.vertex_data() {
-                    let dynamic_buffer = self.dynamic_vertex_buffer_manager.borrow_buffer(vertex_data.buf);
+                if let Immediate(vertex_data) = draw_command.vertex_data() {
+                    let dynamic_buffer = self.buffer_object_manager.borrow_buffer(vertex_data.buf);
 
                     let staging_buffer = dynamic_buffer.staging(image_index);
                     let device_buffer = dynamic_buffer.device(image_index);
@@ -731,7 +745,7 @@ impl Context {
             for draw_command in render_job {
                 let stats = self.pipelines[draw_command.pipeline].bake_command_buffer(
                     &self.logical_device,
-                    &self.dynamic_vertex_buffer_manager,
+                    &self.buffer_object_manager,
                     command_buffer,
                     draw_command,
                     image_index,
@@ -767,11 +781,11 @@ impl Context {
         self.is_framebuffer_resized = true;
     }
 
-    pub fn push_to_dynamic_buf<T>(&mut self, dynamic_buffer: DynamicBufferHandle, data: T) {
-        let result = self.dynamic_vertex_buffer_manager.push_to_buf(dynamic_buffer, data);
+    pub fn push_to_dynamic_buf<T>(&mut self, dynamic_buffer: BufferObjectHandle, data: T) {
+        let result = self.buffer_object_manager.push_to_buf(dynamic_buffer, data);
 
         if let Err(_) = result {
-            self.dynamic_vertex_buffer_manager.handle_buffer_overflow(
+            self.buffer_object_manager.handle_buffer_overflow(
                 &self.logical_device,
                 &mut self.memory_manager,
                 dynamic_buffer,
@@ -781,8 +795,8 @@ impl Context {
         }
     }
 
-    pub fn borrow_raw_array(&self, dynamic_buffer: DynamicBufferHandle) -> &RawArray {
-        self.dynamic_vertex_buffer_manager
+    pub fn borrow_raw_array(&self, dynamic_buffer: BufferObjectHandle) -> &RawArray {
+        self.buffer_object_manager
             .borrow_buffer(dynamic_buffer)
             .borrow_rawarray()
     }

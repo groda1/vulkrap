@@ -1,31 +1,35 @@
+use crate::renderer::context::PipelineHandle;
 use crate::renderer::memory::MemoryManager;
 use crate::renderer::rawarray::{PushError, RawArray, RawArrayPtr};
+use crate::renderer::uniform::UniformStage;
 use ash::vk;
 
-pub type DynamicBufferHandle = usize;
+pub type BufferObjectHandle = usize;
 
-pub(super) struct DynamicBufferManager {
+pub(super) struct BufferObjectManager {
     image_count: usize,
-    dynamic_buffers: Vec<DynamicBuffer>,
+    dynamic_buffers: Vec<BufferObject>,
 }
 
-impl DynamicBufferManager {
-    pub fn new(image_count: usize) -> DynamicBufferManager {
-        DynamicBufferManager {
+impl BufferObjectManager {
+    pub fn new(image_count: usize) -> BufferObjectManager {
+        BufferObjectManager {
             image_count,
             dynamic_buffers: Vec::new(),
         }
     }
 
-    pub fn create_dynamic_buffer<T>(
+    pub fn create_buffer<T>(
         &mut self,
         device: &ash::Device,
         memory_manager: &mut MemoryManager,
         capacity: usize,
-    ) -> DynamicBufferHandle {
+        buffer_object_type: BufferObjectType,
+        is_growable: bool,
+    ) -> BufferObjectHandle {
         let handle = self.dynamic_buffers.len();
 
-        let mut dynamic_buffer = DynamicBuffer::new::<T>(capacity, self.image_count);
+        let mut dynamic_buffer = BufferObject::new::<T>(capacity, self.image_count, buffer_object_type, is_growable);
         dynamic_buffer.build(device, memory_manager, self.image_count);
 
         self.dynamic_buffers.push(dynamic_buffer);
@@ -33,12 +37,12 @@ impl DynamicBufferManager {
         handle
     }
 
-    pub fn push_to_buf<T>(&mut self, handle: DynamicBufferHandle, data: T) -> Result<RawArrayPtr, PushError> {
+    pub fn push_to_buf<T>(&mut self, handle: BufferObjectHandle, data: T) -> Result<RawArrayPtr, PushError> {
         debug_assert!(self.dynamic_buffers.len() > handle);
         self.dynamic_buffers[handle].raw_array.push(data)
     }
 
-    pub fn borrow_buffer(&self, handle: DynamicBufferHandle) -> &DynamicBuffer {
+    pub fn borrow_buffer(&self, handle: BufferObjectHandle) -> &BufferObject {
         debug_assert!(self.dynamic_buffers.len() > handle);
         &self.dynamic_buffers[handle]
     }
@@ -64,7 +68,7 @@ impl DynamicBufferManager {
         &mut self,
         device: &ash::Device,
         memory_manager: &mut MemoryManager,
-        handle: DynamicBufferHandle,
+        handle: BufferObjectHandle,
         image_count: usize,
     ) {
         debug_assert!(self.dynamic_buffers.len() > handle);
@@ -81,25 +85,43 @@ impl DynamicBufferManager {
     }
 }
 
-pub(super) struct DynamicBuffer {
+pub(super) enum BufferObjectType {
+    Uniform(UniformStage),
+    Storage,
+    Vertex,
+}
+
+pub(super) struct BufferObject {
+    buffer_object_type: BufferObjectType,
     capacity_bytes: usize,
     staging_buffer: Vec<vk::Buffer>,
     device_buffer: Vec<vk::Buffer>,
     raw_array: RawArray,
+
+    assigned_pipelines: Vec<PipelineHandle>,
+    is_growable: bool,
 }
 
-impl DynamicBuffer {
-    pub fn new<T>(capacity: usize, image_count: usize) -> Self {
+impl BufferObject {
+    pub fn new<T>(
+        capacity: usize,
+        image_count: usize,
+        buffer_object_type: BufferObjectType,
+        is_growable: bool,
+    ) -> Self {
         let staging_buffer = Vec::with_capacity(image_count);
         let device_buffer = Vec::with_capacity(image_count);
 
         let capacity_bytes = capacity * std::mem::size_of::<T>();
 
-        DynamicBuffer {
+        BufferObject {
+            buffer_object_type,
             capacity_bytes,
             staging_buffer,
             device_buffer,
             raw_array: RawArray::new::<T>(capacity).unwrap(),
+            assigned_pipelines: Vec::new(),
+            is_growable,
         }
     }
 

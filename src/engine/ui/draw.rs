@@ -1,12 +1,12 @@
 use crate::engine::datatypes::TexturedColoredVertex2D;
 
-use crate::renderer::buffer::DynamicBufferHandle;
+use crate::renderer::buffer::BufferObjectHandle;
 use crate::renderer::context::Context;
 use cgmath::{Vector2, Vector4, Zero};
 
 pub fn draw_quad(
     context: &mut Context,
-    handle: DynamicBufferHandle,
+    handle: BufferObjectHandle,
     position: Vector2<u32>,
     extent: Vector2<u32>,
     color: Vector4<f32>,
@@ -63,7 +63,7 @@ pub fn draw_quad(
 
 pub fn draw_text(
     context: &mut Context,
-    handle: DynamicBufferHandle,
+    handle: BufferObjectHandle,
     text: &str,
     position: Vector2<u32>,
     char_size_px: u32,
@@ -77,7 +77,7 @@ pub fn draw_text(
 
 pub fn draw_text_shadowed(
     context: &mut Context,
-    handle: DynamicBufferHandle,
+    handle: BufferObjectHandle,
     text: &str,
     position: Vector2<u32>,
     text_size_px: u32,
@@ -97,7 +97,7 @@ pub fn draw_text_shadowed(
 
 pub fn draw_character(
     context: &mut Context,
-    handle: DynamicBufferHandle,
+    handle: BufferObjectHandle,
     position: Vector2<f32>,
     color: Vector4<f32>,
     char_size: f32,

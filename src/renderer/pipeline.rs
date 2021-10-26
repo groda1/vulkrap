@@ -8,9 +8,9 @@ use ash::vk::{
     VertexInputBindingDescription,
 };
 
-use crate::renderer::buffer::{DynamicBufferHandle, DynamicBufferManager};
+use crate::renderer::buffer::{BufferObjectHandle, BufferObjectManager};
 use crate::renderer::context::{Context, PipelineHandle, UniformHandle};
-use crate::renderer::pipeline::VertexData::{Buffered, Raw};
+use crate::renderer::pipeline::VertexData::{Buffered, Immediate};
 use crate::renderer::rawarray::RawArrayPtr;
 use crate::renderer::stats::DrawCommandStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
@@ -324,7 +324,7 @@ impl PipelineContainer {
     pub unsafe fn bake_command_buffer(
         &self,
         logical_device: &ash::Device,
-        dynamic_buffer_manager: &DynamicBufferManager,
+        dynamic_buffer_manager: &BufferObjectManager,
         draw_command_buffer: vk::CommandBuffer,
         draw_command: &PipelineDrawCommand,
         image_index: usize,
@@ -365,7 +365,7 @@ impl PipelineContainer {
                 vk::IndexType::UINT32,
             );
             logical_device.cmd_draw_indexed(draw_command_buffer, buffer_data.index_count, 1, 0, 0, 0);
-        } else if let Raw(raw_data) = &draw_command.vertex_data {
+        } else if let Immediate(raw_data) = &draw_command.vertex_data {
             let vertex_buffers = [dynamic_buffer_manager.borrow_buffer(raw_data.buf).device(image_index)];
             logical_device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &vertex_buffers, &offsets);
             logical_device.cmd_draw(draw_command_buffer, raw_data.vertex_count, 1, 0, 0);
@@ -598,17 +598,17 @@ impl PipelineDrawCommand {
         }
     }
 
-    pub fn new_raw(
+    pub fn new_immediate(
         context: &Context,
         pipeline: PipelineHandle,
         push_constant_ptr: RawArrayPtr,
-        dynamic_buffer_handle: DynamicBufferHandle,
+        dynamic_buffer_handle: BufferObjectHandle,
     ) -> PipelineDrawCommand {
         let raw_array = context.borrow_raw_array(dynamic_buffer_handle);
         PipelineDrawCommand {
             pipeline,
             push_constant_ptr,
-            vertex_data: Raw(RawVertices::new(
+            vertex_data: Immediate(ImmediateData::new(
                 raw_array.start(),
                 raw_array.len() * raw_array.data_size(),
                 dynamic_buffer_handle,
@@ -624,11 +624,11 @@ impl PipelineDrawCommand {
     pub fn triangle_count(&self, primitive_topology: PrimitiveTopology) -> u32 {
         match primitive_topology {
             PrimitiveTopology::TRIANGLE_LIST => match &self.vertex_data {
-                Raw(raw_data) => raw_data.vertex_count / 3,
+                Immediate(raw_data) => raw_data.vertex_count / 3,
                 Buffered(buffer_data) => buffer_data.index_count / 3,
             },
             PrimitiveTopology::TRIANGLE_STRIP => match &self.vertex_data {
-                Raw(raw_data) => raw_data.vertex_count - 2,
+                Immediate(raw_data) => raw_data.vertex_count - 2,
                 Buffered(buffer_data) => buffer_data.index_count - 2,
             },
             _ => unreachable!(),
@@ -652,16 +652,16 @@ impl BufferData {
     }
 }
 
-pub struct RawVertices {
+pub struct ImmediateData {
     pub data_ptr: *const u8,
     pub data_len: usize,
-    pub buf: DynamicBufferHandle,
+    pub buf: BufferObjectHandle,
     pub vertex_count: u32,
 }
 
-impl RawVertices {
-    pub fn new(data_ptr: *const u8, data_len: usize, buf: DynamicBufferHandle, vertex_count: u32) -> Self {
-        RawVertices {
+impl ImmediateData {
+    pub fn new(data_ptr: *const u8, data_len: usize, buf: BufferObjectHandle, vertex_count: u32) -> Self {
+        ImmediateData {
             data_ptr,
             data_len,
             buf,
@@ -671,7 +671,7 @@ impl RawVertices {
 }
 
 pub enum VertexData {
-    Raw(RawVertices),
+    Immediate(ImmediateData),
     Buffered(BufferData),
 }
 

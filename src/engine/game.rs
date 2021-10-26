@@ -42,6 +42,7 @@ impl VulkrapApplication {
         let camera = Camera::new(&mut context, &config);
 
         let flags_uniform = context.create_uniform::<u32>(UniformStage::Fragment);
+
         context.set_uniform_data(flags_uniform, 0_u32);
 
         let pipeline_config = PipelineConfiguration::builder()
