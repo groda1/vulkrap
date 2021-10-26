@@ -3,11 +3,9 @@
 
 struct instance_data {
     vec2 position;
-    vec2 _pad1;
-    vec4 color;
     int character;
     float size;
-    vec2 _pad2;
+    vec4 color;
 };
 
 layout(binding = 0) uniform UniformBufferObject {
@@ -15,7 +13,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 proj;
 } vp;
 
-layout(binding = 2) buffer StorageBufferObject {
+layout(std430, binding = 2) buffer StorageBufferObject {
     instance_data instances[];
 } text_data;
 
