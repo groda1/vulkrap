@@ -33,8 +33,10 @@ pub(super) struct PipelineContainer {
     // Shader data
     vertex_uniform_cfg: Option<BufferObjectBindingConfiguration>,
     fragment_uniform_cfg: Option<BufferObjectBindingConfiguration>,
+    storage_buffer_cfg: Option<BufferObjectBindingConfiguration>,
     vertex_uniform_buffers: Vec<vk::Buffer>,
     fragment_uniform_buffers: Vec<vk::Buffer>,
+    storage_buffers: Vec<vk::Buffer>,
     sampler_cfgs: Vec<SamplerBindingConfiguration>,
 
     push_constant_buffer_size: Option<usize>,
@@ -58,6 +60,7 @@ impl PipelineContainer {
         fragment_shader_code: Vec<u8>,
         vertex_uniform_cfg: Option<BufferObjectBindingConfiguration>,
         fragment_uniform_cfg: Option<BufferObjectBindingConfiguration>,
+        storage_buffer_cfg: Option<BufferObjectBindingConfiguration>,
         sampler_cfgs: Vec<SamplerBindingConfiguration>,
         vertex_topology: PrimitiveTopology,
         push_constant_buffer_size: Option<usize>,
@@ -70,6 +73,7 @@ impl PipelineContainer {
             logical_device,
             vertex_uniform_cfg.as_ref(),
             fragment_uniform_cfg.as_ref(),
+            storage_buffer_cfg.as_ref(),
             &sampler_cfgs,
         );
 
@@ -85,8 +89,10 @@ impl PipelineContainer {
             fragment_shader,
             vertex_uniform_cfg,
             fragment_uniform_cfg,
+            storage_buffer_cfg,
             vertex_uniform_buffers: Vec::new(),
             fragment_uniform_buffers: Vec::new(),
+            storage_buffers: Vec::new(),
             sampler_cfgs,
             push_constant_buffer_size,
             vertex_topology,
@@ -354,6 +360,7 @@ impl PipelineContainer {
             &descriptor_sets_to_bind,
             &[],
         );
+
         if let Buffered(buffer_data) = &draw_command.vertex_data {
             let vertex_buffers = [buffer_data.vertex_buffer];
             logical_device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &vertex_buffers, &offsets);
@@ -363,7 +370,7 @@ impl PipelineContainer {
                 0,
                 vk::IndexType::UINT32,
             );
-            logical_device.cmd_draw_indexed(draw_command_buffer, buffer_data.index_count, 1, 0, 0, 0);
+            logical_device.cmd_draw_indexed(draw_command_buffer, buffer_data.index_count, buffer_data.instance_count, 0, 0, 0);
         } else if let Immediate(raw_data) = &draw_command.vertex_data {
             let vertex_buffers = [dynamic_buffer_manager.borrow_buffer(raw_data.buf).device(image_index)];
             logical_device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &vertex_buffers, &offsets);
@@ -395,6 +402,13 @@ impl PipelineContainer {
         }
     }
 
+    pub(super) fn set_storage_buffers(&mut self, buffers: &[vk::Buffer]) {
+        self.storage_buffers.clear();
+        for buf in buffers {
+            self.storage_buffers.push(*buf);
+        }
+    }
+
     fn create_descriptor_sets(&mut self, device: &ash::Device, swapchain_images_size: usize) -> Vec<vk::DescriptorSet> {
         let mut layouts: Vec<vk::DescriptorSetLayout> = vec![];
         for _ in 0..swapchain_images_size {
@@ -420,6 +434,7 @@ impl PipelineContainer {
             // This needs to be stored here so they are not deleted before the vulkan call
             let mut vertex_descriptor_buffer_infos = Vec::new();
             let mut fragment_descriptor_buffer_infos = Vec::new();
+            let mut storage_descriptor_buffer_infos = Vec::new();
             let mut descriptor_image_infos = Vec::new();
 
             if let Some(cfg) = self.vertex_uniform_cfg {
@@ -428,7 +443,6 @@ impl PipelineContainer {
                     offset: 0,
                     range: cfg.size as u64,
                 });
-
                 descriptor_write_sets.push(
                     vk::WriteDescriptorSet::builder()
                         .dst_set(descriptor_set)
@@ -440,13 +454,29 @@ impl PipelineContainer {
                 );
             }
 
+            if let Some(cfg) = self.storage_buffer_cfg {
+                storage_descriptor_buffer_infos.push(vk::DescriptorBufferInfo {
+                    buffer: self.storage_buffers[i],
+                    offset: 0,
+                    range: cfg.size as u64,
+                });
+                descriptor_write_sets.push(
+                    vk::WriteDescriptorSet::builder()
+                        .dst_set(descriptor_set)
+                        .dst_binding(cfg.binding as u32)
+                        .dst_array_element(0)
+                        .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                        .buffer_info(&storage_descriptor_buffer_infos)
+                        .build(),
+                );
+            }
+
             if let Some(cfg) = self.fragment_uniform_cfg {
                 fragment_descriptor_buffer_infos.push(vk::DescriptorBufferInfo {
                     buffer: self.fragment_uniform_buffers[i],
                     offset: 0,
                     range: cfg.size as u64,
                 });
-
                 descriptor_write_sets.push(
                     vk::WriteDescriptorSet::builder()
                         .dst_set(descriptor_set)
@@ -527,6 +557,7 @@ fn create_descriptor_set_layout(
     device: &ash::Device,
     vertex_uniform_cfg: Option<&BufferObjectBindingConfiguration>,
     fragment_uniform_cfg: Option<&BufferObjectBindingConfiguration>,
+    storage_buffer_cfg: Option<&BufferObjectBindingConfiguration>,
     sampler_cfgs: &[SamplerBindingConfiguration],
 ) -> vk::DescriptorSetLayout {
     let mut layout_bindings = Vec::new();
@@ -548,6 +579,16 @@ fn create_descriptor_set_layout(
                 .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
                 .descriptor_count(1)
                 .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+                .build(),
+        );
+    }
+    if let Some(storage_cfg) = storage_buffer_cfg {
+        layout_bindings.push(
+            vk::DescriptorSetLayoutBinding::builder()
+                .binding(storage_cfg.binding as u32)
+                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                .descriptor_count(1) // TODO
+                .stage_flags(vk::ShaderStageFlags::VERTEX)
                 .build(),
         );
     }
@@ -589,11 +630,12 @@ impl PipelineDrawCommand {
         vertex_buffer: vk::Buffer,
         index_buffer: vk::Buffer,
         index_count: u32,
+        instance_count: u32,
     ) -> PipelineDrawCommand {
         PipelineDrawCommand {
             pipeline,
             push_constant_ptr,
-            vertex_data: Buffered(BufferData::new(vertex_buffer, index_buffer, index_count)),
+            vertex_data: Buffered(BufferData::new(vertex_buffer, index_buffer, index_count, instance_count)),
         }
     }
 
@@ -620,11 +662,11 @@ impl PipelineDrawCommand {
         match primitive_topology {
             PrimitiveTopology::TRIANGLE_LIST => match &self.vertex_data {
                 Immediate(raw_data) => raw_data.vertex_count / 3,
-                Buffered(buffer_data) => buffer_data.index_count / 3,
+                Buffered(buffer_data) => buffer_data.index_count / 3 * buffer_data.instance_count
             },
             PrimitiveTopology::TRIANGLE_STRIP => match &self.vertex_data {
                 Immediate(raw_data) => raw_data.vertex_count - 2,
-                Buffered(buffer_data) => buffer_data.index_count - 2,
+                Buffered(buffer_data) => (buffer_data.index_count - 2) * buffer_data.instance_count
             },
             _ => unreachable!(),
         }
@@ -635,14 +677,16 @@ pub struct BufferData {
     vertex_buffer: vk::Buffer,
     index_buffer: vk::Buffer,
     index_count: u32,
+    instance_count: u32,
 }
 
 impl BufferData {
-    pub fn new(vertex_buffer: vk::Buffer, index_buffer: vk::Buffer, index_count: u32) -> Self {
+    pub fn new(vertex_buffer: vk::Buffer, index_buffer: vk::Buffer, index_count: u32, instance_count: u32) -> Self {
         BufferData {
             vertex_buffer,
             index_buffer,
             index_count,
+            instance_count,
         }
     }
 }
@@ -683,6 +727,7 @@ pub struct PipelineConfiguration {
     pub(super) vertex_topology: VertexTopology,
     pub(super) vertex_uniform_cfg: Option<BufferObjectConfiguration>,
     pub(super) fragment_uniform_cfg: Option<BufferObjectConfiguration>,
+    pub(super) storage_buffer_cfg: Option<BufferObjectConfiguration>,
     pub(super) texture_cfgs: Vec<TextureConfiguration>,
     pub(super) alpha_blending: bool,
 }
@@ -696,6 +741,7 @@ impl PipelineConfiguration {
             vertex_topology: Option::None,
             vertex_uniform_cfg: Option::None,
             fragment_uniform_cfg: Option::None,
+            storage_buffer_cfg: Option::None,
             texture_cfgs: Vec::new(),
             alpha_blending: false,
         }
@@ -709,6 +755,7 @@ pub struct PipelineConfigurationBuilder {
     vertex_topology: Option<VertexTopology>,
     vertex_uniform_cfg: Option<BufferObjectConfiguration>,
     fragment_uniform_cfg: Option<BufferObjectConfiguration>,
+    storage_buffer_cfg: Option<BufferObjectConfiguration>,
     texture_cfgs: Vec<TextureConfiguration>,
     alpha_blending: bool,
 }
@@ -750,6 +797,12 @@ impl PipelineConfigurationBuilder {
         self
     }
 
+    pub fn with_storage_buffer_object(&mut self, binding: u8, buffer_object_handle: BufferObjectHandle) -> &mut Self {
+        self.storage_buffer_cfg = Some(BufferObjectConfiguration::new(binding, buffer_object_handle));
+
+        self
+    }
+
     pub fn with_alpha_blending(&mut self) -> &mut Self {
         self.alpha_blending = true;
 
@@ -777,6 +830,7 @@ impl PipelineConfigurationBuilder {
             vertex_topology,
             vertex_uniform_cfg: self.vertex_uniform_cfg,
             fragment_uniform_cfg: self.fragment_uniform_cfg,
+            storage_buffer_cfg: self.storage_buffer_cfg,
             texture_cfgs: self.texture_cfgs.clone(),
             alpha_blending: self.alpha_blending,
         }

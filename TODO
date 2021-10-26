@@ -1,5 +1,6 @@
 Renderer:
 
+    [ ] Pipelines can only have one storage buffer, and its hardcoded to be assigned to the vertex shader. Fix!
     [ ] SSBO + instanced drawing for text rendering!
     [ ] Render to texture. Support for multiple renderpasses.
     [ ] Texture mipmaps

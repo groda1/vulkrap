@@ -217,6 +217,24 @@ impl VertexInputDescription for VertexNormal {
 
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
+pub struct InstancedCharacter {
+    pub position: Vector2<f32>,
+    pad : u64,
+    pub color: Vector4<f32>,
+    pub character: u32,
+    pub scale: f32,
+    pad2: u64,
+}
+
+impl InstancedCharacter {
+    pub fn new(position: Vector2<f32>, color: Vector4<f32>, character: u32, scale: f32) -> Self {
+        InstancedCharacter { position, pad: 0, color, character, scale, pad2:0 }
+    }
+}
+
+
+#[repr(C)]
+#[derive(Clone, Debug, Copy)]
 pub struct ModelWoblyPushConstant {
     model_transform: Matrix4<f32>,
     wobble: f32,
@@ -244,6 +262,7 @@ pub struct ModelColorPushConstant {
     model_transform: Matrix4<f32>,
     color: Vector4<f32>,
 }
+
 
 #[allow(dead_code)]
 impl ModelColorPushConstant {

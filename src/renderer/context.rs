@@ -90,7 +90,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(window: &Window) -> Context {
+    pub fn new(window: &Window) -> Self {
         let entry = unsafe { ash::Entry::new().unwrap() };
         debug::log_available_extension_properties(&entry);
         debug::log_validation_layer_support(&entry);
@@ -374,6 +374,16 @@ impl Context {
         )
     }
 
+    pub fn create_storage_buffer<T>(&mut self) -> BufferObjectHandle {
+        self.buffer_object_manager.create_buffer::<T>(
+            &self.logical_device,
+            &mut self.memory_manager,
+            DYNAMIC_BUFFER_INITIAL_CAPACITY * 10,
+            BufferObjectType::Storage,
+            false,
+        )
+    }
+
     pub fn add_texture(&mut self, image_width: u32, image_height: u32, image_data: &[u8]) -> TextureHandle {
         let (image, image_memory) = image::create_texture_image(
             &self.logical_device,
@@ -411,6 +421,10 @@ impl Context {
             self.buffer_object_manager
                 .assign_pipeline(uniform_cfg.buffer_object_handle, pipeline_handle);
         }
+        if let Some(storage_cfg) = config.storage_buffer_cfg {
+            self.buffer_object_manager
+                .assign_pipeline(storage_cfg.buffer_object_handle, pipeline_handle);
+        }
 
         let vertex_uniform_binding_cfg = config.vertex_uniform_cfg.map(|cfg| {
             BufferObjectBindingConfiguration::new(
@@ -421,6 +435,15 @@ impl Context {
             )
         });
         let fragment_uniform_binding_cfg = config.fragment_uniform_cfg.map(|cfg| {
+            BufferObjectBindingConfiguration::new(
+                cfg.binding,
+                self.buffer_object_manager
+                    .borrow_buffer(cfg.buffer_object_handle)
+                    .capacity_bytes(),
+            )
+        });
+
+        let storage_buffer_binding_cfg = config.storage_buffer_cfg.map(|cfg| {
             BufferObjectBindingConfiguration::new(
                 cfg.binding,
                 self.buffer_object_manager
@@ -452,13 +475,13 @@ impl Context {
             config.fragment_shader_code,
             vertex_uniform_binding_cfg,
             fragment_uniform_binding_cfg,
+            storage_buffer_binding_cfg,
             sampler_cfgs,
             vertex_topology,
             config.push_constant_buffer_size,
             config.alpha_blending,
         );
 
-        // FIXME: remove this shitty call. The uniform buffers should be passed as an argument to the build function
         if let Some(cfg) = config.vertex_uniform_cfg {
             pipeline_container.set_uniform_buffers(
                 UniformStage::Vertex,
@@ -470,6 +493,13 @@ impl Context {
         if let Some(cfg) = config.fragment_uniform_cfg {
             pipeline_container.set_uniform_buffers(
                 UniformStage::Fragment,
+                self.buffer_object_manager
+                    .borrow_buffer(cfg.buffer_object_handle)
+                    .devices(),
+            );
+        }
+        if let Some(cfg) = config.storage_buffer_cfg {
+            pipeline_container.set_storage_buffers(
                 self.buffer_object_manager
                     .borrow_buffer(cfg.buffer_object_handle)
                     .devices(),

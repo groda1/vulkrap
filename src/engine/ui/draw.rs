@@ -1,4 +1,4 @@
-use crate::engine::datatypes::TexturedColoredVertex2D;
+use crate::engine::datatypes::{InstancedCharacter, TexturedColoredVertex2D};
 
 use crate::renderer::buffer::BufferObjectHandle;
 use crate::renderer::context::Context;
@@ -94,6 +94,47 @@ pub fn draw_text_shadowed(
     );
     draw_text(context, handle, text, position, text_size_px, color);
 }
+
+
+pub fn draw_text_ng(
+    context: &mut Context,
+    handle: BufferObjectHandle,
+    text: &str,
+    position: Vector2<u32>,
+    char_size_px: u32,
+    color: Vector4<f32>) -> u32 {
+
+    for (i, char) in text.chars().enumerate() {
+        let char_position = Vector2::new((position.x + (char_size_px/2) + (i as u32 * char_size_px)) as f32, (position.y + (char_size_px/2)) as f32);
+        context.push_to_buffer_object(handle, InstancedCharacter::new(char_position, color, char as u32, char_size_px as f32));
+    }
+
+    text.len() as u32
+}
+
+pub fn draw_text_shadowed_ng(
+    context: &mut Context,
+    handle: BufferObjectHandle,
+    text: &str,
+    position: Vector2<u32>,
+    char_size_px: u32,
+    color: Vector4<f32>,
+    shadow_color: Vector4<f32>) -> u32 {
+
+    let mut instance_count = 0;
+    instance_count += draw_text_ng(
+        context,
+        handle,
+        text,
+        Vector2::new(position.x + 2, position.y - 2),
+        char_size_px,
+        shadow_color,
+    );
+    instance_count += draw_text_ng(context, handle, text, position, char_size_px, color);
+
+    instance_count
+}
+
 
 pub fn draw_character(
     context: &mut Context,

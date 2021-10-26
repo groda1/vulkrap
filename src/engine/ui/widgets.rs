@@ -5,7 +5,7 @@ use crate::engine::ui::colors::{
     COLOR_BLACK, COLOR_INPUT_TEXT, COLOR_TEXT, COLOR_TEXT_CVAR, COLOR_TEXT_DEBUG, COLOR_TEXT_ERROR, COLOR_TEXT_INFO,
     COLOR_WHITE,
 };
-use crate::engine::ui::draw::{draw_quad, draw_text, draw_text_shadowed};
+use crate::engine::ui::draw::{draw_quad, draw_text, draw_text_ng, draw_text_shadowed, draw_text_shadowed_ng};
 use crate::log::logger;
 use crate::log::logger::{LogMessage, MessageLevel};
 use crate::renderer::buffer::BufferObjectHandle;
@@ -15,6 +15,7 @@ use crate::ENGINE_VERSION;
 
 use cgmath::{Vector2, Vector4};
 use std::ptr;
+use crate::engine::mesh::Mesh;
 
 // Console
 const BORDER_OFFSET: u32 = 4;
@@ -22,6 +23,31 @@ const CONSOLE_HEIGHT_FACTOR: f32 = 0.75;
 const TEXT_SIZE_PX: u32 = 16;
 const LINE_SPACING: u32 = 2;
 const INPUT_BOX_OFFSET: u32 = 2;
+
+
+pub struct WipRenderer {
+}
+
+impl WipRenderer {
+    pub fn new() -> Self {
+        WipRenderer {}
+    }
+
+    pub fn draw(
+        &mut self,
+        context: &mut Context,
+        storage_buffer: BufferObjectHandle) -> u32 {
+
+
+
+        let text = "kalle";
+        draw_text_ng(context, storage_buffer, text, Vector2::new(0,0), 128, COLOR_TEXT_CVAR)
+
+    }
+}
+
+
+
 
 pub struct ConsoleRenderer {
     main_pipeline: PipelineHandle,
@@ -186,34 +212,20 @@ impl ConsoleRenderer {
 }
 
 pub struct RenderStatsRenderer {
-    _main_pipeline: PipelineHandle,
-    text_pipeline: PipelineHandle,
-
-    _simple_dynamic_vertex_buffer: BufferObjectHandle,
-    text_dynamic_vertex_buffer: BufferObjectHandle,
-
     position: Vector2<u32>,
-
     active: bool,
+
+
 }
 
 impl RenderStatsRenderer {
     pub fn new(
-        context: &mut Context,
-        main_pipeline: PipelineHandle,
-        text_pipeline: PipelineHandle,
         window_extent: WindowExtent,
     ) -> RenderStatsRenderer {
-        let text_dynamic_vertex_buffer = context.create_vertex_buffer::<TexturedColoredVertex2D>();
-        let simple_dynamic_vertex_buffer = context.create_vertex_buffer::<TexturedColoredVertex2D>();
 
         let position = Vector2::new(8, window_extent.height - 24);
 
         RenderStatsRenderer {
-            _main_pipeline: main_pipeline,
-            text_pipeline,
-            _simple_dynamic_vertex_buffer: simple_dynamic_vertex_buffer,
-            text_dynamic_vertex_buffer,
             position,
             active: true,
         }
@@ -227,64 +239,51 @@ impl RenderStatsRenderer {
         self.active
     }
 
-    pub fn draw(&mut self, context: &mut Context, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
-        context.reset_buffer_object(self._simple_dynamic_vertex_buffer);
-        context.reset_buffer_object(self.text_dynamic_vertex_buffer);
+    pub fn draw(&mut self, context: &mut Context, text_sbo : BufferObjectHandle) -> u32 {
 
-        self._draw_render_stats(context);
-
-        let draw_command_text = PipelineDrawCommand::new_immediate(
-            context,
-            self.text_pipeline,
-            ptr::null(),
-            self.text_dynamic_vertex_buffer,
-        );
-
-        draw_command_buffer.push(draw_command_text);
-    }
-
-    fn _draw_render_stats(&mut self, context: &mut Context) {
         let renderstats = stats::get();
 
-        draw_text_shadowed(
+        let mut instance_count = 0;
+
+        instance_count += draw_text_shadowed_ng(
             context,
-            self.text_dynamic_vertex_buffer,
+            text_sbo,
             &*format!("FPS: {}", renderstats.get_fps()),
             self.position,
             16,
             COLOR_WHITE,
             COLOR_BLACK,
         );
-        draw_text_shadowed(
+        instance_count += draw_text_shadowed_ng(
             context,
-            self.text_dynamic_vertex_buffer,
+           text_sbo,
             &*format!("Frame time: {0:.3} ms", renderstats.get_frametime() * 1000f32),
             self.position - Vector2::new(0, 18 * 1),
             16,
             COLOR_WHITE,
             COLOR_BLACK,
         );
-        draw_text_shadowed(
+        instance_count += draw_text_shadowed_ng(
             context,
-            self.text_dynamic_vertex_buffer,
+            text_sbo,
             &*format!("Draw count: {}", renderstats.get_render_stats().draw_command_count),
             self.position - Vector2::new(0, 18 * 3),
             16,
             COLOR_WHITE,
             COLOR_BLACK,
         );
-        draw_text_shadowed(
+        instance_count += draw_text_shadowed_ng(
             context,
-            self.text_dynamic_vertex_buffer,
+            text_sbo,
             &*format!("Triangle count: {}", renderstats.get_render_stats().triangle_count),
             self.position - Vector2::new(0, 18 * 4),
             16,
             COLOR_WHITE,
             COLOR_BLACK,
         );
-        draw_text_shadowed(
+        instance_count += draw_text_shadowed_ng(
             context,
-            self.text_dynamic_vertex_buffer,
+            text_sbo,
             &*format!(
                 "TransferCmdBuf: {0:.3} ms",
                 renderstats.get_render_stats().transfer_commands_bake_time.as_micros() as f32 / 1000f32
@@ -294,9 +293,9 @@ impl RenderStatsRenderer {
             COLOR_WHITE,
             COLOR_BLACK,
         );
-        draw_text_shadowed(
+        instance_count += draw_text_shadowed_ng(
             context,
-            self.text_dynamic_vertex_buffer,
+            text_sbo,
             &*format!(
                 "    DrawCmdBuf: {0:.3} ms",
                 renderstats.get_render_stats().draw_commands_bake_time.as_micros() as f32 / 1000f32
@@ -306,7 +305,10 @@ impl RenderStatsRenderer {
             COLOR_WHITE,
             COLOR_BLACK,
         );
+
+        instance_count
     }
+
 }
 
 pub struct TopBar {

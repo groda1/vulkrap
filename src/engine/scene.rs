@@ -6,6 +6,7 @@ use crate::engine::mesh::MeshManager;
 use crate::engine::terrain::Terrain;
 
 use crate::engine::console::Console;
+use crate::engine::mesh::PredefinedMesh::TexturedQuad;
 use crate::engine::ui::hud::HUD;
 use crate::renderer::context::{Context, PipelineHandle};
 use crate::renderer::pipeline::PipelineDrawCommand;
@@ -24,7 +25,7 @@ pub struct Scene {
 impl Scene {
     pub fn new(
         context: &mut Context,
-        _mesh_manager: &MeshManager,
+        mesh_manager: &MeshManager,
         wobbly_pipeline: PipelineHandle,
         terrain_pipeline: PipelineHandle,
     ) -> Scene {
@@ -37,7 +38,7 @@ impl Scene {
             wobbly_pipeline,
             render_job_buffer,
             terrain: Terrain::new(context, terrain_pipeline),
-            hud: HUD::new(context, window_extent),
+            hud: HUD::new(context, window_extent, mesh_manager ),
         }
     }
 
@@ -65,6 +66,7 @@ impl Scene {
                 entity.mesh.vertex_buffer,
                 entity.mesh.index_buffer,
                 entity.mesh.index_count,
+                1
             ));
         }
 

@@ -16,7 +16,7 @@ pub struct MemoryManager {
 impl MemoryManager {}
 
 impl MemoryManager {
-    pub fn new(physical_device_memory_properties: vk::PhysicalDeviceMemoryProperties) -> MemoryManager {
+    pub fn new(physical_device_memory_properties: vk::PhysicalDeviceMemoryProperties) -> Self {
         MemoryManager {
             physical_device_memory_properties,
             buffer_to_chunk_map: HashMap::new(),

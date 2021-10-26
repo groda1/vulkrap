@@ -75,7 +75,9 @@ impl BufferObjectManager {
                     pipelines[*pipeline].set_uniform_buffers(stage, buffer_object.devices());
                 }
             } else if let BufferObjectType::Storage = buffer_object.buffer_object_type {
-                unimplemented!()
+                for pipeline in buffer_object.assigned_pipelines.iter() {
+                    pipelines[*pipeline].set_storage_buffers(buffer_object.devices());
+                }
             }
         }
     }
@@ -224,7 +226,7 @@ impl BufferObject {
         for _i in 0..image_count {
             let usage = match self.buffer_object_type {
                 BufferObjectType::Uniform(_) => vk::BufferUsageFlags::UNIFORM_BUFFER,
-                BufferObjectType::Storage => unimplemented!(),
+                BufferObjectType::Storage => vk::BufferUsageFlags::STORAGE_BUFFER,
                 BufferObjectType::Vertex => vk::BufferUsageFlags::VERTEX_BUFFER,
             };
 

@@ -57,6 +57,7 @@ impl Terrain {
             self.chunk.vertex_buffer,
             self.chunk.index_buffer,
             self.chunk.index_count,
+            1
         ));
     }
 }
