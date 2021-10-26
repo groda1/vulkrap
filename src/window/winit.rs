@@ -144,8 +144,8 @@ pub fn map_input_to_chr(key: VirtualKeyCode, state: ElementState, shift_active: 
     }
 }
 
-impl Into<WindowExtent> for PhysicalSize<u32> {
-    fn into(self) -> WindowExtent {
-        WindowExtent::new(self.width, self.height)
+impl From<PhysicalSize<u32>> for WindowExtent {
+    fn from(size: PhysicalSize<u32>) -> Self {
+        WindowExtent::new(size.width, size.height)
     }
 }

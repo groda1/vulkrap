@@ -1,8 +1,9 @@
 use crate::engine::cvars::{ConfigVariables, FOV, M_PITCH, M_SENSITIVITY, M_YAW};
 use crate::engine::datatypes::ViewProjectionUniform;
 use crate::engine::game::MovementFlags;
+use crate::renderer::buffer::BufferObjectHandle;
 use crate::renderer::context::{Context, UniformHandle};
-use crate::renderer::uniform::UniformStage;
+use crate::renderer::pipeline::UniformStage;
 use cgmath::{dot, Deg, Matrix4, Quaternion, Rad, Rotation3, Vector3};
 
 const MOVE_SPEED: f32 = 25.0;
@@ -16,7 +17,7 @@ pub struct Camera {
     pitch: f32,
     yaw: f32,
 
-    uniform: UniformHandle,
+    uniform: BufferObjectHandle,
 
     sens_pitch: f32,
     sens_yaw: f32,
@@ -29,7 +30,8 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(context: &mut Context, config: &ConfigVariables) -> Self {
-        let uniform = context.create_uniform::<ViewProjectionUniform>(UniformStage::Vertex);
+        let uniform = context.create_uniform_buffer::<ViewProjectionUniform>(UniformStage::Vertex);
+
         let mut cam = Camera {
             position: Vector3::new(0.0, 10.0, 3.0),
             pitch: 0.0,
@@ -80,7 +82,7 @@ impl Camera {
             view: self._get_view_matrix(),
             proj: cgmath::perspective(Deg(self.fovy), context.get_aspect_ratio(), 0.1, 1000.0),
         };
-        context.set_uniform_data(self.uniform, data);
+        context.set_buffer_object(self.uniform, data);
     }
 
     pub fn update_yaw_pitch(&mut self, delta_yaw: f32, delta_pitch: f32) {

@@ -9,9 +9,8 @@ use crate::engine::image;
 use crate::engine::ui::widgets::{ConsoleRenderer, RenderStatsRenderer, TopBar};
 
 use crate::renderer::context::{Context, UniformHandle};
-use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand};
+use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand, UniformStage};
 
-use crate::renderer::uniform::UniformStage;
 use crate::util::file;
 
 pub struct HUD {
@@ -26,9 +25,9 @@ pub struct HUD {
 
 impl HUD {
     pub fn new(context: &mut Context, window_extent: WindowExtent) -> Self {
-        let uniform = context.create_uniform::<ViewProjectionUniform>(UniformStage::Vertex);
+        let uniform = context.create_uniform_buffer::<ViewProjectionUniform>(UniformStage::Vertex);
         let data = _create_view_projection_uniform(window_extent);
-        context.set_uniform_data(uniform, data);
+        context.set_buffer_object(uniform, data);
 
         let font_image = image::load_image(Path::new("./resources/textures/font.png"));
         let font_texture = context.add_texture(font_image.width, font_image.height, &font_image.data);
@@ -95,7 +94,7 @@ impl HUD {
     pub fn handle_window_resize(&mut self, context: &mut Context, new_extent: WindowExtent) {
         self.window_extent = new_extent;
         let data = _create_view_projection_uniform(new_extent);
-        context.set_uniform_data(self.uniform, data);
+        context.set_buffer_object(self.uniform, data);
 
         self.top_bar_renderer.handle_window_resize(new_extent);
         self.render_stats_renderer.handle_window_resize(new_extent);

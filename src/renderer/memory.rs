@@ -65,29 +65,6 @@ impl MemoryManager {
         buffer
     }
 
-    pub fn create_uniform_buffers(
-        &mut self,
-        logical_device: &ash::Device,
-        buffer_size: usize,
-        swapchain_image_count: usize,
-    ) -> Vec<vk::Buffer> {
-        let mut uniform_buffers = Vec::with_capacity(swapchain_image_count);
-
-        for _ in 0..swapchain_image_count {
-            let (uniform_buffer, uniform_buffer_memory) = _create_buffer(
-                logical_device,
-                buffer_size as u64,
-                vk::BufferUsageFlags::UNIFORM_BUFFER,
-                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-                &self.physical_device_memory_properties,
-            );
-            uniform_buffers.push(uniform_buffer);
-            self.buffer_to_chunk_map.insert(uniform_buffer, uniform_buffer_memory);
-        }
-
-        uniform_buffers
-    }
-
     pub fn create_staging_buffer(&mut self, logical_device: &ash::Device, buffer_size: vk::DeviceSize) -> vk::Buffer {
         let (staging_buffer, staging_buffer_memory) = _create_buffer(
             logical_device,
@@ -266,6 +243,8 @@ fn find_memory_type(
 }
 
 unsafe fn _copy_to_buffer_memory<T>(device: &ash::Device, data: &[T], dst_memory: vk::DeviceMemory) {
+    debug_assert!(!data.is_empty());
+
     let buffer_size = std::mem::size_of_val(data) as vk::DeviceSize;
 
     // TODO the size should be checked here. Need to track the capcity of the memory.

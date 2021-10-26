@@ -62,6 +62,8 @@ impl ConsoleRenderer {
         draw_command_buffer: &mut Vec<PipelineDrawCommand>,
         console: &Console,
     ) {
+        context.reset_buffer_object(self.simple_dynamic_vertex_buffer);
+        context.reset_buffer_object(self.text_dynamic_vertex_buffer);
         self._draw_console(context, console);
 
         let draw_command_console = PipelineDrawCommand::new_immediate(
@@ -226,6 +228,9 @@ impl RenderStatsRenderer {
     }
 
     pub fn draw(&mut self, context: &mut Context, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
+        context.reset_buffer_object(self._simple_dynamic_vertex_buffer);
+        context.reset_buffer_object(self.text_dynamic_vertex_buffer);
+
         self._draw_render_stats(context);
 
         let draw_command_text = PipelineDrawCommand::new_immediate(
@@ -332,6 +337,7 @@ impl TopBar {
     }
 
     pub fn draw(&mut self, context: &mut Context, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
+        context.reset_buffer_object(self.text_dynamic_vertex_buffer);
         draw_text_shadowed(
             context,
             self.text_dynamic_vertex_buffer,

@@ -14,8 +14,7 @@ use crate::engine::mesh::{MeshManager, PredefinedMesh};
 use crate::engine::scene::Scene;
 use crate::engine::stats;
 use crate::renderer::context::{Context, UniformHandle};
-use crate::renderer::pipeline::{PipelineConfiguration, VertexTopology};
-use crate::renderer::uniform::UniformStage;
+use crate::renderer::pipeline::{PipelineConfiguration, UniformStage, VertexTopology};
 use crate::util::file;
 
 pub struct VulkrapApplication {
@@ -41,9 +40,8 @@ impl VulkrapApplication {
         let mesh_manager = MeshManager::new(&mut context);
         let camera = Camera::new(&mut context, &config);
 
-        let flags_uniform = context.create_uniform::<u32>(UniformStage::Fragment);
-
-        context.set_uniform_data(flags_uniform, 0_u32);
+        let flags_uniform = context.create_uniform_buffer::<u32>(UniformStage::Fragment);
+        context.set_buffer_object(flags_uniform, 0_u32);
 
         let pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new(
@@ -118,7 +116,7 @@ impl VulkrapApplication {
     fn toggle_wireframe(&mut self) {
         self.draw_wireframe = !self.draw_wireframe;
         self.context
-            .set_uniform_data(self.flags_uniform, self.draw_wireframe as u32);
+            .set_buffer_object(self.flags_uniform, self.draw_wireframe as u32);
     }
 
     fn create_entities(&mut self) {

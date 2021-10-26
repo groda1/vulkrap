@@ -68,6 +68,10 @@ impl RawArray {
         self.write_index
     }
 
+    pub fn len_bytes(&self) -> usize {
+        self.write_index * self.data_size
+    }
+
     pub fn reset(&mut self) {
         self.write_index = 0;
     }

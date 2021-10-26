@@ -46,6 +46,15 @@ impl Logger {
         self.history.push(LogMessage::new(MessageLevel::Debug, message));
     }
 
+    pub fn debug_once(&mut self, message: String) {
+        if let Some(last_message) = self.history.last() {
+            if last_message.message.eq(&message) {
+                return;
+            }
+        }
+        self.history.push(LogMessage::new(MessageLevel::Debug, message));
+    }
+
     pub fn get_history(&self, line_count: usize, scroll: usize) -> &[LogMessage] {
         let end = if self.history.len() >= scroll {
             self.history.len() - scroll
@@ -111,6 +120,11 @@ pub fn info(line: &str) {
 pub fn debug(line: &str) {
     line.split('\n')
         .for_each(|s| LOGGER.lock().unwrap().debug(String::from(s)));
+}
+
+pub fn debug_once(line: &str) {
+    line.split('\n')
+        .for_each(|s| LOGGER.lock().unwrap().debug_once(String::from(s)));
 }
 
 pub fn get() -> MutexGuard<'static, Logger> {

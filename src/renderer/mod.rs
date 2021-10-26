@@ -3,7 +3,6 @@ pub mod context;
 pub mod pipeline;
 pub mod rawarray;
 pub mod stats;
-pub mod uniform;
 
 mod constants;
 mod debug;

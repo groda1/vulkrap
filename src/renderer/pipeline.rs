@@ -9,12 +9,11 @@ use ash::vk::{
 };
 
 use crate::renderer::buffer::{BufferObjectHandle, BufferObjectManager};
-use crate::renderer::context::{Context, PipelineHandle, UniformHandle};
+use crate::renderer::context::{Context, PipelineHandle};
 use crate::renderer::pipeline::VertexData::{Buffered, Immediate};
 use crate::renderer::rawarray::RawArrayPtr;
 use crate::renderer::stats::DrawCommandStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
-use crate::renderer::uniform::UniformStage;
 
 const SHADER_ENTRYPOINT: &str = "main";
 
@@ -32,8 +31,8 @@ pub(super) struct PipelineContainer {
     fragment_shader: vk::ShaderModule,
 
     // Shader data
-    vertex_uniform_cfg: Option<UniformBindingConfiguration>,
-    fragment_uniform_cfg: Option<UniformBindingConfiguration>,
+    vertex_uniform_cfg: Option<BufferObjectBindingConfiguration>,
+    fragment_uniform_cfg: Option<BufferObjectBindingConfiguration>,
     vertex_uniform_buffers: Vec<vk::Buffer>,
     fragment_uniform_buffers: Vec<vk::Buffer>,
     sampler_cfgs: Vec<SamplerBindingConfiguration>,
@@ -57,8 +56,8 @@ impl PipelineContainer {
         logical_device: &ash::Device,
         vertex_shader_code: Vec<u8>,
         fragment_shader_code: Vec<u8>,
-        vertex_uniform_cfg: Option<UniformBindingConfiguration>,
-        fragment_uniform_cfg: Option<UniformBindingConfiguration>,
+        vertex_uniform_cfg: Option<BufferObjectBindingConfiguration>,
+        fragment_uniform_cfg: Option<BufferObjectBindingConfiguration>,
         sampler_cfgs: Vec<SamplerBindingConfiguration>,
         vertex_topology: PrimitiveTopology,
         push_constant_buffer_size: Option<usize>,
@@ -526,8 +525,8 @@ fn create_shader_module(device: &ash::Device, code: &[u8]) -> vk::ShaderModule {
 
 fn create_descriptor_set_layout(
     device: &ash::Device,
-    vertex_uniform_cfg: Option<&UniformBindingConfiguration>,
-    fragment_uniform_cfg: Option<&UniformBindingConfiguration>,
+    vertex_uniform_cfg: Option<&BufferObjectBindingConfiguration>,
+    fragment_uniform_cfg: Option<&BufferObjectBindingConfiguration>,
     sampler_cfgs: &[SamplerBindingConfiguration],
 ) -> vk::DescriptorSetLayout {
     let mut layout_bindings = Vec::new();
@@ -617,10 +616,6 @@ impl PipelineDrawCommand {
         }
     }
 
-    pub fn vertex_data(&self) -> &VertexData {
-        &self.vertex_data
-    }
-
     pub fn triangle_count(&self, primitive_topology: PrimitiveTopology) -> u32 {
         match primitive_topology {
             PrimitiveTopology::TRIANGLE_LIST => match &self.vertex_data {
@@ -686,8 +681,8 @@ pub struct PipelineConfiguration {
     pub(super) fragment_shader_code: Vec<u8>,
     pub(super) push_constant_buffer_size: Option<usize>,
     pub(super) vertex_topology: VertexTopology,
-    pub(super) vertex_uniform_cfg: Option<UniformConfiguration>,
-    pub(super) fragment_uniform_cfg: Option<UniformConfiguration>,
+    pub(super) vertex_uniform_cfg: Option<BufferObjectConfiguration>,
+    pub(super) fragment_uniform_cfg: Option<BufferObjectConfiguration>,
     pub(super) texture_cfgs: Vec<TextureConfiguration>,
     pub(super) alpha_blending: bool,
 }
@@ -712,8 +707,8 @@ pub struct PipelineConfigurationBuilder {
     fragment_shader_code: Option<Vec<u8>>,
     push_constant_buffer_size: Option<usize>,
     vertex_topology: Option<VertexTopology>,
-    vertex_uniform_cfg: Option<UniformConfiguration>,
-    fragment_uniform_cfg: Option<UniformConfiguration>,
+    vertex_uniform_cfg: Option<BufferObjectConfiguration>,
+    fragment_uniform_cfg: Option<BufferObjectConfiguration>,
     texture_cfgs: Vec<TextureConfiguration>,
     alpha_blending: bool,
 }
@@ -743,14 +738,14 @@ impl PipelineConfigurationBuilder {
         self
     }
 
-    pub fn with_vertex_uniform(&mut self, binding: u8, uniform_handle: UniformHandle) -> &mut Self {
-        self.vertex_uniform_cfg = Some(UniformConfiguration::new(binding, uniform_handle));
+    pub fn with_vertex_uniform(&mut self, binding: u8, buffer_object_handle: BufferObjectHandle) -> &mut Self {
+        self.vertex_uniform_cfg = Some(BufferObjectConfiguration::new(binding, buffer_object_handle));
 
         self
     }
 
-    pub fn with_fragment_uniform(&mut self, binding: u8, uniform_handle: UniformHandle) -> &mut Self {
-        self.fragment_uniform_cfg = Some(UniformConfiguration::new(binding, uniform_handle));
+    pub fn with_fragment_uniform(&mut self, binding: u8, buffer_object_handle: BufferObjectHandle) -> &mut Self {
+        self.fragment_uniform_cfg = Some(BufferObjectConfiguration::new(binding, buffer_object_handle));
 
         self
     }
@@ -789,16 +784,16 @@ impl PipelineConfigurationBuilder {
 }
 
 #[derive(Clone, Debug, Copy)]
-pub struct UniformConfiguration {
+pub struct BufferObjectConfiguration {
     pub(super) binding: u8,
-    pub(super) uniform_handle: UniformHandle,
+    pub(super) buffer_object_handle: BufferObjectHandle,
 }
 
-impl UniformConfiguration {
-    pub fn new(binding: u8, uniform_handle: UniformHandle) -> Self {
-        UniformConfiguration {
+impl BufferObjectConfiguration {
+    pub fn new(binding: u8, buffer_object_handle: BufferObjectHandle) -> Self {
+        BufferObjectConfiguration {
             binding,
-            uniform_handle,
+            buffer_object_handle,
         }
     }
 }
@@ -838,14 +833,14 @@ impl SamplerBindingConfiguration {
 }
 
 #[derive(Clone, Debug, Copy)]
-pub(super) struct UniformBindingConfiguration {
+pub(super) struct BufferObjectBindingConfiguration {
     binding: u8,
     size: usize,
 }
 
-impl UniformBindingConfiguration {
+impl BufferObjectBindingConfiguration {
     pub fn new(binding: u8, size: usize) -> Self {
-        UniformBindingConfiguration { binding, size }
+        BufferObjectBindingConfiguration { binding, size }
     }
 }
 
@@ -855,3 +850,9 @@ pub trait VertexInputDescription {
 }
 
 pub type Index = u32;
+
+#[derive(Clone, Debug, Copy)]
+pub enum UniformStage {
+    Vertex,
+    Fragment,
+}

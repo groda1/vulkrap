@@ -8,8 +8,8 @@ use winit::window::Window;
 
 use crate::renderer::memory::MemoryManager;
 use crate::renderer::pipeline::{
-    Index, PipelineConfiguration, PipelineContainer, PipelineDrawCommand, SamplerBindingConfiguration,
-    UniformBindingConfiguration, VertexInputDescription, VertexTopology,
+    BufferObjectBindingConfiguration, Index, PipelineConfiguration, PipelineContainer, PipelineDrawCommand,
+    SamplerBindingConfiguration, UniformStage, VertexInputDescription, VertexTopology,
 };
 use crate::renderer::synchronization::SynchronizationHandler;
 use crate::ENGINE_NAME;
@@ -24,13 +24,10 @@ use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
 use crate::renderer::buffer::{BufferObjectHandle, BufferObjectManager, BufferObjectType};
-use crate::renderer::pipeline::VertexData::Immediate;
 use crate::renderer::rawarray::RawArray;
 use crate::renderer::stats::RenderStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
-use crate::renderer::uniform::{Uniform, UniformStage};
 use ash::extensions::ext::DebugUtils;
-use std::slice::from_raw_parts;
 use std::time::Instant;
 
 const UNIFORM_DESCRIPTOR_POOL_SIZE: u32 = 10;
@@ -71,7 +68,6 @@ pub struct Context {
     render_pass: vk::RenderPass,
 
     pipelines: Vec<PipelineContainer>,
-    uniforms: Vec<Uniform>,
 
     texture_manager: TextureManager,
 
@@ -194,7 +190,6 @@ impl Context {
             depth_image_memory,
             render_pass,
             pipelines,
-            uniforms: Vec::new(),
             texture_manager: TextureManager::new(),
             memory_manager,
             buffer_object_manager: BufferObjectManager::new(image_count),
@@ -246,12 +241,14 @@ impl Context {
 
         // Transfer data
         let transfer_command_buffer = self.transfer_command_buffers[image_index_usize];
-        // Bake command buffer
-        let transfer_required =
-            self.bake_transfer_command_buffer(transfer_command_buffer, render_job, image_index_usize, &mut stats);
+        let transfer_required = self.buffer_object_manager.bake_command_buffer(
+            &self.logical_device,
+            &mut self.memory_manager,
+            transfer_command_buffer,
+            image_index_usize,
+            &mut stats,
+        );
 
-        // All the data has been copied to a staging buffer by now so reset the buffers for the next frame.
-        self.buffer_object_manager.reset_buffers();
         if transfer_required {
             // Submit
             let transfer_command_buffers = [transfer_command_buffer];
@@ -277,7 +274,6 @@ impl Context {
             &mut stats,
         );
 
-        self.update_uniforms(image_index_usize);
         let draw_command_buffers = [draw_command_buffer];
 
         if !transfer_required {
@@ -358,20 +354,6 @@ impl Context {
             .create_index_buffer(&self.logical_device, self.command_pool, self.graphics_queue, indices)
     }
 
-    pub fn create_uniform<T>(&mut self, stage: UniformStage) -> UniformHandle {
-        let handle = self.uniforms.len();
-
-        let mut uniform = Uniform::new(std::mem::size_of::<T>(), stage);
-        uniform.build(
-            &self.logical_device,
-            &mut self.memory_manager,
-            self.swapchain_imageviews.len(),
-        );
-        self.uniforms.push(uniform);
-
-        handle
-    }
-
     pub fn create_uniform_buffer<T>(&mut self, stage: UniformStage) -> BufferObjectHandle {
         self.buffer_object_manager.create_buffer::<T>(
             &self.logical_device,
@@ -390,16 +372,6 @@ impl Context {
             BufferObjectType::Vertex,
             true,
         )
-    }
-
-    pub fn set_uniform_data<T>(&mut self, handle: UniformHandle, data: T) {
-        self.uniforms[handle].set_data(data);
-    }
-
-    fn update_uniforms(&mut self, image_index: usize) {
-        for uniform in self.uniforms.iter_mut() {
-            uniform.update_device_memory(&self.logical_device, image_index);
-        }
     }
 
     pub fn add_texture(&mut self, image_width: u32, image_height: u32, image_data: &[u8]) -> TextureHandle {
@@ -431,19 +403,31 @@ impl Context {
     pub fn add_pipeline<T: VertexInputDescription>(&mut self, config: PipelineConfiguration) -> PipelineHandle {
         let pipeline_handle = self.pipelines.len();
 
-        if config.vertex_uniform_cfg.is_some() {
-            self.uniforms[config.vertex_uniform_cfg.unwrap().uniform_handle].assign_pipeline(pipeline_handle);
+        if let Some(uniform_cfg) = config.vertex_uniform_cfg {
+            self.buffer_object_manager
+                .assign_pipeline(uniform_cfg.buffer_object_handle, pipeline_handle);
         }
-        if config.fragment_uniform_cfg.is_some() {
-            self.uniforms[config.fragment_uniform_cfg.unwrap().uniform_handle].assign_pipeline(pipeline_handle);
+        if let Some(uniform_cfg) = config.fragment_uniform_cfg {
+            self.buffer_object_manager
+                .assign_pipeline(uniform_cfg.buffer_object_handle, pipeline_handle);
         }
 
-        let vertex_uniform_binding_cfg = config
-            .vertex_uniform_cfg
-            .map(|cfg| UniformBindingConfiguration::new(cfg.binding, self.uniforms[cfg.uniform_handle].size()));
-        let fragment_uniform_binding_cfg = config
-            .fragment_uniform_cfg
-            .map(|cfg| UniformBindingConfiguration::new(cfg.binding, self.uniforms[cfg.uniform_handle].size()));
+        let vertex_uniform_binding_cfg = config.vertex_uniform_cfg.map(|cfg| {
+            BufferObjectBindingConfiguration::new(
+                cfg.binding,
+                self.buffer_object_manager
+                    .borrow_buffer(cfg.buffer_object_handle)
+                    .capacity_bytes(),
+            )
+        });
+        let fragment_uniform_binding_cfg = config.fragment_uniform_cfg.map(|cfg| {
+            BufferObjectBindingConfiguration::new(
+                cfg.binding,
+                self.buffer_object_manager
+                    .borrow_buffer(cfg.buffer_object_handle)
+                    .capacity_bytes(),
+            )
+        });
 
         let vertex_topology = match config.vertex_topology {
             VertexTopology::Triangle => vk::PrimitiveTopology::TRIANGLE_LIST,
@@ -476,10 +460,20 @@ impl Context {
 
         // FIXME: remove this shitty call. The uniform buffers should be passed as an argument to the build function
         if let Some(cfg) = config.vertex_uniform_cfg {
-            pipeline_container.set_uniform_buffers(UniformStage::Vertex, self.uniforms[cfg.uniform_handle].buffers());
+            pipeline_container.set_uniform_buffers(
+                UniformStage::Vertex,
+                self.buffer_object_manager
+                    .borrow_buffer(cfg.buffer_object_handle)
+                    .devices(),
+            );
         };
         if let Some(cfg) = config.fragment_uniform_cfg {
-            pipeline_container.set_uniform_buffers(UniformStage::Fragment, self.uniforms[cfg.uniform_handle].buffers());
+            pipeline_container.set_uniform_buffers(
+                UniformStage::Fragment,
+                self.buffer_object_manager
+                    .borrow_buffer(cfg.buffer_object_handle)
+                    .devices(),
+            );
         }
 
         pipeline_container.build(
@@ -522,10 +516,6 @@ impl Context {
                 pipeline_container.destroy_pipeline(&self.logical_device);
             }
             self.logical_device.destroy_render_pass(self.render_pass, None);
-
-            for uniform in self.uniforms.iter_mut() {
-                uniform.destroy(&self.logical_device, &mut self.memory_manager);
-            }
 
             // Swapchain
             for image_view in self.swapchain_imageviews.iter() {
@@ -596,13 +586,10 @@ impl Context {
         self.draw_command_buffers = _create_command_buffers(&self.logical_device, self.command_pool, image_count);
         self.transfer_command_buffers = _create_command_buffers(&self.logical_device, self.command_pool, image_count);
 
-        for uniform in self.uniforms.iter_mut() {
-            uniform.build(&self.logical_device, &mut self.memory_manager, image_count);
-
-            for pipeline_handle in uniform.assigned_pipelines().iter() {
-                self.pipelines[*pipeline_handle].set_uniform_buffers(uniform.stage(), uniform.buffers());
-            }
-        }
+        self.buffer_object_manager
+            .rebuild(&self.logical_device, &mut self.memory_manager, image_count);
+        self.buffer_object_manager
+            .reassign_pipeline_buffers(&mut self.pipelines);
 
         for pipeline_container in self.pipelines.iter_mut() {
             pipeline_container.build(
@@ -613,81 +600,6 @@ impl Context {
                 image_count,
             );
         }
-
-        self.buffer_object_manager
-            .rebuild(&self.logical_device, &mut self.memory_manager, image_count);
-    }
-
-    fn bake_transfer_command_buffer(
-        &mut self,
-        transfer_command_buffer: vk::CommandBuffer,
-        render_job: &[PipelineDrawCommand],
-        image_index: usize,
-        render_stats: &mut RenderStats,
-    ) -> bool {
-        let start_time = Instant::now();
-
-        let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
-            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
-            .build();
-
-        let mut transfer_needed = false;
-        for draw_command in render_job {
-            if let Immediate(vertex_data) = draw_command.vertex_data() {
-                // Copy vertex data to the staging buffer
-                let dynamic_buffer = self.buffer_object_manager.borrow_buffer(vertex_data.buf);
-                let staging_buffer = dynamic_buffer.staging(image_index);
-
-                unsafe {
-                    let data_slice = from_raw_parts(vertex_data.data_ptr, vertex_data.data_len);
-                    self.memory_manager
-                        .copy_to_buffer_memory(&self.logical_device, staging_buffer, data_slice);
-                }
-                transfer_needed = true
-            }
-        }
-
-        if !transfer_needed {
-            return false;
-        }
-
-        unsafe {
-            self.logical_device
-                .reset_command_buffer(transfer_command_buffer, vk::CommandBufferResetFlags::empty())
-                .expect("Failed to reset Transfer command buffer!");
-            self.logical_device
-                .begin_command_buffer(transfer_command_buffer, &command_buffer_begin_info)
-                .expect("Failed to begin recording of Transfer command buffer!");
-
-            for draw_command in render_job {
-                if let Immediate(vertex_data) = draw_command.vertex_data() {
-                    let dynamic_buffer = self.buffer_object_manager.borrow_buffer(vertex_data.buf);
-
-                    let staging_buffer = dynamic_buffer.staging(image_index);
-                    let device_buffer = dynamic_buffer.device(image_index);
-
-                    let copy_regions = [vk::BufferCopy::builder()
-                        .src_offset(0)
-                        .dst_offset(0)
-                        .size(vertex_data.data_len as vk::DeviceSize)
-                        .build()];
-
-                    self.logical_device.cmd_copy_buffer(
-                        transfer_command_buffer,
-                        staging_buffer,
-                        device_buffer,
-                        &copy_regions,
-                    );
-                }
-            }
-            self.logical_device
-                .end_command_buffer(transfer_command_buffer)
-                .expect("Failed to end recording of Transfer command buffer!");
-        }
-
-        render_stats.transfer_commands_bake_time = start_time.elapsed();
-
-        true
     }
 
     fn bake_draw_command_buffer(
@@ -781,14 +693,23 @@ impl Context {
         self.is_framebuffer_resized = true;
     }
 
-    pub fn push_to_dynamic_buf<T>(&mut self, dynamic_buffer: BufferObjectHandle, data: T) {
-        let result = self.buffer_object_manager.push_to_buf(dynamic_buffer, data);
+    pub fn set_buffer_object<T>(&mut self, buffer_object: BufferObjectHandle, data: T) {
+        self.buffer_object_manager.reset_buffer(buffer_object);
+        self.push_to_buffer_object(buffer_object, data);
+    }
+
+    pub fn reset_buffer_object(&mut self, buffer_object: BufferObjectHandle) {
+        self.buffer_object_manager.reset_buffer(buffer_object);
+    }
+
+    pub fn push_to_buffer_object<T>(&mut self, buffer_object: BufferObjectHandle, data: T) {
+        let result = self.buffer_object_manager.push_to_buf(buffer_object, data);
 
         if let Err(_) = result {
             self.buffer_object_manager.handle_buffer_overflow(
                 &self.logical_device,
                 &mut self.memory_manager,
-                dynamic_buffer,
+                buffer_object,
                 self.swapchain_images.len(),
             );
             //self.dynamic_vertex_buffer_manager.push_to_buf(dynamic_buffer, data);

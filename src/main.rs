@@ -12,6 +12,14 @@ macro_rules! log_debug {
         crate::log::logger::debug(format!($($arg)*).as_str());
     })
 }
+
+#[macro_export]
+macro_rules! log_debug_once {
+    () => (crate::log::logger::debug(""));
+    ($($arg:tt)*) => ({
+        crate::log::logger::debug_once(format!($($arg)*).as_str());
+    })
+}
 #[macro_export]
 macro_rules! log_info {
     () => (crate::log::logger::info(""));

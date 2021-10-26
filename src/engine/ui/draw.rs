@@ -11,7 +11,7 @@ pub fn draw_quad(
     extent: Vector2<u32>,
     color: Vector4<f32>,
 ) {
-    context.push_to_dynamic_buf(
+    context.push_to_buffer_object(
         handle,
         TexturedColoredVertex2D::new(
             Vector2::new(position.x as f32 + 0f32, (position.y + extent.y) as f32),
@@ -19,7 +19,7 @@ pub fn draw_quad(
             Vector2::zero(),
         ),
     );
-    context.push_to_dynamic_buf(
+    context.push_to_buffer_object(
         handle,
         TexturedColoredVertex2D::new(
             Vector2::new((position.x + extent.x) as f32, (position.y + extent.y) as f32),
@@ -27,7 +27,7 @@ pub fn draw_quad(
             Vector2::zero(),
         ),
     );
-    context.push_to_dynamic_buf(
+    context.push_to_buffer_object(
         handle,
         TexturedColoredVertex2D::new(
             Vector2::new(position.x as f32, position.y as f32),
@@ -35,7 +35,7 @@ pub fn draw_quad(
             Vector2::zero(),
         ),
     );
-    context.push_to_dynamic_buf(
+    context.push_to_buffer_object(
         handle,
         TexturedColoredVertex2D::new(
             Vector2::new(position.x as f32, position.y as f32),
@@ -43,7 +43,7 @@ pub fn draw_quad(
             Vector2::zero(),
         ),
     );
-    context.push_to_dynamic_buf(
+    context.push_to_buffer_object(
         handle,
         TexturedColoredVertex2D::new(
             Vector2::new((position.x + extent.x) as f32, (position.y + extent.y) as f32),
@@ -51,7 +51,7 @@ pub fn draw_quad(
             Vector2::zero(),
         ),
     );
-    context.push_to_dynamic_buf(
+    context.push_to_buffer_object(
         handle,
         TexturedColoredVertex2D::new(
             Vector2::new((position.x + extent.x) as f32, position.y as f32),
@@ -116,11 +116,11 @@ pub fn draw_character(
         offset_y as f32 * TEXTURE_CHAR_HEIGHT,
     );
 
-    context.push_to_dynamic_buf(
+    context.push_to_buffer_object(
         handle,
         TexturedColoredVertex2D::new(position + Vector2::new(0f32, char_size), color, offset),
     );
-    context.push_to_dynamic_buf(
+    context.push_to_buffer_object(
         handle,
         TexturedColoredVertex2D::new(
             position + Vector2::new(char_size, char_size),
@@ -128,7 +128,7 @@ pub fn draw_character(
             offset + Vector2::new(TEXTURE_CHAR_WIDTH, 0.0),
         ),
     );
-    context.push_to_dynamic_buf(
+    context.push_to_buffer_object(
         handle,
         TexturedColoredVertex2D::new(
             position + Vector2::new(0f32, 0f32),
@@ -136,7 +136,7 @@ pub fn draw_character(
             offset + Vector2::new(0.0, TEXTURE_CHAR_HEIGHT),
         ),
     );
-    context.push_to_dynamic_buf(
+    context.push_to_buffer_object(
         handle,
         TexturedColoredVertex2D::new(
             position + Vector2::new(0f32, 0f32),
@@ -144,7 +144,7 @@ pub fn draw_character(
             offset + Vector2::new(0.0, TEXTURE_CHAR_HEIGHT),
         ),
     );
-    context.push_to_dynamic_buf(
+    context.push_to_buffer_object(
         handle,
         TexturedColoredVertex2D::new(
             position + Vector2::new(char_size, char_size),
@@ -152,7 +152,7 @@ pub fn draw_character(
             offset + Vector2::new(TEXTURE_CHAR_WIDTH, 0.0),
         ),
     );
-    context.push_to_dynamic_buf(
+    context.push_to_buffer_object(
         handle,
         TexturedColoredVertex2D::new(
             position + Vector2::new(char_size, 0f32),

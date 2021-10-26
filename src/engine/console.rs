@@ -282,8 +282,8 @@ fn _handle_input_cvar(cfg: &mut ConfigVariables, cvar_id: u32, arg_opt: Option<&
                 }
             }
             CvarType::String => {
-                let arg_split: Vec<&str> = arg.split('"').collect();
-                if arg_split.len() > 2 {
+                let arg_split_count = arg.split('"').count();
+                if arg_split_count > 2 {
                     cfg.set(cvar_id, String::from(arg));
                     parsed = true;
                 }
