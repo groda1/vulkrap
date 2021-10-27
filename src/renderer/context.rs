@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ffi::CString;
 use std::ptr;
 
@@ -121,15 +121,12 @@ impl Context {
 
         let queue_families = QueueFamilyIndices::new(&instance, &physical_device, &surface_container);
         log_info!("Picked Queue families: {}", queue_families);
-        if !queue_families.is_complete() {
-            // TODO: log which one is missing
-            panic!("Missing queue family!");
-        }
 
         let logical_device = _create_logical_device(&instance, &physical_device, &layers, &queue_families);
-        let graphics_queue = unsafe { logical_device.get_device_queue(queue_families.graphics.unwrap(), 0) };
-        let transfer_queue = unsafe { logical_device.get_device_queue(queue_families.graphics.unwrap(), 1) };
-        let present_queue = unsafe { logical_device.get_device_queue(queue_families.present.unwrap(), 0) };
+        let graphics_queue = unsafe { logical_device.get_device_queue(queue_families.graphics.family_index, queue_families.graphics.queue_index) };
+        // TODO: transfer queue should be its own thing
+        let transfer_queue = unsafe { logical_device.get_device_queue(queue_families.graphics.family_index, queue_families.graphics.queue_index) };
+        let present_queue = unsafe { logical_device.get_device_queue(queue_families.present.family_index, queue_families.present.queue_index) };
 
         let command_pool = _create_command_pool(&logical_device, &queue_families);
 
@@ -820,7 +817,7 @@ fn _create_command_pool(device: &ash::Device, queue_families: &QueueFamilyIndice
         s_type: vk::StructureType::COMMAND_POOL_CREATE_INFO,
         p_next: ptr::null(),
         flags: vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
-        queue_family_index: queue_families.graphics.unwrap(),
+        queue_family_index: queue_families.graphics.family_index,
     };
 
     unsafe {
@@ -1019,14 +1016,16 @@ fn _create_logical_device(
     layers: &[&str],
     queue_families: &QueueFamilyIndices,
 ) -> ash::Device {
-    let distinct_queue_familes: HashSet<u32> = [queue_families.graphics.unwrap(), queue_families.present.unwrap()]
+
+    // TODO :(
+    let distinct_queue_familes: HashSet<u32> = [queue_families.graphics.family_index, queue_families.present.family_index]
         .iter()
         .cloned()
         .collect();
     let mut queue_create_infos = Vec::new();
 
-    let queue_priorities = [1.0_f32, 1.0_f32];
-    let queue_count = 2;
+    let queue_priorities = [1.0_f32];
+    let queue_count = 1;
 
     for queue_family_index in distinct_queue_familes {
         let queue_create_info = vk::DeviceQueueCreateInfo {

@@ -37,8 +37,8 @@ pub fn create_swapchain(
         panic!("Unsupported swapchain image count: {}", image_count)
     }
 
-    let graphics_family = queue_families.graphics.unwrap();
-    let present_family = queue_families.present.unwrap();
+    let graphics_family = queue_families.graphics.family_index;
+    let present_family = queue_families.present.family_index;
 
     let (image_sharing_mode, queue_family_index_count, queue_family_indices) = if graphics_family != present_family {
         (vk::SharingMode::CONCURRENT, 2, vec![graphics_family, present_family])
