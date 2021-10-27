@@ -39,10 +39,12 @@ impl Logger {
     }
 
     pub fn info(&mut self, message: String) {
+        println!("{}",message);
         self.history.push(LogMessage::new(MessageLevel::Info, message));
     }
 
     pub fn debug(&mut self, message: String) {
+        println!("{}",message);
         self.history.push(LogMessage::new(MessageLevel::Debug, message));
     }
 
