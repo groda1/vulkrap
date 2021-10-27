@@ -163,10 +163,10 @@ impl BufferObjectManager {
         memory_manager: &mut MemoryManager,
         handle: BufferObjectHandle,
         image_count: usize,
-    ) {
+    ) -> bool {
         debug_assert!(self.buffer_objects.len() > handle);
-        log_debug_once!("buffer object overflow handle={}:", handle);
-        self.buffer_objects[handle].handle_buffer_overflow(device, memory_manager, image_count);
+        log_debug_once!("buffer object overflow: handle={}", handle);
+        self.buffer_objects[handle].handle_buffer_overflow(device, memory_manager, image_count)
     }
 
     pub fn destroy(&mut self, device: &ash::Device, memory_manager: &mut MemoryManager) {
@@ -243,6 +243,10 @@ impl BufferObject {
         self.assigned_pipelines.push(pipeline_handle);
     }
 
+    pub fn assigned_pipelines(&self) -> &[PipelineHandle] {
+        &self.assigned_pipelines
+    }
+
     pub fn push<T>(&mut self, data: T) -> Result<RawArrayPtr, PushError> {
         self.is_dirty.fill(true);
         self.raw_array.push(data)
@@ -285,23 +289,25 @@ impl BufferObject {
         device: &ash::Device,
         memory_manager: &mut MemoryManager,
         image_count: usize,
-    ) {
+    ) -> bool {
         if !self.is_growable {
-            return;
+            return false
         }
 
         let new_cap = self.raw_array.len() * 2;
         self.raw_array.resize(new_cap).expect("Failed to resize dynamic buffer");
         self.capacity_bytes *= 2;
 
-        log_debug!(" - resized device buffers to {}", self.capacity_bytes);
-        log_debug!(" - {:?}", self.raw_array);
+        log_debug!("   resized device buffers to {}", self.capacity_bytes);
+        log_debug!("   {:?}", self.raw_array);
 
         unsafe {
             device.device_wait_idle().expect("Failed to wait device idle!");
             self.destroy(device, memory_manager);
             self.build(device, memory_manager, image_count);
         }
+
+        true
     }
 
     pub fn capacity_bytes(&self) -> usize {

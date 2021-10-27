@@ -389,7 +389,7 @@ impl Context {
             &mut self.memory_manager,
             capacity,
             BufferObjectType::Storage,
-            false,
+            true,
         )
     }
 
@@ -743,14 +743,30 @@ impl Context {
     pub fn push_to_buffer_object<T>(&mut self, buffer_object: BufferObjectHandle, data: T) {
         let result = self.buffer_object_manager.push_to_buf(buffer_object, data);
 
-        if let Err(_) = result {
-            self.buffer_object_manager.handle_buffer_overflow(
+        if result.is_err() {
+            let resized = self.buffer_object_manager.handle_buffer_overflow(
                 &self.logical_device,
                 &mut self.memory_manager,
                 buffer_object,
                 self.swapchain_images.len(),
             );
-            //self.dynamic_vertex_buffer_manager.push_to_buf(dynamic_buffer, data);
+
+            if resized {
+                let foo  =self.buffer_object_manager.borrow_buffer(buffer_object);
+                let new_capacity = foo.capacity_bytes();
+                for pipeline in foo.assigned_pipelines().iter() {
+
+                    self.pipelines[*pipeline].update_storage_buffer(foo.devices(), new_capacity);
+                }
+                unsafe {
+                    self.wait_idle();
+                    for pipeline in foo.assigned_pipelines().iter() {
+                        self.pipelines[*pipeline].destroy_pipeline(&self.logical_device);
+                        self.pipelines[*pipeline].build(&self.logical_device, self.descriptor_pool, self.render_pass, self.swapchain_extent, self.swapchain_images.len());
+                    }
+                }
+
+            }
         }
     }
 

@@ -412,6 +412,12 @@ impl PipelineContainer {
         }
     }
 
+    pub(super) fn update_storage_buffer(&mut self, new_buffers: &[vk::Buffer], new_capacity : usize) {
+        let binding = self.storage_buffer_cfg.unwrap().binding;
+        self.storage_buffer_cfg = Some(BufferObjectBindingConfiguration::new(binding, new_capacity));
+        self.storage_buffers = new_buffers.to_vec();
+    }
+
     fn create_descriptor_sets(&mut self, device: &ash::Device, swapchain_images_size: usize) -> Vec<vk::DescriptorSet> {
         let mut layouts: Vec<vk::DescriptorSetLayout> = vec![];
         for _ in 0..swapchain_images_size {
