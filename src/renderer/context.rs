@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::ffi::CString;
 use std::ptr;
 
@@ -24,7 +24,6 @@ use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
 use crate::renderer::buffer::{BufferObjectHandle, BufferObjectManager, BufferObjectType};
-use crate::renderer::rawarray::RawArray;
 use crate::renderer::stats::RenderStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
 use ash::extensions::ext::DebugUtils;
@@ -123,10 +122,22 @@ impl Context {
         log_info!("Picked Queue families: {}", queue_families);
 
         let logical_device = _create_logical_device(&instance, &physical_device, &layers, &queue_families);
-        let graphics_queue = unsafe { logical_device.get_device_queue(queue_families.graphics.family_index, queue_families.graphics.queue_index) };
+        let graphics_queue = unsafe {
+            logical_device.get_device_queue(
+                queue_families.graphics.family_index,
+                queue_families.graphics.queue_index,
+            )
+        };
         // TODO: transfer queue should be its own thing
-        let transfer_queue = unsafe { logical_device.get_device_queue(queue_families.graphics.family_index, queue_families.graphics.queue_index) };
-        let present_queue = unsafe { logical_device.get_device_queue(queue_families.present.family_index, queue_families.present.queue_index) };
+        let transfer_queue = unsafe {
+            logical_device.get_device_queue(
+                queue_families.graphics.family_index,
+                queue_families.graphics.queue_index,
+            )
+        };
+        let present_queue = unsafe {
+            logical_device.get_device_queue(queue_families.present.family_index, queue_families.present.queue_index)
+        };
 
         let command_pool = _create_command_pool(&logical_device, &queue_families);
 
@@ -361,6 +372,7 @@ impl Context {
         )
     }
 
+    #[allow(dead_code)]
     pub fn create_vertex_buffer<T>(&mut self) -> BufferObjectHandle {
         self.buffer_object_manager.create_buffer::<T>(
             &self.logical_device,
@@ -371,11 +383,11 @@ impl Context {
         )
     }
 
-    pub fn create_storage_buffer<T>(&mut self) -> BufferObjectHandle {
+    pub fn create_storage_buffer<T>(&mut self, capacity: usize) -> BufferObjectHandle {
         self.buffer_object_manager.create_buffer::<T>(
             &self.logical_device,
             &mut self.memory_manager,
-            DYNAMIC_BUFFER_INITIAL_CAPACITY * 10,
+            capacity,
             BufferObjectType::Storage,
             false,
         )
@@ -684,7 +696,6 @@ impl Context {
             for draw_command in render_job {
                 let stats = self.pipelines[draw_command.pipeline].bake_command_buffer(
                     &self.logical_device,
-                    &self.buffer_object_manager,
                     command_buffer,
                     draw_command,
                     image_index,
@@ -743,11 +754,6 @@ impl Context {
         }
     }
 
-    pub fn borrow_raw_array(&self, dynamic_buffer: BufferObjectHandle) -> &RawArray {
-        self.buffer_object_manager
-            .borrow_buffer(dynamic_buffer)
-            .borrow_rawarray()
-    }
 }
 
 impl Drop for Context {
@@ -1016,12 +1022,14 @@ fn _create_logical_device(
     layers: &[&str],
     queue_families: &QueueFamilyIndices,
 ) -> ash::Device {
-
     // TODO :(
-    let distinct_queue_familes: HashSet<u32> = [queue_families.graphics.family_index, queue_families.present.family_index]
-        .iter()
-        .cloned()
-        .collect();
+    let distinct_queue_familes: HashSet<u32> = [
+        queue_families.graphics.family_index,
+        queue_families.present.family_index,
+    ]
+    .iter()
+    .cloned()
+    .collect();
     let mut queue_create_infos = Vec::new();
 
     let queue_priorities = [1.0_f32];

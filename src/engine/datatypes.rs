@@ -101,6 +101,7 @@ pub struct TexturedColoredVertex2D {
     pub texture_coord: Vector2<f32>,
 }
 
+#[allow(dead_code)]
 impl TexturedColoredVertex2D {
     pub fn new(position: Vector2<f32>, color: Vector4<f32>, texture_coord: Vector2<f32>) -> Self {
         TexturedColoredVertex2D {
@@ -226,10 +227,28 @@ pub struct InstancedCharacter {
 
 impl InstancedCharacter {
     pub fn new(position: Vector2<f32>, color: Vector4<f32>, character: u32, scale: f32) -> Self {
-        InstancedCharacter { position, character, scale, color }
+        InstancedCharacter {
+            position,
+            character,
+            scale,
+            color,
+        }
     }
 }
 
+#[repr(C)]
+#[derive(Clone, Debug, Copy)]
+pub struct InstancedQuad {
+    pub position: Vector2<f32>,
+    pub scale: Vector2<f32>,
+    pub color: Vector4<f32>,
+}
+
+impl InstancedQuad {
+    pub fn new(position: Vector2<f32>, scale: Vector2<f32>, color: Vector4<f32>) -> Self {
+        InstancedQuad { position, scale, color }
+    }
+}
 
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
@@ -260,7 +279,6 @@ pub struct ModelColorPushConstant {
     model_transform: Matrix4<f32>,
     color: Vector4<f32>,
 }
-
 
 #[allow(dead_code)]
 impl ModelColorPushConstant {

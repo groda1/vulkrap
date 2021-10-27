@@ -8,9 +8,9 @@ use ash::vk::{
     VertexInputBindingDescription,
 };
 
-use crate::renderer::buffer::{BufferObjectHandle, BufferObjectManager};
-use crate::renderer::context::{Context, PipelineHandle};
-use crate::renderer::pipeline::VertexData::{Buffered, Immediate};
+use crate::renderer::buffer::BufferObjectHandle;
+use crate::renderer::context::PipelineHandle;
+use crate::renderer::pipeline::VertexData::Buffered;
 use crate::renderer::rawarray::RawArrayPtr;
 use crate::renderer::stats::DrawCommandStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle};
@@ -329,7 +329,6 @@ impl PipelineContainer {
     pub unsafe fn bake_command_buffer(
         &self,
         logical_device: &ash::Device,
-        dynamic_buffer_manager: &BufferObjectManager,
         draw_command_buffer: vk::CommandBuffer,
         draw_command: &PipelineDrawCommand,
         image_index: usize,
@@ -361,6 +360,7 @@ impl PipelineContainer {
             &[],
         );
 
+        #[allow(irrefutable_let_patterns)]
         if let Buffered(buffer_data) = &draw_command.vertex_data {
             let vertex_buffers = [buffer_data.vertex_buffer];
             logical_device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &vertex_buffers, &offsets);
@@ -370,13 +370,16 @@ impl PipelineContainer {
                 0,
                 vk::IndexType::UINT32,
             );
-            logical_device.cmd_draw_indexed(draw_command_buffer, buffer_data.index_count, buffer_data.instance_count, 0, 0, 0);
-        } else if let Immediate(raw_data) = &draw_command.vertex_data {
-            let vertex_buffers = [dynamic_buffer_manager.borrow_buffer(raw_data.buf).device(image_index)];
-            logical_device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &vertex_buffers, &offsets);
-            logical_device.cmd_draw(draw_command_buffer, raw_data.vertex_count, 1, 0, 0);
+            logical_device.cmd_draw_indexed(
+                draw_command_buffer,
+                buffer_data.index_count,
+                buffer_data.instance_count,
+                0,
+                0,
+                buffer_data.instance_start,
+            );
         } else {
-            unreachable!();
+            unreachable!()
         }
 
         // Stats
@@ -631,29 +634,17 @@ impl PipelineDrawCommand {
         index_buffer: vk::Buffer,
         index_count: u32,
         instance_count: u32,
+        instance_start: u32,
     ) -> PipelineDrawCommand {
         PipelineDrawCommand {
             pipeline,
             push_constant_ptr,
-            vertex_data: Buffered(BufferData::new(vertex_buffer, index_buffer, index_count, instance_count)),
-        }
-    }
-
-    pub fn new_immediate(
-        context: &Context,
-        pipeline: PipelineHandle,
-        push_constant_ptr: RawArrayPtr,
-        dynamic_buffer_handle: BufferObjectHandle,
-    ) -> PipelineDrawCommand {
-        let raw_array = context.borrow_raw_array(dynamic_buffer_handle);
-        PipelineDrawCommand {
-            pipeline,
-            push_constant_ptr,
-            vertex_data: Immediate(ImmediateData::new(
-                raw_array.start(),
-                raw_array.len() * raw_array.data_size(),
-                dynamic_buffer_handle,
-                raw_array.len() as u32,
+            vertex_data: Buffered(BufferData::new(
+                vertex_buffer,
+                index_buffer,
+                index_count,
+                instance_count,
+                instance_start,
             )),
         }
     }
@@ -661,12 +652,10 @@ impl PipelineDrawCommand {
     pub fn triangle_count(&self, primitive_topology: PrimitiveTopology) -> u32 {
         match primitive_topology {
             PrimitiveTopology::TRIANGLE_LIST => match &self.vertex_data {
-                Immediate(raw_data) => raw_data.vertex_count / 3,
-                Buffered(buffer_data) => buffer_data.index_count / 3 * buffer_data.instance_count
+                Buffered(buffer_data) => buffer_data.index_count / 3 * buffer_data.instance_count,
             },
             PrimitiveTopology::TRIANGLE_STRIP => match &self.vertex_data {
-                Immediate(raw_data) => raw_data.vertex_count - 2,
-                Buffered(buffer_data) => (buffer_data.index_count - 2) * buffer_data.instance_count
+                Buffered(buffer_data) => (buffer_data.index_count - 2) * buffer_data.instance_count,
             },
             _ => unreachable!(),
         }
@@ -678,39 +667,28 @@ pub struct BufferData {
     index_buffer: vk::Buffer,
     index_count: u32,
     instance_count: u32,
+    instance_start: u32,
 }
 
 impl BufferData {
-    pub fn new(vertex_buffer: vk::Buffer, index_buffer: vk::Buffer, index_count: u32, instance_count: u32) -> Self {
+    pub fn new(
+        vertex_buffer: vk::Buffer,
+        index_buffer: vk::Buffer,
+        index_count: u32,
+        instance_count: u32,
+        instance_start: u32,
+    ) -> Self {
         BufferData {
             vertex_buffer,
             index_buffer,
             index_count,
             instance_count,
-        }
-    }
-}
-
-pub struct ImmediateData {
-    pub data_ptr: *const u8,
-    pub data_len: usize,
-    pub buf: BufferObjectHandle,
-    pub vertex_count: u32,
-}
-
-impl ImmediateData {
-    pub fn new(data_ptr: *const u8, data_len: usize, buf: BufferObjectHandle, vertex_count: u32) -> Self {
-        ImmediateData {
-            data_ptr,
-            data_len,
-            buf,
-            vertex_count,
+            instance_start,
         }
     }
 }
 
 pub enum VertexData {
-    Immediate(ImmediateData),
     Buffered(BufferData),
 }
 

@@ -280,10 +280,6 @@ impl BufferObject {
         &self.device_buffer
     }
 
-    pub fn borrow_rawarray(&self) -> &RawArray {
-        &self.raw_array
-    }
-
     pub fn handle_buffer_overflow(
         &mut self,
         device: &ash::Device,
