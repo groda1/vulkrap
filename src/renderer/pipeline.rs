@@ -412,7 +412,7 @@ impl PipelineContainer {
         }
     }
 
-    pub(super) fn update_storage_buffer(&mut self, new_buffers: &[vk::Buffer], new_capacity : usize) {
+    pub(super) fn update_storage_buffer(&mut self, new_buffers: &[vk::Buffer], new_capacity: usize) {
         let binding = self.storage_buffer_cfg.unwrap().binding;
         self.storage_buffer_cfg = Some(BufferObjectBindingConfiguration::new(binding, new_capacity));
         self.storage_buffers = new_buffers.to_vec();

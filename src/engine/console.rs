@@ -179,7 +179,12 @@ impl Console {
         let cvar_opt = cfg.get_cvar_id_from_str(split[0]);
 
         if let Some(cvar) = cvar_opt {
-            _handle_input_cvar(cfg, cvar, if split.len() >= 2 { Some(input.split_at(split[0].len() + 1).1) } else { None });
+            let cvar_argument = if split.len() >= 2 {
+                Some(input.split_at(split[0].len() + 1).1)
+            } else {
+                None
+            };
+            _handle_input_cvar(cfg, cvar, cvar_argument);
         } else {
             let command = _parse_input_command(split[0]);
             match command {
@@ -286,12 +291,11 @@ fn _handle_input_cvar(cfg: &mut ConfigVariables, cvar_id: u32, arg_opt: Option<&
                 let arg_split: Vec<&str> = arg.split('"').collect();
                 if arg_split.len() > 2 {
                     cfg.set(cvar_id, String::from(arg_split[1]));
-                } else  if arg_split.len() == 1 {
+                } else if arg_split.len() == 1 {
                     cfg.set(cvar_id, String::from(arg));
                 } else {
                     parsed = false;
                 }
-
             }
         }
         if !parsed {

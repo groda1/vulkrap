@@ -752,24 +752,27 @@ impl Context {
             );
 
             if resized {
-                let foo  =self.buffer_object_manager.borrow_buffer(buffer_object);
-                let new_capacity = foo.capacity_bytes();
-                for pipeline in foo.assigned_pipelines().iter() {
-
-                    self.pipelines[*pipeline].update_storage_buffer(foo.devices(), new_capacity);
+                let sbo = self.buffer_object_manager.borrow_buffer(buffer_object);
+                let new_capacity = sbo.capacity_bytes();
+                for pipeline in sbo.assigned_pipelines().iter() {
+                    self.pipelines[*pipeline].update_storage_buffer(sbo.devices(), new_capacity);
                 }
                 unsafe {
                     self.wait_idle();
-                    for pipeline in foo.assigned_pipelines().iter() {
+                    for pipeline in sbo.assigned_pipelines().iter() {
                         self.pipelines[*pipeline].destroy_pipeline(&self.logical_device);
-                        self.pipelines[*pipeline].build(&self.logical_device, self.descriptor_pool, self.render_pass, self.swapchain_extent, self.swapchain_images.len());
+                        self.pipelines[*pipeline].build(
+                            &self.logical_device,
+                            self.descriptor_pool,
+                            self.render_pass,
+                            self.swapchain_extent,
+                            self.swapchain_images.len(),
+                        );
                     }
                 }
-
             }
         }
     }
-
 }
 
 impl Drop for Context {

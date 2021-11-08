@@ -266,7 +266,6 @@ pub struct TopBar {
 
 impl TopBar {
     pub fn new(window_extent: WindowExtent) -> TopBar {
-
         TopBar {
             extent: window_extent,
             active: true,

@@ -291,7 +291,7 @@ impl BufferObject {
         image_count: usize,
     ) -> bool {
         if !self.is_growable {
-            return false
+            return false;
         }
 
         let new_cap = self.raw_array.len() * 2;
