@@ -24,7 +24,6 @@ pub(super) struct PipelineContainer {
     // Vulkan objects
     vk_pipeline: vk::Pipeline,
     layout: vk::PipelineLayout,
-    render_pass: vk::RenderPass,
 
     // Shaders
     vertex_shader: vk::ShaderModule,
@@ -84,7 +83,6 @@ impl PipelineContainer {
             is_built: false,
             vk_pipeline: vk::Pipeline::null(),
             layout: vk::PipelineLayout::null(),
-            render_pass: vk::RenderPass::null(),
             vertex_shader,
             fragment_shader,
             vertex_uniform_cfg,
@@ -120,7 +118,6 @@ impl PipelineContainer {
         }
 
         self.descriptor_pool = descriptor_pool;
-        self.render_pass = render_pass;
 
         let main_function_name = CString::new(SHADER_ENTRYPOINT).unwrap();
 
@@ -530,8 +527,6 @@ impl PipelineContainer {
         logical_device.destroy_pipeline_layout(self.layout, None);
 
         self.descriptor_sets.clear();
-
-        self.render_pass = vk::RenderPass::null();
 
         self.is_built = false;
     }

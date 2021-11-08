@@ -212,6 +212,20 @@ impl Context {
         }
     }
 
+
+    pub fn reset_frame(&mut self) {
+        unimplemented!();
+        // Loop through all render passes and reset its job buffer
+    }
+
+    pub fn _draw_frame(&mut self) -> RenderStats {
+        unimplemented!()
+    }
+
+    pub fn add_draw_command(draw_command: PipelineDrawCommand) {
+        unimplemented!()
+    }
+
     pub fn draw_frame(&mut self, render_job: &[PipelineDrawCommand]) -> RenderStats {
         let mut stats = RenderStats::new();
 
@@ -240,7 +254,7 @@ impl Context {
         let wait_fences = [self.sync_handler.inflight_fence(image_index)];
         unsafe {
             self.logical_device
-                .wait_for_fences(&wait_fences, true, std::u64::MAX)
+                .wait_for_fences(&wait_fences, true, u64::MAX)
                 .expect("Failed to wait for Fence!");
             self.logical_device
                 .reset_fences(&wait_fences)

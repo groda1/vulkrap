@@ -13,4 +13,5 @@ mod surface;
 mod swapchain;
 mod synchronization;
 mod texture;
+mod pass;
 mod vulkan_util;
