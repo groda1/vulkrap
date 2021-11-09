@@ -1,7 +1,7 @@
 use std::ptr;
 
 use ash::vk;
-use ash::vk::{Extent2D, PhysicalDevice};
+use ash::vk::PhysicalDevice;
 use num::clamp;
 
 use super::constants::USE_VSYNC;
@@ -92,41 +92,6 @@ pub fn create_swapchain(
         images,
         image_views,
     }
-}
-
-pub fn create_framebuffers(
-    device: &ash::Device,
-    image_views: &[vk::ImageView],
-    depth_image_view: vk::ImageView,
-    extent: Extent2D,
-    render_pass: vk::RenderPass,
-) -> Vec<vk::Framebuffer> {
-    let mut framebuffers = Vec::with_capacity(image_views.len());
-
-    for &image_view in image_views.iter() {
-        let attachments = [image_view, depth_image_view];
-
-        let framebuffer_create_info = vk::FramebufferCreateInfo {
-            s_type: vk::StructureType::FRAMEBUFFER_CREATE_INFO,
-            p_next: ptr::null(),
-            flags: vk::FramebufferCreateFlags::empty(),
-            render_pass,
-            attachment_count: attachments.len() as u32,
-            p_attachments: attachments.as_ptr(),
-            width: extent.width,
-            height: extent.height,
-            layers: 1,
-        };
-
-        let framebuffer = unsafe {
-            device
-                .create_framebuffer(&framebuffer_create_info, None)
-                .expect("Failed to create Framebuffer!")
-        };
-        framebuffers.push(framebuffer);
-    }
-
-    framebuffers
 }
 
 fn _create_image_views(device: &ash::Device, surface_format: vk::Format, images: &[vk::Image]) -> Vec<vk::ImageView> {

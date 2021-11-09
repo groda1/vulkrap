@@ -149,9 +149,12 @@ impl Context {
             &queue_families,
         );
 
-        let render_pass = _create_render_pass(&logical_device, swapchain_container.format, &instance, physical_device);
+        let render_pass =
+            TODO_REMOVE_create_render_pass(&logical_device, swapchain_container.format, &instance, physical_device);
 
         let pipelines = Vec::new();
+
+        let depth_format = image::find_depth_format(&instance, physical_device);
 
         let (depth_image, depth_image_view, depth_image_memory) = image::create_depth_resources(
             &instance,
@@ -159,9 +162,10 @@ impl Context {
             physical_device,
             swapchain_container.extent,
             &physical_device_memory_properties,
+            depth_format,
         );
 
-        let swapchain_framebuffers = swapchain::create_framebuffers(
+        let swapchain_framebuffers = image::create_framebuffers(
             &logical_device,
             &swapchain_container.image_views,
             depth_image_view,
@@ -211,7 +215,6 @@ impl Context {
             is_framebuffer_resized: false,
         }
     }
-
 
     pub fn reset_frame(&mut self) {
         unimplemented!();
@@ -299,7 +302,7 @@ impl Context {
         let draw_command_buffers = [draw_command_buffer];
 
         if !transfer_required {
-            // TODO we need so signal semaphore maunally
+            // TODO we need to signal the semaphore maunally
             unimplemented!();
         }
         let draw_wait_semaphores = [
@@ -602,6 +605,7 @@ impl Context {
         );
         self.swapchain_loader = swapchain_container.loader;
         self.swapchain = swapchain_container.swapchain;
+
         self.swapchain_images = swapchain_container.images;
         self.swapchain_format = swapchain_container.format;
         self.swapchain_extent = swapchain_container.extent;
@@ -610,25 +614,27 @@ impl Context {
         let image_count = self.swapchain_imageviews.len();
 
         self.descriptor_pool = _create_descriptor_pool(&self.logical_device);
-        self.render_pass = _create_render_pass(
+        self.render_pass = TODO_REMOVE_create_render_pass(
             &self.logical_device,
             swapchain_container.format,
             &self.instance,
             self.physical_device,
         );
 
+        let depth_format = image::find_depth_format(&self.instance, self.physical_device);
         let (depth_image, depth_image_view, depth_image_memory) = image::create_depth_resources(
             &self.instance,
             &self.logical_device,
             self.physical_device,
             self.swapchain_extent,
             self.memory_manager.physical_device_memory_properties(),
+            depth_format,
         );
         self.depth_image = depth_image;
         self.depth_image_view = depth_image_view;
         self.depth_image_memory = depth_image_memory;
 
-        self.swapchain_framebuffers = swapchain::create_framebuffers(
+        self.swapchain_framebuffers = image::create_framebuffers(
             &self.logical_device,
             &self.swapchain_imageviews,
             self.depth_image_view,
@@ -866,7 +872,7 @@ fn _create_command_pool(device: &ash::Device, queue_families: &QueueFamilyIndice
     }
 }
 
-fn _create_render_pass(
+fn TODO_REMOVE_create_render_pass(
     device: &ash::Device,
     surface_format: vk::Format,
     instance: &ash::Instance,

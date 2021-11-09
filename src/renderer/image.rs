@@ -1,5 +1,6 @@
 use crate::renderer::memory::MemoryManager;
 use ash::vk;
+use ash::vk::Extent2D;
 use std::ptr;
 
 pub fn create_texture_image(
@@ -78,8 +79,8 @@ pub fn create_depth_resources(
     physical_device: vk::PhysicalDevice,
     swapchain_extent: vk::Extent2D,
     device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
+    depth_format: vk::Format,
 ) -> (vk::Image, vk::ImageView, vk::DeviceMemory) {
-    let depth_format = find_depth_format(instance, physical_device);
     let (depth_image, depth_image_memory) = create_image(
         device,
         swapchain_extent.width,
@@ -421,4 +422,52 @@ fn copy_buffer_to_image(
     }
 
     end_single_time_command(device, command_pool, submit_queue, command_buffer);
+}
+
+pub fn create_framebuffers(
+    device: &ash::Device,
+    color_image_views: &[vk::ImageView],
+    depth_image_view: vk::ImageView,
+    extent: Extent2D,
+    render_pass: vk::RenderPass,
+) -> Vec<vk::Framebuffer> {
+    let mut framebuffers = Vec::with_capacity(color_image_views.len());
+
+    for &image_view in color_image_views.iter() {
+        let framebuffer = create_framebuffer(device, Some(image_view), Some(depth_image_view), extent, render_pass);
+        framebuffers.push(framebuffer);
+    }
+
+    framebuffers
+}
+
+pub fn create_framebuffer(
+    device: &ash::Device,
+    image_view: Option<vk::ImageView>,
+    depth_image_view: Option<vk::ImageView>,
+    extent: Extent2D,
+    render_pass: vk::RenderPass,
+) -> vk::Framebuffer {
+    let mut attachments = Vec::new();
+
+    if let Some(image_view) = image_view {
+        attachments.push(image_view);
+    }
+    if let Some(depth_view) = depth_image_view {
+        attachments.push(depth_view);
+    }
+
+    let framebuffer_create_info = vk::FramebufferCreateInfo::builder()
+        .render_pass(render_pass)
+        .attachments(&attachments)
+        .width(extent.width)
+        .height(extent.height)
+        .layers(1)
+        .build();
+
+    unsafe {
+        device
+            .create_framebuffer(&framebuffer_create_info, None)
+            .expect("Failed to create Framebuffer!")
+    }
 }
