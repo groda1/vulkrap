@@ -1,11 +1,13 @@
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::PipelineDrawCommand;
+use crate::renderer::pipeline::{PipelineContainer, PipelineDrawCommand};
 use crate::renderer::swapchain::SwapChainContainer;
 use ash::vk;
 use ash::vk::PhysicalDeviceMemoryProperties;
 use std::collections::HashMap;
 use std::mem::swap;
 use std::ptr;
+use crate::renderer::context::PipelineHandle;
+use crate::renderer::stats::RenderStats;
 
 use super::image;
 
@@ -157,7 +159,71 @@ impl RenderPassHandler {
         Ok(handle)
     }
 
-    pub fn derp(&mut self) {}
+    fn bake_command_buffer(
+        &self,
+        device: &ash::Device,
+        pipelines: &[PipelineContainer],
+        command_buffer: vk::CommandBuffer,
+        image_index: usize,
+        render_job: &[PipelineDrawCommand],
+        render_stats: &mut RenderStats,
+    ) {
+
+        let render_pass = self.swapchain_pass.as_ref().unwrap();
+
+        // TODO optioanl
+        let clear_values = [
+            vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.05, 0.05, 0.1, 1.0],
+                },
+            },
+            vk::ClearValue {
+                // clear value for depth buffer
+                depth_stencil: vk::ClearDepthStencilValue { depth: 1.0, stencil: 0 },
+            },
+        ];
+        let render_pass_begin_info = vk::RenderPassBeginInfo {
+            s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
+            p_next: ptr::null(),
+            render_pass: render_pass.render_pass,
+            framebuffer: render_pass.framebuffers[image_index],
+            render_area: vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent: render_pass.extent,
+            },
+            clear_value_count: clear_values.len() as u32,
+            p_clear_values: clear_values.as_ptr(),
+        };
+
+        unsafe {
+            device.cmd_begin_render_pass(
+                command_buffer,
+                &render_pass_begin_info,
+                vk::SubpassContents::INLINE,
+            );
+        }
+
+        let mut bound_pipeline = PipelineHandle::MAX;
+        for draw_command in render_job {
+            unsafe {
+                let stats = pipelines[draw_command.pipeline].bake_command_buffer(
+                    device,
+                    command_buffer,
+                    draw_command,
+                    image_index,
+                    bound_pipeline != draw_command.pipeline,
+                );
+                bound_pipeline = draw_command.pipeline;
+                render_stats.add_draw_command(stats);
+            }
+        }
+
+        unsafe {
+            device.cmd_end_render_pass(command_buffer);
+        }
+    }
+
 }
 
 fn create_render_pass(
