@@ -24,14 +24,12 @@ use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
 use crate::renderer::buffer::{BufferObjectHandle, BufferObjectManager, BufferObjectType};
+use crate::renderer::constants::DYNAMIC_BUFFER_INITIAL_CAPACITY;
+use crate::renderer::pass::{RenderPassHandler, SWAPCHAIN_PASS};
 use crate::renderer::stats::RenderStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
 use ash::extensions::ext::DebugUtils;
 use std::time::Instant;
-use crate::renderer::constants::DYNAMIC_BUFFER_INITIAL_CAPACITY;
-use crate::renderer::pass::{RenderPassHandler, SWAPCHAIN_PASS};
-
-
 
 pub type PipelineHandle = usize;
 pub type UniformHandle = usize;
@@ -51,16 +49,12 @@ pub struct Context {
 
     surface_container: SurfaceContainer,
 
-
     render_pass_handler: RenderPassHandler,
-
-
 
     texture_manager: TextureManager,
 
     memory_manager: MemoryManager,
     buffer_object_manager: BufferObjectManager,
-
 
     command_pool: vk::CommandPool,
     draw_command_buffers: Vec<vk::CommandBuffer>,
@@ -140,7 +134,13 @@ impl Context {
         let image_count = swapchain_container.image_views.len();
 
         let mut render_pass_handler = RenderPassHandler::new(&logical_device);
-        render_pass_handler.create_swapchain_pass(&logical_device, &instance, physical_device, &physical_device_memory_properties, swapchain_container);
+        render_pass_handler.create_swapchain_pass(
+            &logical_device,
+            &instance,
+            physical_device,
+            &physical_device_memory_properties,
+            swapchain_container,
+        );
 
         let memory_manager = MemoryManager::new(physical_device_memory_properties);
         let draw_command_buffers = _create_command_buffers(&logical_device, command_pool, image_count);
@@ -247,12 +247,7 @@ impl Context {
 
         // Draw
         let draw_command_buffer = self.draw_command_buffers[image_index_usize];
-        self.bake_draw_command_buffer(
-            draw_command_buffer,
-            image_index_usize,
-            render_job,
-            &mut stats,
-        );
+        self.bake_draw_command_buffer(draw_command_buffer, image_index_usize, render_job, &mut stats);
 
         let draw_command_buffers = [draw_command_buffer];
 
@@ -300,7 +295,11 @@ impl Context {
             .build();
 
         unsafe {
-            let result = self.render_pass_handler.swapchain_pass().loader().queue_present(self.present_queue, &present_info);
+            let result = self
+                .render_pass_handler
+                .swapchain_pass()
+                .loader()
+                .queue_present(self.present_queue, &present_info);
 
             let is_resized = match result {
                 Ok(_) => self.is_framebuffer_resized,
@@ -392,9 +391,12 @@ impl Context {
     }
 
     pub fn add_pipeline<T: VertexInputDescription>(&mut self, config: PipelineConfiguration) -> PipelineHandle {
-
-            self.render_pass_handler.add_pipeline::<T>(&self.logical_device, &mut self.buffer_object_manager, &self.texture_manager, config)
-
+        self.render_pass_handler.add_pipeline::<T>(
+            &self.logical_device,
+            &mut self.buffer_object_manager,
+            &self.texture_manager,
+            config,
+        )
     }
 
     pub unsafe fn wait_idle(&self) {
@@ -437,19 +439,21 @@ impl Context {
 
         let image_count = swapchain_container.image_views.len();
 
-
         self.draw_command_buffers = _create_command_buffers(&self.logical_device, self.command_pool, image_count);
         self.transfer_command_buffers = _create_command_buffers(&self.logical_device, self.command_pool, image_count);
-
 
         self.buffer_object_manager
             .rebuild(&self.logical_device, &mut self.memory_manager, image_count);
         self.buffer_object_manager
             .reassign_pipeline_buffers(self.render_pass_handler.swapchain_pass_mut().pipelines_mut());
 
-        self.render_pass_handler.create_swapchain_pass(&self.logical_device, &self.instance, self.physical_device, &self.physical_device_memory_properties, swapchain_container);
-
-
+        self.render_pass_handler.create_swapchain_pass(
+            &self.logical_device,
+            &self.instance,
+            self.physical_device,
+            &self.physical_device_memory_properties,
+            swapchain_container,
+        );
     }
 
     fn bake_draw_command_buffer(
@@ -464,7 +468,6 @@ impl Context {
             .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
             .build();
 
-
         unsafe {
             self.logical_device
                 .reset_command_buffer(command_buffer, vk::CommandBufferResetFlags::empty())
@@ -473,7 +476,13 @@ impl Context {
                 .begin_command_buffer(command_buffer, &command_buffer_begin_info)
                 .expect("Failed to begin recording of Draw command buffer!");
 
-            self.render_pass_handler.bake_command_buffer(&self.logical_device, command_buffer, image_index, render_job, render_stats);
+            self.render_pass_handler.bake_command_buffer(
+                &self.logical_device,
+                command_buffer,
+                image_index,
+                render_job,
+                render_stats,
+            );
 
             self.logical_device
                 .end_command_buffer(command_buffer)
@@ -525,17 +534,18 @@ impl Context {
                 let sbo = self.buffer_object_manager.borrow_buffer(buffer_object);
                 let new_capacity = sbo.capacity_bytes();
                 for pipeline in sbo.assigned_pipelines().iter() {
-
                     //self.pipelines[*pipeline].update_storage_buffer(sbo.devices(), new_capacity);
 
                     // TODO THIS IS NOT LOCAL TO SWAPCHAIN PASS ONLY
-                    self.render_pass_handler.swapchain_pass_mut().pipelines_mut()[*pipeline].update_storage_buffer(sbo.devices(), new_capacity);
+                    self.render_pass_handler.swapchain_pass_mut().pipelines_mut()[*pipeline]
+                        .update_storage_buffer(sbo.devices(), new_capacity);
                 }
                 unsafe {
                     self.wait_idle();
                     for pipeline in sbo.assigned_pipelines().iter() {
                         // TODO THIS IS NOT LOCAL TO SWAPCHAIN PASS ONLY
-                        self.render_pass_handler.rebuild_pipeline(&self.logical_device, *pipeline, SWAPCHAIN_PASS)
+                        self.render_pass_handler
+                            .rebuild_pipeline(&self.logical_device, *pipeline, SWAPCHAIN_PASS)
 
                         /*
                         self.pipelines[*pipeline].destroy_pipeline(&self.logical_device);
@@ -560,6 +570,9 @@ impl Drop for Context {
         unsafe {
             // Synchronization objects
             self.sync_handler.destroy(&self.logical_device);
+
+            // Shaders and descriptor sets
+            self.render_pass_handler.destroy_static_pipeline_objects(&self.logical_device);
 
             // Swapchain
             self.destroy_swapchain();
@@ -589,7 +602,6 @@ impl Drop for Context {
     }
 }
 
-
 fn _create_command_pool(device: &ash::Device, queue_families: &QueueFamilyIndices) -> vk::CommandPool {
     let command_pool_create_info = vk::CommandPoolCreateInfo {
         s_type: vk::StructureType::COMMAND_POOL_CREATE_INFO,
@@ -602,90 +614,6 @@ fn _create_command_pool(device: &ash::Device, queue_families: &QueueFamilyIndice
         device
             .create_command_pool(&command_pool_create_info, None)
             .expect("Failed to create Command Pool!")
-    }
-}
-
-fn TODO_REMOVE_create_render_pass(
-    device: &ash::Device,
-    surface_format: vk::Format,
-    instance: &ash::Instance,
-    physical_device: vk::PhysicalDevice,
-) -> vk::RenderPass {
-    let color_attachment = vk::AttachmentDescription {
-        flags: vk::AttachmentDescriptionFlags::empty(),
-        format: surface_format,
-        samples: vk::SampleCountFlags::TYPE_1,
-        load_op: vk::AttachmentLoadOp::CLEAR,
-        store_op: vk::AttachmentStoreOp::STORE,
-        stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
-        stencil_store_op: vk::AttachmentStoreOp::DONT_CARE,
-        initial_layout: vk::ImageLayout::UNDEFINED,
-        final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
-    };
-
-    let depth_attachment = vk::AttachmentDescription {
-        flags: vk::AttachmentDescriptionFlags::empty(),
-        format: image::find_depth_format(instance, physical_device),
-        samples: vk::SampleCountFlags::TYPE_1,
-        load_op: vk::AttachmentLoadOp::CLEAR,
-        store_op: vk::AttachmentStoreOp::DONT_CARE,
-        stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
-        stencil_store_op: vk::AttachmentStoreOp::DONT_CARE,
-        initial_layout: vk::ImageLayout::UNDEFINED,
-        final_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    };
-
-    let color_attachment_ref = vk::AttachmentReference {
-        attachment: 0,
-        layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-    };
-
-    let depth_attachment_ref = vk::AttachmentReference {
-        attachment: 1,
-        layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    };
-
-    let subpass = vk::SubpassDescription {
-        flags: vk::SubpassDescriptionFlags::empty(),
-        pipeline_bind_point: vk::PipelineBindPoint::GRAPHICS,
-        input_attachment_count: 0,
-        p_input_attachments: ptr::null(),
-        color_attachment_count: 1,
-        p_color_attachments: &color_attachment_ref,
-        p_resolve_attachments: ptr::null(),
-        p_depth_stencil_attachment: &depth_attachment_ref,
-        preserve_attachment_count: 0,
-        p_preserve_attachments: ptr::null(),
-    };
-
-    let render_pass_attachments = [color_attachment, depth_attachment];
-
-    let subpass_dependencies = [vk::SubpassDependency {
-        src_subpass: vk::SUBPASS_EXTERNAL,
-        dst_subpass: 0,
-        src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-        dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-        src_access_mask: vk::AccessFlags::empty(),
-        dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
-        dependency_flags: vk::DependencyFlags::empty(),
-    }];
-
-    let renderpass_create_info = vk::RenderPassCreateInfo {
-        s_type: vk::StructureType::RENDER_PASS_CREATE_INFO,
-        flags: vk::RenderPassCreateFlags::empty(),
-        p_next: ptr::null(),
-        attachment_count: render_pass_attachments.len() as u32,
-        p_attachments: render_pass_attachments.as_ptr(),
-        subpass_count: 1,
-        p_subpasses: &subpass,
-        dependency_count: subpass_dependencies.len() as u32,
-        p_dependencies: subpass_dependencies.as_ptr(),
-    };
-
-    unsafe {
-        device
-            .create_render_pass(&renderpass_create_info, None)
-            .expect("Failed to create render pass!")
     }
 }
 

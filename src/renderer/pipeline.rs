@@ -520,22 +520,22 @@ impl PipelineContainer {
         descriptor_sets
     }
 
-    pub unsafe fn destroy_pipeline(&mut self, logical_device: &ash::Device) {
-        logical_device.destroy_pipeline(self.vk_pipeline, None);
-        logical_device.destroy_pipeline_layout(self.layout, None);
+    pub unsafe fn destroy_pipeline(&mut self, device: &ash::Device) {
+        device.destroy_pipeline(self.vk_pipeline, None);
+        device.destroy_pipeline_layout(self.layout, None);
 
         self.descriptor_sets.clear();
 
         self.is_built = false;
     }
 
-    pub unsafe fn destroy_shaders(&self, logical_device: &ash::Device) {
-        logical_device.destroy_shader_module(self.vertex_shader, None);
-        logical_device.destroy_shader_module(self.fragment_shader, None);
+    pub unsafe fn destroy_shaders(&self, device: &ash::Device) {
+        device.destroy_shader_module(self.vertex_shader, None);
+        device.destroy_shader_module(self.fragment_shader, None);
     }
 
-    pub unsafe fn destroy_descriptor_set_layout(&self, logical_device: &ash::Device) {
-        logical_device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
+    pub unsafe fn destroy_descriptor_set_layout(&self, device: &ash::Device) {
+        device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
     }
 }
 
