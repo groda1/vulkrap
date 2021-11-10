@@ -1,6 +1,6 @@
 use crate::log::logger::debug;
 use crate::renderer::buffer::BufferObjectManager;
-use crate::renderer::constants::{MAXIMUM_PIPELINE_COUNT, SAMPLER_DESCRIPTOR_POOL_SIZE, UNIFORM_DESCRIPTOR_POOL_SIZE};
+use crate::renderer::constants::{SAMPLER_DESCRIPTOR_POOL_SIZE, UNIFORM_DESCRIPTOR_POOL_SIZE};
 use crate::renderer::context::PipelineHandle;
 use crate::renderer::memory::MemoryManager;
 use crate::renderer::pipeline::{
@@ -170,17 +170,17 @@ impl SwapchainPass {
         pipeline_handle
     }
 
-    fn build_pipeline(&mut self, device: &Device, descriptor_pool: DescriptorPool, handle: PipelineHandle) {
+    fn build_pipeline(&mut self, device: &Device, handle: PipelineHandle) {
         debug_assert!(self.pipelines.len() > handle);
 
         let image_count = self.image_count();
-        self.pipelines[handle].build(device, descriptor_pool, self.render_pass, self.extent, image_count);
+        self.pipelines[handle].build(device, self.render_pass, self.extent, image_count);
     }
 
-    fn rebuild_all_pipelines(&mut self, device: &Device, descriptor_pool: DescriptorPool) {
+    fn rebuild_all_pipelines(&mut self, device: &Device) {
         let image_count = self.image_count();
         for pipeline in self.pipelines.iter_mut() {
-            pipeline.build(device, descriptor_pool, self.render_pass, self.extent, image_count);
+            pipeline.build(device, self.render_pass, self.extent, image_count);
         }
     }
 
@@ -202,8 +202,6 @@ impl SwapchainPass {
 }
 
 pub struct RenderPassHandler {
-    descriptor_pool: vk::DescriptorPool,
-
     render_passes: HashMap<RenderPassHandle, RenderPass>,
     pass_order: Vec<RenderPassHandle>,
 
@@ -212,10 +210,7 @@ pub struct RenderPassHandler {
 
 impl RenderPassHandler {
     pub fn new(device: &ash::Device) -> Self {
-        let descriptor_pool = create_descriptor_pool(device);
-
         Self {
-            descriptor_pool,
             render_passes: HashMap::new(),
             pass_order: Vec::new(),
             swapchain_pass: Option::None,
@@ -250,23 +245,9 @@ impl RenderPassHandler {
             swapchain_container,
             pipelines,
         );
-        swapchain_pass.rebuild_all_pipelines(device, self.descriptor_pool);
+        swapchain_pass.rebuild_all_pipelines(device);
 
         self.swapchain_pass = Some(swapchain_pass);
-    }
-
-    pub unsafe fn destroy(&mut self, device: &ash::Device) {
-        /*
-        // Pipeline shaders & descriptor sets
-        for pipeline_container in self.pipelines.iter_mut() {
-            pipeline_container.destroy_shaders(&self.logical_device);
-            pipeline_container.destroy_descriptor_set_layout(&self.logical_device);
-        }
-         // TODO FOR ALL PASSES EXCEPT THE SWAPCHAIN PASS
-         */
-
-        // Descriptor pool
-        device.destroy_descriptor_pool(self.descriptor_pool, None);
     }
 
     pub unsafe fn destroy_swapchain(&mut self, device: &ash::Device) {
@@ -278,7 +259,10 @@ impl RenderPassHandler {
     pub unsafe fn destroy_static_pipeline_objects(&mut self, device: &ash::Device) {
         debug_assert!(self.swapchain_pass.is_some());
 
-        self.swapchain_pass.as_mut().unwrap().destroy_static_pipeline_objects(device);
+        self.swapchain_pass
+            .as_mut()
+            .unwrap()
+            .destroy_static_pipeline_objects(device);
 
         // TODO should be done for all render passes
     }
@@ -405,7 +389,7 @@ impl RenderPassHandler {
             buffer_object_manager.assign_pipeline(storage_cfg.buffer_object_handle, pipeline_handle);
         }
 
-        render_pass.build_pipeline(device, self.descriptor_pool, pipeline_handle);
+        render_pass.build_pipeline(device, pipeline_handle);
 
         pipeline_handle
     }
@@ -423,7 +407,7 @@ impl RenderPassHandler {
 
             let pass = self.swapchain_pass.as_mut().unwrap();
             pass.destroy_pipeline(device, pipeline_handle);
-            pass.build_pipeline(device, self.descriptor_pool, pipeline_handle);
+            pass.build_pipeline(device, pipeline_handle);
         } else {
             unimplemented!()
         }
@@ -569,29 +553,5 @@ fn create_render_pass(
         device
             .create_render_pass(&renderpass_create_info, None)
             .expect("Failed to create render pass!")
-    }
-}
-
-fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
-    let pool_sizes = [
-        vk::DescriptorPoolSize::builder()
-            .ty(DescriptorType::UNIFORM_BUFFER)
-            .descriptor_count(UNIFORM_DESCRIPTOR_POOL_SIZE)
-            .build(),
-        vk::DescriptorPoolSize::builder()
-            .ty(DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .descriptor_count(SAMPLER_DESCRIPTOR_POOL_SIZE)
-            .build(),
-    ];
-
-    let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo::builder()
-        .flags(DescriptorPoolCreateFlags::empty())
-        .max_sets(MAXIMUM_PIPELINE_COUNT)
-        .pool_sizes(&pool_sizes);
-
-    unsafe {
-        device
-            .create_descriptor_pool(&descriptor_pool_create_info, None)
-            .expect("Failed to create Descriptor Pool!")
     }
 }

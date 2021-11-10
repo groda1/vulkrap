@@ -572,7 +572,8 @@ impl Drop for Context {
             self.sync_handler.destroy(&self.logical_device);
 
             // Shaders and descriptor sets
-            self.render_pass_handler.destroy_static_pipeline_objects(&self.logical_device);
+            self.render_pass_handler
+                .destroy_static_pipeline_objects(&self.logical_device);
 
             // Swapchain
             self.destroy_swapchain();
@@ -582,9 +583,6 @@ impl Drop for Context {
 
             // Textures & Samplers
             self.texture_manager.destroy(&self.logical_device);
-
-            // Pipelines and global render pass objects
-            self.render_pass_handler.destroy(&self.logical_device);
 
             // Command pool
             self.logical_device.destroy_command_pool(self.command_pool, None);

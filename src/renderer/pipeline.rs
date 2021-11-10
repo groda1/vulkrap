@@ -4,11 +4,12 @@ use std::ptr;
 
 use ash::vk;
 use ash::vk::{
-    ImageView, PrimitiveTopology, Sampler, ShaderStageFlags, VertexInputAttributeDescription,
-    VertexInputBindingDescription,
+    DescriptorPoolCreateFlags, DescriptorType, ImageView, PrimitiveTopology, Sampler, ShaderStageFlags,
+    VertexInputAttributeDescription, VertexInputBindingDescription,
 };
 
 use crate::renderer::buffer::BufferObjectHandle;
+use crate::renderer::constants::{MAX_FRAMES_IN_FLIGHT, SAMPLER_DESCRIPTOR_POOL_SIZE, UNIFORM_DESCRIPTOR_POOL_SIZE};
 use crate::renderer::context::PipelineHandle;
 use crate::renderer::pass::RenderPassHandle;
 use crate::renderer::pipeline::VertexData::Buffered;
@@ -108,15 +109,11 @@ impl PipelineContainer {
     pub fn build(
         &mut self,
         logical_device: &ash::Device,
-        descriptor_pool: vk::DescriptorPool,
         render_pass: vk::RenderPass,
         swapchain_extent: vk::Extent2D,
         image_count: usize,
     ) {
         assert!(!self.is_built);
-
-        self.descriptor_pool = descriptor_pool;
-
         let main_function_name = CString::new(SHADER_ENTRYPOINT).unwrap();
 
         let shader_stages = [
@@ -316,6 +313,7 @@ impl PipelineContainer {
         self.vk_pipeline = graphics_pipelines[0];
         self.layout = pipeline_layout;
 
+        self.descriptor_pool = create_descriptor_pool(logical_device);
         self.descriptor_sets = self.create_descriptor_sets(logical_device, image_count);
 
         self.is_built = true;
@@ -524,6 +522,7 @@ impl PipelineContainer {
         device.destroy_pipeline(self.vk_pipeline, None);
         device.destroy_pipeline_layout(self.layout, None);
 
+        device.destroy_descriptor_pool(self.descriptor_pool, None);
         self.descriptor_sets.clear();
 
         self.is_built = false;
@@ -886,4 +885,28 @@ pub type Index = u32;
 pub enum UniformStage {
     Vertex,
     Fragment,
+}
+
+fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
+    let pool_sizes = [
+        vk::DescriptorPoolSize::builder()
+            .ty(DescriptorType::UNIFORM_BUFFER)
+            .descriptor_count(UNIFORM_DESCRIPTOR_POOL_SIZE)
+            .build(),
+        vk::DescriptorPoolSize::builder()
+            .ty(DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_count(SAMPLER_DESCRIPTOR_POOL_SIZE)
+            .build(),
+    ];
+
+    let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo::builder()
+        .flags(DescriptorPoolCreateFlags::empty())
+        .max_sets(MAX_FRAMES_IN_FLIGHT as u32)
+        .pool_sizes(&pool_sizes);
+
+    unsafe {
+        device
+            .create_descriptor_pool(&descriptor_pool_create_info, None)
+            .expect("Failed to create Descriptor Pool!")
+    }
 }
