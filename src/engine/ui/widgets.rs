@@ -207,7 +207,7 @@ impl RenderStatsRenderer {
             context,
             text_sbo,
             &*format!("Frame time: {0:.3} ms", renderstats.get_frametime() * 1000f32),
-            self.position - Vector2::new(0, 18 * 1),
+            self.position - Vector2::new(0, 18),
             16,
             COLOR_WHITE,
             COLOR_BLACK,

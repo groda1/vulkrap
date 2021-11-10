@@ -74,9 +74,7 @@ pub fn create_texture_image(
 }
 
 pub fn create_depth_resources(
-    instance: &ash::Instance,
     device: &ash::Device,
-    physical_device: vk::PhysicalDevice,
     swapchain_extent: vk::Extent2D,
     device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
     depth_format: vk::Format,

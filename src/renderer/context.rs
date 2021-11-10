@@ -3,13 +3,12 @@ use std::ffi::CString;
 use std::ptr;
 
 use ash::vk;
-use ash::vk::{DescriptorPoolCreateFlags, DescriptorType, PhysicalDevice, PhysicalDeviceMemoryProperties};
+use ash::vk::{PhysicalDevice, PhysicalDeviceMemoryProperties};
 use winit::window::Window;
 
 use crate::renderer::memory::MemoryManager;
 use crate::renderer::pipeline::{
-    BufferObjectBindingConfiguration, Index, PipelineConfiguration, PipelineContainer, PipelineDrawCommand,
-    SamplerBindingConfiguration, UniformStage, VertexInputDescription, VertexTopology,
+    Index, PipelineConfiguration, PipelineDrawCommand, UniformStage, VertexInputDescription,
 };
 use crate::renderer::synchronization::SynchronizationHandler;
 use crate::ENGINE_NAME;
@@ -133,7 +132,7 @@ impl Context {
 
         let image_count = swapchain_container.image_views.len();
 
-        let mut render_pass_handler = RenderPassHandler::new(&logical_device);
+        let mut render_pass_handler = RenderPassHandler::new();
         render_pass_handler.create_swapchain_pass(
             &logical_device,
             &instance,
@@ -172,7 +171,7 @@ impl Context {
         }
     }
 
-    pub fn reset_frame(&mut self) {
+    pub fn _reset_frame(&mut self) {
         unimplemented!();
         // Loop through all render passes and reset its job buffer
     }
@@ -181,7 +180,7 @@ impl Context {
         unimplemented!()
     }
 
-    pub fn add_draw_command(draw_command: PipelineDrawCommand) {
+    pub fn _add_draw_command(_draw_command: PipelineDrawCommand) {
         unimplemented!()
     }
 

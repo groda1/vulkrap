@@ -6,7 +6,7 @@ use crate::engine::mesh::MeshManager;
 use crate::engine::terrain::Terrain;
 
 use crate::engine::console::Console;
-use crate::engine::ui::hud::HUD;
+use crate::engine::ui::hud::Hud;
 use crate::renderer::context::{Context, PipelineHandle};
 use crate::renderer::pipeline::PipelineDrawCommand;
 use crate::renderer::rawarray::RawArrayPtr;
@@ -17,7 +17,7 @@ pub struct Scene {
     wobbly_pipeline: PipelineHandle,
 
     terrain: Terrain,
-    hud: HUD,
+    hud: Hud,
     render_job_buffer: Vec<PipelineDrawCommand>,
 }
 
@@ -37,7 +37,7 @@ impl Scene {
             wobbly_pipeline,
             render_job_buffer,
             terrain: Terrain::new(context, terrain_pipeline),
-            hud: HUD::new(context, window_extent, mesh_manager),
+            hud: Hud::new(context, window_extent, mesh_manager),
         }
     }
 

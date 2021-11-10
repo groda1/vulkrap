@@ -2,16 +2,15 @@ use std::borrow::Borrow;
 use std::ffi::CString;
 use std::ptr;
 
+use crate::renderer::buffer::BufferObjectHandle;
 use ash::vk;
 use ash::vk::{
     DescriptorPoolCreateFlags, DescriptorType, ImageView, PrimitiveTopology, Sampler, ShaderStageFlags,
     VertexInputAttributeDescription, VertexInputBindingDescription,
 };
 
-use crate::renderer::buffer::BufferObjectHandle;
 use crate::renderer::constants::{MAX_FRAMES_IN_FLIGHT, SAMPLER_DESCRIPTOR_POOL_SIZE, UNIFORM_DESCRIPTOR_POOL_SIZE};
 use crate::renderer::context::PipelineHandle;
-use crate::renderer::pass::RenderPassHandle;
 use crate::renderer::pipeline::VertexData::Buffered;
 use crate::renderer::rawarray::RawArrayPtr;
 use crate::renderer::stats::DrawCommandStats;

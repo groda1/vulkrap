@@ -19,7 +19,7 @@ use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand, Unif
 
 use crate::util::file;
 
-pub struct HUD {
+pub struct Hud {
     uniform: UniformHandle,
 
     text_sbo: BufferObjectHandle,
@@ -36,7 +36,7 @@ pub struct HUD {
     window_extent: WindowExtent,
 }
 
-impl HUD {
+impl Hud {
     pub fn new(context: &mut Context, window_extent: WindowExtent, mesh_manager: &MeshManager) -> Self {
         let vp_uniform = context.create_uniform_buffer::<ViewProjectionUniform>(UniformStage::Vertex);
         let text_sbo = context.create_storage_buffer::<InstancedCharacter>(500);
@@ -72,7 +72,7 @@ impl HUD {
         let console_renderer = ConsoleRenderer::new(window_extent);
         let top_bar_renderer = TopBar::new(window_extent);
 
-        HUD {
+        Hud {
             uniform: vp_uniform,
             text_sbo,
             quad_sbo,

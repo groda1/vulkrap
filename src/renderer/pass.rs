@@ -1,8 +1,5 @@
-use crate::log::logger::debug;
 use crate::renderer::buffer::BufferObjectManager;
-use crate::renderer::constants::{SAMPLER_DESCRIPTOR_POOL_SIZE, UNIFORM_DESCRIPTOR_POOL_SIZE};
 use crate::renderer::context::PipelineHandle;
-use crate::renderer::memory::MemoryManager;
 use crate::renderer::pipeline::{
     BufferObjectBindingConfiguration, PipelineConfiguration, PipelineContainer, PipelineDrawCommand,
     SamplerBindingConfiguration, UniformStage, VertexInputDescription, VertexTopology,
@@ -10,12 +7,9 @@ use crate::renderer::pipeline::{
 use crate::renderer::stats::RenderStats;
 use crate::renderer::swapchain::SwapChainContainer;
 use crate::renderer::texture::TextureManager;
-use ash::vk::{
-    DescriptorPool, DescriptorPoolCreateFlags, DescriptorType, Extent2D, PhysicalDeviceMemoryProperties, SwapchainKHR,
-};
+use ash::vk::{Extent2D, PhysicalDeviceMemoryProperties, SwapchainKHR};
 use ash::{vk, Device};
 use std::collections::HashMap;
-use std::mem::swap;
 use std::ptr;
 
 use super::image;
@@ -25,13 +19,13 @@ pub const SWAPCHAIN_PASS: RenderPassHandle = 100_000;
 pub type RenderPassHandle = u32;
 
 struct TextureTarget {
-    framebuffer: vk::Framebuffer,
+    _framebuffer: vk::Framebuffer,
 }
 
 pub(super) struct RenderPass {
-    target: TextureTarget,
+    _target: TextureTarget,
 
-    job_buffer: Vec<PipelineDrawCommand>,
+    _job_buffer: Vec<PipelineDrawCommand>,
 }
 
 pub(super) struct SwapchainPass {
@@ -40,7 +34,6 @@ pub(super) struct SwapchainPass {
 
     extent: vk::Extent2D,
 
-    color_format: vk::Format,
     color_imageviews: Vec<vk::ImageView>,
 
     depth_image: vk::Image,
@@ -68,21 +61,13 @@ impl SwapchainPass {
         let depth_format = image::find_depth_format(instance, physical_device);
 
         let (depth_image, depth_image_view, depth_image_memory) = image::create_depth_resources(
-            instance,
             device,
-            physical_device,
             swapchain_container.extent,
             &physical_device_memory_properties,
             depth_format,
         );
 
-        let render_pass = create_render_pass(
-            device,
-            instance,
-            physical_device,
-            swapchain_container.format,
-            depth_format,
-        );
+        let render_pass = create_render_pass(device, swapchain_container.format, depth_format);
         let framebuffers = image::create_framebuffers(
             device,
             &swapchain_container.image_views,
@@ -95,7 +80,6 @@ impl SwapchainPass {
             swapchain_loader: swapchain_container.loader,
             swapchain: swapchain_container.swapchain,
             extent: swapchain_container.extent,
-            color_format: swapchain_container.format,
             color_imageviews: swapchain_container.image_views,
             depth_image,
             depth_image_view,
@@ -195,24 +179,20 @@ impl SwapchainPass {
     pub(super) fn pipelines_mut(&mut self) -> &mut Vec<PipelineContainer> {
         &mut self.pipelines
     }
-
-    pub(super) fn pipelines(&self) -> &Vec<PipelineContainer> {
-        &self.pipelines
-    }
 }
 
 pub struct RenderPassHandler {
-    render_passes: HashMap<RenderPassHandle, RenderPass>,
-    pass_order: Vec<RenderPassHandle>,
+    _render_passes: HashMap<RenderPassHandle, RenderPass>,
+    _pass_order: Vec<RenderPassHandle>,
 
     swapchain_pass: Option<SwapchainPass>,
 }
 
 impl RenderPassHandler {
-    pub fn new(device: &ash::Device) -> Self {
+    pub fn new() -> Self {
         Self {
-            render_passes: HashMap::new(),
-            pass_order: Vec::new(),
+            _render_passes: HashMap::new(),
+            _pass_order: Vec::new(),
             swapchain_pass: Option::None,
         }
     }
@@ -227,12 +207,9 @@ impl RenderPassHandler {
     ) {
         debug_assert!(self.swapchain_pass.is_none() || !self.swapchain_pass.as_ref().unwrap().active);
 
-        let extent = swapchain_container.extent;
-        let image_count = swapchain_container.image_views.len();
-
         let old_pass = self.swapchain_pass.take();
-        let pipelines = if old_pass.is_some() {
-            old_pass.unwrap().pipelines
+        let pipelines = if let Some(old_pass) = old_pass {
+            old_pass.pipelines
         } else {
             Vec::new()
         };
@@ -279,16 +256,16 @@ impl RenderPassHandler {
         self.swapchain_pass.as_mut().unwrap()
     }
 
-    pub(super) fn add(&mut self, pass_order: u32, render_pass: RenderPass) -> Result<RenderPassHandle, &str> {
-        if self.render_passes.contains_key(&pass_order) {
+    pub(super) fn _add(&mut self, pass_order: u32, render_pass: RenderPass) -> Result<RenderPassHandle, &str> {
+        if self._render_passes.contains_key(&pass_order) {
             return Err("a render pass with same order already exists!");
         }
 
         let handle = pass_order;
-        self.render_passes.insert(handle, render_pass);
+        self._render_passes.insert(handle, render_pass);
 
-        self.pass_order.push(handle);
-        self.pass_order.sort();
+        self._pass_order.push(handle);
+        self._pass_order.sort_unstable();
 
         Ok(handle)
     }
@@ -471,13 +448,7 @@ impl RenderPassHandler {
     }
 }
 
-fn create_render_pass(
-    device: &ash::Device,
-    instance: &ash::Instance,
-    physical_device: vk::PhysicalDevice,
-    color_format: vk::Format,
-    depth_format: vk::Format,
-) -> vk::RenderPass {
+fn create_render_pass(device: &ash::Device, color_format: vk::Format, depth_format: vk::Format) -> vk::RenderPass {
     let color_attachment = vk::AttachmentDescription {
         flags: vk::AttachmentDescriptionFlags::empty(),
         format: color_format,
