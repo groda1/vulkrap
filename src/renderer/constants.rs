@@ -20,3 +20,8 @@ pub const VALIDATION_LAYER_NAME: &str = "VK_LAYER_KHRONOS_validation";
 
 // TODO this should removed. See where swapchain images are created.
 pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
+
+pub const UNIFORM_DESCRIPTOR_POOL_SIZE: u32 = 10;
+pub const SAMPLER_DESCRIPTOR_POOL_SIZE: u32 = 5;
+pub const MAXIMUM_PIPELINE_COUNT: u32 = 25;
+pub const DYNAMIC_BUFFER_INITIAL_CAPACITY: usize = 100;

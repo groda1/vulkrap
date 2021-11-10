@@ -10,6 +10,7 @@ use ash::vk::{
 
 use crate::renderer::buffer::BufferObjectHandle;
 use crate::renderer::context::PipelineHandle;
+use crate::renderer::pass::RenderPassHandle;
 use crate::renderer::pipeline::VertexData::Buffered;
 use crate::renderer::rawarray::RawArrayPtr;
 use crate::renderer::stats::DrawCommandStats;
@@ -18,7 +19,6 @@ use crate::renderer::texture::{SamplerHandle, TextureHandle};
 const SHADER_ENTRYPOINT: &str = "main";
 
 pub(super) struct PipelineContainer {
-    // Configuration
     is_built: bool,
 
     // Vulkan objects
@@ -113,9 +113,7 @@ impl PipelineContainer {
         swapchain_extent: vk::Extent2D,
         image_count: usize,
     ) {
-        if self.is_built {
-            panic! {"Pipeline already built."}
-        }
+        assert!(!self.is_built);
 
         self.descriptor_pool = descriptor_pool;
 

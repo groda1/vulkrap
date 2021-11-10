@@ -1,15 +1,21 @@
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::{PipelineContainer, PipelineDrawCommand};
+use crate::renderer::pipeline::{BufferObjectBindingConfiguration, PipelineConfiguration, PipelineContainer, PipelineDrawCommand, SamplerBindingConfiguration, UniformStage, VertexInputDescription, VertexTopology};
 use crate::renderer::swapchain::SwapChainContainer;
-use ash::vk;
-use ash::vk::PhysicalDeviceMemoryProperties;
+use ash::{Device, vk};
+use ash::vk::{DescriptorPool, DescriptorPoolCreateFlags, DescriptorType, Extent2D, PhysicalDeviceMemoryProperties, SwapchainKHR};
 use std::collections::HashMap;
 use std::mem::swap;
 use std::ptr;
+use crate::log::logger::debug;
+use crate::renderer::buffer::BufferObjectManager;
+use crate::renderer::constants::{MAXIMUM_PIPELINE_COUNT, SAMPLER_DESCRIPTOR_POOL_SIZE, UNIFORM_DESCRIPTOR_POOL_SIZE};
 use crate::renderer::context::PipelineHandle;
 use crate::renderer::stats::RenderStats;
+use crate::renderer::texture::TextureManager;
 
 use super::image;
+
+pub const SWAPCHAIN_PASS:RenderPassHandle = 100_000;
 
 pub type RenderPassHandle = u32;
 
@@ -17,13 +23,16 @@ struct TextureTarget {
     framebuffer: vk::Framebuffer,
 }
 
-struct RenderPass {
+pub(super) struct RenderPass {
     target: TextureTarget,
 
     job_buffer: Vec<PipelineDrawCommand>,
 }
 
-struct SwapchainPass {
+pub(super) struct SwapchainPass {
+    swapchain_loader: ash::extensions::khr::Swapchain,
+    swapchain: vk::SwapchainKHR,
+
     extent: vk::Extent2D,
 
     color_format: vk::Format,
@@ -37,15 +46,19 @@ struct SwapchainPass {
     framebuffers: Vec<vk::Framebuffer>,
 
     render_pass: vk::RenderPass,
+
+    pipelines : Vec<PipelineContainer>,
 }
 
+
 impl SwapchainPass {
-    pub fn new(
+    pub(super) fn new(
         device: &ash::Device,
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         physical_device_memory_properties: &PhysicalDeviceMemoryProperties,
         swapchain_container: SwapChainContainer,
+        pipelines: Vec<PipelineContainer>,
     ) -> Self {
         let depth_format = image::find_depth_format(instance, physical_device);
 
@@ -57,7 +70,6 @@ impl SwapchainPass {
             &physical_device_memory_properties,
             depth_format,
         );
-        //let
 
         let render_pass = create_render_pass(
             device,
@@ -75,6 +87,8 @@ impl SwapchainPass {
         );
 
         SwapchainPass {
+            swapchain_loader: swapchain_container.loader,
+            swapchain: swapchain_container.swapchain,
             extent: swapchain_container.extent,
             color_format: swapchain_container.format,
             color_images: swapchain_container.images,
@@ -84,33 +98,118 @@ impl SwapchainPass {
             depth_image_memory,
             framebuffers,
             render_pass,
+            pipelines,
         }
     }
 
     pub unsafe fn destroy(&mut self, device: &ash::Device) {
+        // Depth buffer
         device.destroy_image_view(self.depth_image_view, None);
         device.destroy_image(self.depth_image, None);
         device.free_memory(self.depth_image_memory, None);
 
-        for i in 0..self.color_images.len() {
-            device.destroy_image_view(self.color_imageviews[i], None);
-            device.destroy_image(self.color_images[i], None);
+
+        // Color buffers
+        for color_image in self.color_images.iter() {
+            println!("destroy image {:?}", color_image);
+            device.destroy_image(*color_image, None);
+        }
+        for color_imageview in self.color_imageviews.iter() {
+            device.destroy_image_view(*color_imageview, None);
         }
 
+
+        // Framebuffers
+        for framebuffer in self.framebuffers.iter() {
+            device.destroy_framebuffer(*framebuffer, None);
+        }
+        self.framebuffers.clear();
+
+        // Pipeline & render pass
+        for pipeline_container in self.pipelines.iter_mut() {
+            pipeline_container.destroy_pipeline(device);
+        }
         device.destroy_render_pass(self.render_pass, None);
+
+        self.swapchain_loader.destroy_swapchain(self.swapchain, None);
+
+        // Render pass
+        device.destroy_render_pass(self.render_pass, None);
+    }
+
+    pub fn loader(&self) -> &ash::extensions::khr::Swapchain {
+        &self.swapchain_loader
+    }
+
+    pub fn swapchain(&self) -> SwapchainKHR {
+        self.swapchain
+    }
+
+    pub fn extent(&self) -> Extent2D {
+        self.extent
+    }
+
+    pub fn image_count(&self) -> usize {
+        debug_assert!(self.color_imageviews.len() == self.color_images.len());
+        debug_assert!(self.color_imageviews.len() == self.framebuffers.len());
+       self.color_imageviews.len()
+    }
+
+    pub(super) fn add_pipeline(&mut self,  pipeline: PipelineContainer) -> PipelineHandle {
+        let pipeline_handle = self.pipelines.len();
+
+        self.pipelines.push(pipeline);
+        pipeline_handle
+    }
+
+     fn build_pipeline(&mut self, device: &Device, descriptor_pool: DescriptorPool, handle: PipelineHandle) {
+        debug_assert!(self.pipelines.len() > handle);
+
+         let image_count = self.image_count();
+        self.pipelines[handle].build(device, descriptor_pool, self.render_pass, self.extent, image_count);
+    }
+
+    fn rebuild_all_pipelines(&mut self, device : &Device, descriptor_pool: DescriptorPool) {
+        let image_count = self.image_count();
+        for pipeline in self.pipelines.iter_mut() {
+            pipeline.build(device, descriptor_pool, self.render_pass, self.extent, image_count);
+        }
+    }
+
+     fn destroy_pipeline(&mut self, device: &Device, handle: PipelineHandle) {
+        debug_assert!(self.pipelines.len() > handle);
+
+        unsafe {
+            self.pipelines[handle].destroy_pipeline(device);
+        }
+    }
+
+    pub(super) fn pipelines_mut(&mut self) -> &mut Vec<PipelineContainer> {
+        &mut self.pipelines
+    }
+
+    pub(super) fn pipelines(&self) -> &Vec<PipelineContainer> {
+        &self.pipelines
     }
 }
 
-struct RenderPassHandler {
+pub struct RenderPassHandler {
+    descriptor_pool: vk::DescriptorPool,
+
     render_passes: HashMap<RenderPassHandle, RenderPass>,
     pass_order: Vec<RenderPassHandle>,
 
     swapchain_pass: Option<SwapchainPass>,
+
 }
 
 impl RenderPassHandler {
-    pub fn new() -> Self {
+    pub fn new(device: &ash::Device) -> Self {
+
+        let descriptor_pool = create_descriptor_pool(device);
+
         Self {
+            descriptor_pool,
             render_passes: HashMap::new(),
             pass_order: Vec::new(),
             swapchain_pass: Option::None,
@@ -125,27 +224,75 @@ impl RenderPassHandler {
         physical_device_memory_properties: &PhysicalDeviceMemoryProperties,
         swapchain_container: SwapChainContainer,
     ) {
+        self.descriptor_pool = create_descriptor_pool(device);
+
         debug_assert!(self.swapchain_pass.is_none());
 
-        let swapchain_pass = SwapchainPass::new(
+        let extent = swapchain_container.extent;
+        let image_count = swapchain_container.image_views.len();
+
+        let old_pass = self.swapchain_pass.take();
+        let pipelines = if old_pass.is_some() {
+            old_pass.unwrap().pipelines
+        } else {
+            Vec::new()
+        };
+
+        let mut swapchain_pass = SwapchainPass::new(
             device,
             instance,
             physical_device,
             physical_device_memory_properties,
             swapchain_container,
+            pipelines
         );
+        swapchain_pass.rebuild_all_pipelines(device, self.descriptor_pool);
+
         self.swapchain_pass = Some(swapchain_pass);
     }
 
-    pub unsafe fn destroy_swapchain_pass(&mut self, device: &ash::Device) {
+
+    pub unsafe fn destroy(&mut self, device: &ash::Device) {
+
+        /*
+        // Pipeline shaders & descriptor sets
+        for pipeline_container in self.pipelines.iter_mut() {
+            pipeline_container.destroy_shaders(&self.logical_device);
+            pipeline_container.destroy_descriptor_set_layout(&self.logical_device);
+        }
+         // TODO FOR ALL PASSES EXCEPT THE SWAPCHAIN PASS
+         */
+
+        // Descriptor pool
+        device.destroy_descriptor_pool(self.descriptor_pool, None);
+
+
+    }
+
+    pub unsafe fn destroy_swapchain(&mut self, device: &ash::Device) {
         debug_assert!(self.swapchain_pass.is_some());
 
         let pass = self.swapchain_pass.take();
         pass.unwrap().destroy(device);
     }
 
+    pub(super) fn swapchain_pass(&self) -> &SwapchainPass {
+        debug_assert!(self.swapchain_pass.is_some());
 
-    pub fn add(&mut self, pass_order: u32, render_pass: RenderPass) -> Result<RenderPassHandle, &str> {
+        self.swapchain_pass.as_ref().unwrap()
+    }
+
+
+    // TODO can this be removed?
+    pub(super) fn swapchain_pass_mut(&mut self) -> &mut SwapchainPass {
+        debug_assert!(self.swapchain_pass.is_some());
+
+        self.swapchain_pass.as_mut().unwrap()
+    }
+
+
+
+    pub(super) fn add(&mut self, pass_order: u32, render_pass: RenderPass) -> Result<RenderPassHandle, &str> {
         if self.render_passes.contains_key(&pass_order) {
             return Err("a render pass with same order already exists!");
         }
@@ -159,16 +306,132 @@ impl RenderPassHandler {
         Ok(handle)
     }
 
-    fn bake_command_buffer(
+    // TODO which render pass?
+    pub(super) fn add_pipeline<T: VertexInputDescription>(&mut self, device: &ash::Device, buffer_object_manager: &mut BufferObjectManager, texture_manager: &TextureManager, config: PipelineConfiguration) -> PipelineHandle {
+        debug_assert!(self.swapchain_pass.is_some());
+
+        let vertex_uniform_binding_cfg = config.vertex_uniform_cfg.map(|cfg| {
+            BufferObjectBindingConfiguration::new(
+                cfg.binding,
+                buffer_object_manager
+                    .borrow_buffer(cfg.buffer_object_handle)
+                    .capacity_bytes(),
+            )
+        });
+        let fragment_uniform_binding_cfg = config.fragment_uniform_cfg.map(|cfg| {
+            BufferObjectBindingConfiguration::new(
+                cfg.binding,
+                buffer_object_manager
+                    .borrow_buffer(cfg.buffer_object_handle)
+                    .capacity_bytes(),
+            )
+        });
+
+        let storage_buffer_binding_cfg = config.storage_buffer_cfg.map(|cfg| {
+            BufferObjectBindingConfiguration::new(
+                cfg.binding,
+                buffer_object_manager
+                    .borrow_buffer(cfg.buffer_object_handle)
+                    .capacity_bytes(),
+            )
+        });
+
+        let vertex_topology = match config.vertex_topology {
+            VertexTopology::Triangle => vk::PrimitiveTopology::TRIANGLE_LIST,
+            VertexTopology::TriangeStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
+        };
+
+        let sampler_cfgs = config
+            .texture_cfgs
+            .iter()
+            .map(|cfg| {
+                SamplerBindingConfiguration::new(
+                    cfg.binding,
+                    texture_manager.get_imageview(cfg.texture),
+                    texture_manager.get_sampler(cfg.sampler),
+                )
+            })
+            .collect();
+
+        let mut pipeline_container = PipelineContainer::new::<T>(
+            device,
+            config.vertex_shader_code,
+            config.fragment_shader_code,
+            vertex_uniform_binding_cfg,
+            fragment_uniform_binding_cfg,
+            storage_buffer_binding_cfg,
+            sampler_cfgs,
+            vertex_topology,
+            config.push_constant_buffer_size,
+            config.alpha_blending,
+        );
+
+        if let Some(cfg) = config.vertex_uniform_cfg {
+            pipeline_container.set_uniform_buffers(
+                UniformStage::Vertex,
+                buffer_object_manager
+                    .borrow_buffer(cfg.buffer_object_handle)
+                    .devices(),
+            );
+        };
+        if let Some(cfg) = config.fragment_uniform_cfg {
+            pipeline_container.set_uniform_buffers(
+                UniformStage::Fragment,
+                buffer_object_manager
+                    .borrow_buffer(cfg.buffer_object_handle)
+                    .devices(),
+            );
+        }
+        if let Some(cfg) = config.storage_buffer_cfg {
+            pipeline_container.set_storage_buffers(
+                buffer_object_manager
+                    .borrow_buffer(cfg.buffer_object_handle)
+                    .devices(),
+            );
+        }
+
+        let render_pass = self.swapchain_pass.as_mut().unwrap();
+        let pipeline_handle = render_pass.add_pipeline(pipeline_container);
+
+        if let Some(uniform_cfg) = config.vertex_uniform_cfg {
+            buffer_object_manager.assign_pipeline(uniform_cfg.buffer_object_handle, pipeline_handle);
+        }
+        if let Some(uniform_cfg) = config.fragment_uniform_cfg {
+            buffer_object_manager.assign_pipeline(uniform_cfg.buffer_object_handle, pipeline_handle);
+        }
+        if let Some(storage_cfg) = config.storage_buffer_cfg {
+            buffer_object_manager.assign_pipeline(storage_cfg.buffer_object_handle, pipeline_handle);
+        }
+
+        render_pass.build_pipeline(device, self.descriptor_pool, pipeline_handle);
+
+        pipeline_handle
+    }
+
+    pub fn rebuild_pipeline(&mut self, device: &Device, pipeline_handle:  PipelineHandle, render_pass_handle : RenderPassHandle) {
+
+        // TODO need to rebuild pipeline_handle so that it also tells which render pass it belongs to
+
+        if render_pass_handle == SWAPCHAIN_PASS {
+            debug_assert!(self.swapchain_pass.is_some());
+
+            let pass = self.swapchain_pass.as_mut().unwrap();
+            pass.destroy_pipeline(device, pipeline_handle);
+            pass.build_pipeline(device, self.descriptor_pool, pipeline_handle);
+        } else {
+            unimplemented!()
+        }
+
+    }
+
+    pub unsafe fn bake_command_buffer(
         &self,
         device: &ash::Device,
-        pipelines: &[PipelineContainer],
         command_buffer: vk::CommandBuffer,
         image_index: usize,
         render_job: &[PipelineDrawCommand],
         render_stats: &mut RenderStats,
     ) {
-
         let render_pass = self.swapchain_pass.as_ref().unwrap();
 
         // TODO optioanl
@@ -196,34 +459,31 @@ impl RenderPassHandler {
             p_clear_values: clear_values.as_ptr(),
         };
 
-        unsafe {
-            device.cmd_begin_render_pass(
-                command_buffer,
-                &render_pass_begin_info,
-                vk::SubpassContents::INLINE,
-            );
-        }
+        device.cmd_begin_render_pass(
+            command_buffer,
+            &render_pass_begin_info,
+            vk::SubpassContents::INLINE,
+        );
 
         let mut bound_pipeline = PipelineHandle::MAX;
         for draw_command in render_job {
-            unsafe {
-                let stats = pipelines[draw_command.pipeline].bake_command_buffer(
-                    device,
-                    command_buffer,
-                    draw_command,
-                    image_index,
-                    bound_pipeline != draw_command.pipeline,
-                );
-                bound_pipeline = draw_command.pipeline;
-                render_stats.add_draw_command(stats);
-            }
+            let pipelines = &self.swapchain_pass.as_ref().unwrap().pipelines;
+
+            debug_assert!(pipelines.len() > draw_command.pipeline);
+
+            let stats = pipelines[draw_command.pipeline].bake_command_buffer(
+                device,
+                command_buffer,
+                draw_command,
+                image_index,
+                bound_pipeline != draw_command.pipeline,
+            );
+            bound_pipeline = draw_command.pipeline;
+            render_stats.add_draw_command(stats);
         }
 
-        unsafe {
-            device.cmd_end_render_pass(command_buffer);
-        }
+        device.cmd_end_render_pass(command_buffer);
     }
-
 }
 
 fn create_render_pass(
@@ -308,5 +568,30 @@ fn create_render_pass(
         device
             .create_render_pass(&renderpass_create_info, None)
             .expect("Failed to create render pass!")
+    }
+}
+
+
+fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
+    let pool_sizes = [
+        vk::DescriptorPoolSize::builder()
+            .ty(DescriptorType::UNIFORM_BUFFER)
+            .descriptor_count(UNIFORM_DESCRIPTOR_POOL_SIZE)
+            .build(),
+        vk::DescriptorPoolSize::builder()
+            .ty(DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_count(SAMPLER_DESCRIPTOR_POOL_SIZE)
+            .build(),
+    ];
+
+    let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo::builder()
+        .flags(DescriptorPoolCreateFlags::empty())
+        .max_sets(MAXIMUM_PIPELINE_COUNT)
+        .pool_sizes(&pool_sizes);
+
+    unsafe {
+        device
+            .create_descriptor_pool(&descriptor_pool_create_info, None)
+            .expect("Failed to create Descriptor Pool!")
     }
 }

@@ -3,7 +3,7 @@ use std::ffi::CString;
 use std::ptr;
 
 use ash::vk;
-use ash::vk::{DescriptorPoolCreateFlags, DescriptorType, PhysicalDevice};
+use ash::vk::{DescriptorPoolCreateFlags, DescriptorType, PhysicalDevice, PhysicalDeviceMemoryProperties};
 use winit::window::Window;
 
 use crate::renderer::memory::MemoryManager;
@@ -28,12 +28,10 @@ use crate::renderer::stats::RenderStats;
 use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
 use ash::extensions::ext::DebugUtils;
 use std::time::Instant;
+use crate::renderer::constants::DYNAMIC_BUFFER_INITIAL_CAPACITY;
+use crate::renderer::pass::{RenderPassHandler, SWAPCHAIN_PASS};
 
-const UNIFORM_DESCRIPTOR_POOL_SIZE: u32 = 10;
-const SAMPLER_DESCRIPTOR_POOL_SIZE: u32 = 5;
-const MAXIMUM_PIPELINE_COUNT: u32 = 25;
 
-const DYNAMIC_BUFFER_INITIAL_CAPACITY: usize = 100;
 
 pub type PipelineHandle = usize;
 pub type UniformHandle = usize;
@@ -43,6 +41,7 @@ pub struct Context {
     instance: ash::Instance,
 
     physical_device: PhysicalDevice,
+    physical_device_memory_properties: PhysicalDeviceMemoryProperties,
     logical_device: ash::Device,
 
     queue_families: QueueFamilyIndices,
@@ -52,27 +51,16 @@ pub struct Context {
 
     surface_container: SurfaceContainer,
 
-    swapchain_loader: ash::extensions::khr::Swapchain,
-    swapchain: vk::SwapchainKHR,
-    swapchain_images: Vec<vk::Image>,
-    swapchain_format: vk::Format,
-    swapchain_extent: vk::Extent2D,
-    swapchain_imageviews: Vec<vk::ImageView>,
-    swapchain_framebuffers: Vec<vk::Framebuffer>,
 
-    depth_image: vk::Image,
-    depth_image_view: vk::ImageView,
-    depth_image_memory: vk::DeviceMemory,
+    render_pass_handler: RenderPassHandler,
 
-    render_pass: vk::RenderPass,
 
-    pipelines: Vec<PipelineContainer>,
 
     texture_manager: TextureManager,
 
     memory_manager: MemoryManager,
     buffer_object_manager: BufferObjectManager,
-    descriptor_pool: vk::DescriptorPool,
+
 
     command_pool: vk::CommandPool,
     draw_command_buffers: Vec<vk::CommandBuffer>,
@@ -149,33 +137,12 @@ impl Context {
             &queue_families,
         );
 
-        let render_pass =
-            TODO_REMOVE_create_render_pass(&logical_device, swapchain_container.format, &instance, physical_device);
-
-        let pipelines = Vec::new();
-
-        let depth_format = image::find_depth_format(&instance, physical_device);
-
-        let (depth_image, depth_image_view, depth_image_memory) = image::create_depth_resources(
-            &instance,
-            &logical_device,
-            physical_device,
-            swapchain_container.extent,
-            &physical_device_memory_properties,
-            depth_format,
-        );
-
-        let swapchain_framebuffers = image::create_framebuffers(
-            &logical_device,
-            &swapchain_container.image_views,
-            depth_image_view,
-            swapchain_container.extent,
-            render_pass,
-        );
-
         let image_count = swapchain_container.image_views.len();
+
+        let mut render_pass_handler = RenderPassHandler::new(&logical_device);
+        render_pass_handler.create_swapchain_pass(&logical_device, &instance, physical_device, &physical_device_memory_properties, swapchain_container);
+
         let memory_manager = MemoryManager::new(physical_device_memory_properties);
-        let descriptor_pool = _create_descriptor_pool(&logical_device);
         let draw_command_buffers = _create_command_buffers(&logical_device, command_pool, image_count);
         let transfer_command_buffers = _create_command_buffers(&logical_device, command_pool, image_count);
         let sync_handler = SynchronizationHandler::new(&logical_device);
@@ -184,28 +151,17 @@ impl Context {
             _entry: entry,
             instance,
             physical_device,
+            physical_device_memory_properties,
             logical_device,
             queue_families,
             graphics_queue,
             transfer_queue,
             present_queue,
             surface_container,
-            swapchain_loader: swapchain_container.loader,
-            swapchain: swapchain_container.swapchain,
-            swapchain_images: swapchain_container.images,
-            swapchain_format: swapchain_container.format,
-            swapchain_extent: swapchain_container.extent,
-            swapchain_imageviews: swapchain_container.image_views,
-            swapchain_framebuffers,
-            depth_image,
-            depth_image_view,
-            depth_image_memory,
-            render_pass,
-            pipelines,
+            render_pass_handler,
             texture_manager: TextureManager::new(),
             memory_manager,
             buffer_object_manager: BufferObjectManager::new(image_count),
-            descriptor_pool,
             command_pool,
             draw_command_buffers,
             transfer_command_buffers,
@@ -233,8 +189,8 @@ impl Context {
         let mut stats = RenderStats::new();
 
         let (image_index, _is_sub_optimal) = unsafe {
-            let result = self.swapchain_loader.acquire_next_image(
-                self.swapchain,
+            let result = self.render_pass_handler.swapchain_pass().loader().acquire_next_image(
+                self.render_pass_handler.swapchain_pass().swapchain(),
                 std::u64::MAX,
                 self.sync_handler.image_available_semaphore(),
                 vk::Fence::null(),
@@ -293,7 +249,6 @@ impl Context {
         let draw_command_buffer = self.draw_command_buffers[image_index_usize];
         self.bake_draw_command_buffer(
             draw_command_buffer,
-            self.swapchain_framebuffers[image_index_usize],
             image_index_usize,
             render_job,
             &mut stats,
@@ -335,7 +290,7 @@ impl Context {
         }
 
         // Present
-        let swapchains = [self.swapchain];
+        let swapchains = [self.render_pass_handler.swapchain_pass().swapchain()];
         let image_index_array = [image_index];
 
         let present_info = vk::PresentInfoKHR::builder()
@@ -345,7 +300,7 @@ impl Context {
             .build();
 
         unsafe {
-            let result = self.swapchain_loader.queue_present(self.present_queue, &present_info);
+            let result = self.render_pass_handler.swapchain_pass().loader().queue_present(self.present_queue, &present_info);
 
             let is_resized = match result {
                 Ok(_) => self.is_framebuffer_resized,
@@ -437,111 +392,9 @@ impl Context {
     }
 
     pub fn add_pipeline<T: VertexInputDescription>(&mut self, config: PipelineConfiguration) -> PipelineHandle {
-        let pipeline_handle = self.pipelines.len();
 
-        if let Some(uniform_cfg) = config.vertex_uniform_cfg {
-            self.buffer_object_manager
-                .assign_pipeline(uniform_cfg.buffer_object_handle, pipeline_handle);
-        }
-        if let Some(uniform_cfg) = config.fragment_uniform_cfg {
-            self.buffer_object_manager
-                .assign_pipeline(uniform_cfg.buffer_object_handle, pipeline_handle);
-        }
-        if let Some(storage_cfg) = config.storage_buffer_cfg {
-            self.buffer_object_manager
-                .assign_pipeline(storage_cfg.buffer_object_handle, pipeline_handle);
-        }
+            self.render_pass_handler.add_pipeline::<T>(&self.logical_device, &mut self.buffer_object_manager, &self.texture_manager, config)
 
-        let vertex_uniform_binding_cfg = config.vertex_uniform_cfg.map(|cfg| {
-            BufferObjectBindingConfiguration::new(
-                cfg.binding,
-                self.buffer_object_manager
-                    .borrow_buffer(cfg.buffer_object_handle)
-                    .capacity_bytes(),
-            )
-        });
-        let fragment_uniform_binding_cfg = config.fragment_uniform_cfg.map(|cfg| {
-            BufferObjectBindingConfiguration::new(
-                cfg.binding,
-                self.buffer_object_manager
-                    .borrow_buffer(cfg.buffer_object_handle)
-                    .capacity_bytes(),
-            )
-        });
-
-        let storage_buffer_binding_cfg = config.storage_buffer_cfg.map(|cfg| {
-            BufferObjectBindingConfiguration::new(
-                cfg.binding,
-                self.buffer_object_manager
-                    .borrow_buffer(cfg.buffer_object_handle)
-                    .capacity_bytes(),
-            )
-        });
-
-        let vertex_topology = match config.vertex_topology {
-            VertexTopology::Triangle => vk::PrimitiveTopology::TRIANGLE_LIST,
-            VertexTopology::TriangeStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
-        };
-
-        let sampler_cfgs = config
-            .texture_cfgs
-            .iter()
-            .map(|cfg| {
-                SamplerBindingConfiguration::new(
-                    cfg.binding,
-                    self.texture_manager.get_imageview(cfg.texture),
-                    self.texture_manager.get_sampler(cfg.sampler),
-                )
-            })
-            .collect();
-
-        let mut pipeline_container = PipelineContainer::new::<T>(
-            &self.logical_device,
-            config.vertex_shader_code,
-            config.fragment_shader_code,
-            vertex_uniform_binding_cfg,
-            fragment_uniform_binding_cfg,
-            storage_buffer_binding_cfg,
-            sampler_cfgs,
-            vertex_topology,
-            config.push_constant_buffer_size,
-            config.alpha_blending,
-        );
-
-        if let Some(cfg) = config.vertex_uniform_cfg {
-            pipeline_container.set_uniform_buffers(
-                UniformStage::Vertex,
-                self.buffer_object_manager
-                    .borrow_buffer(cfg.buffer_object_handle)
-                    .devices(),
-            );
-        };
-        if let Some(cfg) = config.fragment_uniform_cfg {
-            pipeline_container.set_uniform_buffers(
-                UniformStage::Fragment,
-                self.buffer_object_manager
-                    .borrow_buffer(cfg.buffer_object_handle)
-                    .devices(),
-            );
-        }
-        if let Some(cfg) = config.storage_buffer_cfg {
-            pipeline_container.set_storage_buffers(
-                self.buffer_object_manager
-                    .borrow_buffer(cfg.buffer_object_handle)
-                    .devices(),
-            );
-        }
-
-        pipeline_container.build(
-            &self.logical_device,
-            self.descriptor_pool,
-            self.render_pass,
-            self.swapchain_extent,
-            self.swapchain_imageviews.len(),
-        );
-
-        self.pipelines.push(pipeline_container);
-        pipeline_handle
     }
 
     pub unsafe fn wait_idle(&self) {
@@ -552,37 +405,15 @@ impl Context {
 
     fn destroy_swapchain(&mut self) {
         unsafe {
-            self.logical_device.destroy_image_view(self.depth_image_view, None);
-            self.logical_device.destroy_image(self.depth_image, None);
-            self.logical_device.free_memory(self.depth_image_memory, None);
+            // Swapchain render pass, all images and its pipelines
+            self.render_pass_handler.destroy_swapchain(&self.logical_device);
 
             self.logical_device
                 .free_command_buffers(self.command_pool, &self.draw_command_buffers);
             self.logical_device
                 .free_command_buffers(self.command_pool, &self.transfer_command_buffers);
 
-            // Framebuffers
-            for framebuffer in self.swapchain_framebuffers.iter() {
-                self.logical_device.destroy_framebuffer(*framebuffer, None);
-            }
-            self.swapchain_framebuffers.clear();
-
-            // Pipeline & render pass
-            for pipeline_container in self.pipelines.iter_mut() {
-                pipeline_container.destroy_pipeline(&self.logical_device);
-            }
-            self.logical_device.destroy_render_pass(self.render_pass, None);
-
-            // Swapchain
-            for image_view in self.swapchain_imageviews.iter() {
-                self.logical_device.destroy_image_view(*image_view, None);
-            }
-            self.swapchain_loader.destroy_swapchain(self.swapchain, None);
-
-            // Descriptor pool
-            self.logical_device.destroy_descriptor_pool(self.descriptor_pool, None);
-
-            // Dynamic vertex buffers
+            // Buffer objects
             self.buffer_object_manager
                 .destroy(&self.logical_device, &mut self.memory_manager);
         }
@@ -603,68 +434,27 @@ impl Context {
             &self.surface_container,
             &self.queue_families,
         );
-        self.swapchain_loader = swapchain_container.loader;
-        self.swapchain = swapchain_container.swapchain;
 
-        self.swapchain_images = swapchain_container.images;
-        self.swapchain_format = swapchain_container.format;
-        self.swapchain_extent = swapchain_container.extent;
-        self.swapchain_imageviews = swapchain_container.image_views;
+        let image_count = swapchain_container.image_views.len();
 
-        let image_count = self.swapchain_imageviews.len();
-
-        self.descriptor_pool = _create_descriptor_pool(&self.logical_device);
-        self.render_pass = TODO_REMOVE_create_render_pass(
-            &self.logical_device,
-            swapchain_container.format,
-            &self.instance,
-            self.physical_device,
-        );
-
-        let depth_format = image::find_depth_format(&self.instance, self.physical_device);
-        let (depth_image, depth_image_view, depth_image_memory) = image::create_depth_resources(
-            &self.instance,
-            &self.logical_device,
-            self.physical_device,
-            self.swapchain_extent,
-            self.memory_manager.physical_device_memory_properties(),
-            depth_format,
-        );
-        self.depth_image = depth_image;
-        self.depth_image_view = depth_image_view;
-        self.depth_image_memory = depth_image_memory;
-
-        self.swapchain_framebuffers = image::create_framebuffers(
-            &self.logical_device,
-            &self.swapchain_imageviews,
-            self.depth_image_view,
-            swapchain_container.extent,
-            self.render_pass,
-        );
 
         self.draw_command_buffers = _create_command_buffers(&self.logical_device, self.command_pool, image_count);
         self.transfer_command_buffers = _create_command_buffers(&self.logical_device, self.command_pool, image_count);
 
+
         self.buffer_object_manager
             .rebuild(&self.logical_device, &mut self.memory_manager, image_count);
         self.buffer_object_manager
-            .reassign_pipeline_buffers(&mut self.pipelines);
+            .reassign_pipeline_buffers(self.render_pass_handler.swapchain_pass_mut().pipelines_mut());
 
-        for pipeline_container in self.pipelines.iter_mut() {
-            pipeline_container.build(
-                &self.logical_device,
-                self.descriptor_pool,
-                self.render_pass,
-                swapchain_container.extent,
-                image_count,
-            );
-        }
+        self.render_pass_handler.create_swapchain_pass(&self.logical_device, &self.instance, self.physical_device, &self.physical_device_memory_properties, swapchain_container);
+
+
     }
 
     fn bake_draw_command_buffer(
         &self,
         command_buffer: vk::CommandBuffer,
-        framebuffer: vk::Framebuffer,
         image_index: usize,
         render_job: &[PipelineDrawCommand],
         render_stats: &mut RenderStats,
@@ -674,29 +464,6 @@ impl Context {
             .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
             .build();
 
-        let clear_values = [
-            vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.05, 0.05, 0.1, 1.0],
-                },
-            },
-            vk::ClearValue {
-                // clear value for depth buffer
-                depth_stencil: vk::ClearDepthStencilValue { depth: 1.0, stencil: 0 },
-            },
-        ];
-        let render_pass_begin_info = vk::RenderPassBeginInfo {
-            s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
-            p_next: ptr::null(),
-            render_pass: self.render_pass,
-            framebuffer,
-            render_area: vk::Rect2D {
-                offset: vk::Offset2D { x: 0, y: 0 },
-                extent: self.swapchain_extent,
-            },
-            clear_value_count: clear_values.len() as u32,
-            p_clear_values: clear_values.as_ptr(),
-        };
 
         unsafe {
             self.logical_device
@@ -706,27 +473,8 @@ impl Context {
                 .begin_command_buffer(command_buffer, &command_buffer_begin_info)
                 .expect("Failed to begin recording of Draw command buffer!");
 
-            self.logical_device.cmd_begin_render_pass(
-                command_buffer,
-                &render_pass_begin_info,
-                vk::SubpassContents::INLINE,
-            );
+            self.render_pass_handler.bake_command_buffer(&self.logical_device, command_buffer, image_index, render_job, render_stats);
 
-            let mut bound_pipeline = PipelineHandle::MAX;
-            for draw_command in render_job {
-                let stats = self.pipelines[draw_command.pipeline].bake_command_buffer(
-                    &self.logical_device,
-                    command_buffer,
-                    draw_command,
-                    image_index,
-                    bound_pipeline != draw_command.pipeline,
-                );
-                bound_pipeline = draw_command.pipeline;
-
-                render_stats.add_draw_command(stats);
-            }
-
-            self.logical_device.cmd_end_render_pass(command_buffer);
             self.logical_device
                 .end_command_buffer(command_buffer)
                 .expect("Failed to end recording of Draw command buffer!");
@@ -737,11 +485,13 @@ impl Context {
     }
 
     pub fn get_aspect_ratio(&self) -> f32 {
-        self.swapchain_extent.width as f32 / self.swapchain_extent.height as f32
+        let extent = self.render_pass_handler.swapchain_pass().extent();
+        extent.width as f32 / extent.height as f32
     }
 
     pub fn get_framebuffer_extent(&self) -> (u32, u32) {
-        (self.swapchain_extent.width, self.swapchain_extent.height)
+        let extent = self.render_pass_handler.swapchain_pass().extent();
+        (extent.width, extent.height)
     }
 
     pub fn handle_window_resize(&mut self) {
@@ -768,18 +518,26 @@ impl Context {
                 &self.logical_device,
                 &mut self.memory_manager,
                 buffer_object,
-                self.swapchain_images.len(),
+                self.render_pass_handler.swapchain_pass().image_count(),
             );
 
             if resized {
                 let sbo = self.buffer_object_manager.borrow_buffer(buffer_object);
                 let new_capacity = sbo.capacity_bytes();
                 for pipeline in sbo.assigned_pipelines().iter() {
-                    self.pipelines[*pipeline].update_storage_buffer(sbo.devices(), new_capacity);
+
+                    //self.pipelines[*pipeline].update_storage_buffer(sbo.devices(), new_capacity);
+
+                    // TODO THIS IS NOT LOCAL TO SWAPCHAIN PASS ONLY
+                    self.render_pass_handler.swapchain_pass_mut().pipelines_mut()[*pipeline].update_storage_buffer(sbo.devices(), new_capacity);
                 }
                 unsafe {
                     self.wait_idle();
                     for pipeline in sbo.assigned_pipelines().iter() {
+                        // TODO THIS IS NOT LOCAL TO SWAPCHAIN PASS ONLY
+                        self.render_pass_handler.rebuild_pipeline(&self.logical_device, *pipeline, SWAPCHAIN_PASS)
+
+                        /*
                         self.pipelines[*pipeline].destroy_pipeline(&self.logical_device);
                         self.pipelines[*pipeline].build(
                             &self.logical_device,
@@ -788,6 +546,7 @@ impl Context {
                             self.swapchain_extent,
                             self.swapchain_images.len(),
                         );
+                        */
                     }
                 }
             }
@@ -811,11 +570,8 @@ impl Drop for Context {
             // Textures & Samplers
             self.texture_manager.destroy(&self.logical_device);
 
-            // Pipeline shaders & descriptor sets
-            for pipeline_container in self.pipelines.iter_mut() {
-                pipeline_container.destroy_shaders(&self.logical_device);
-                pipeline_container.destroy_descriptor_set_layout(&self.logical_device);
-            }
+            // Pipelines and global render pass objects
+            self.render_pass_handler.destroy(&self.logical_device);
 
             // Command pool
             self.logical_device.destroy_command_pool(self.command_pool, None);
@@ -833,29 +589,6 @@ impl Drop for Context {
     }
 }
 
-fn _create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
-    let pool_sizes = [
-        vk::DescriptorPoolSize::builder()
-            .ty(DescriptorType::UNIFORM_BUFFER)
-            .descriptor_count(UNIFORM_DESCRIPTOR_POOL_SIZE)
-            .build(),
-        vk::DescriptorPoolSize::builder()
-            .ty(DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .descriptor_count(SAMPLER_DESCRIPTOR_POOL_SIZE)
-            .build(),
-    ];
-
-    let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo::builder()
-        .flags(DescriptorPoolCreateFlags::empty())
-        .max_sets(MAXIMUM_PIPELINE_COUNT)
-        .pool_sizes(&pool_sizes);
-
-    unsafe {
-        device
-            .create_descriptor_pool(&descriptor_pool_create_info, None)
-            .expect("Failed to create Descriptor Pool!")
-    }
-}
 
 fn _create_command_pool(device: &ash::Device, queue_families: &QueueFamilyIndices) -> vk::CommandPool {
     let command_pool_create_info = vk::CommandPoolCreateInfo {
