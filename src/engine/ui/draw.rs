@@ -1,7 +1,7 @@
 use crate::engine::datatypes::{InstancedCharacter, InstancedQuad};
 
-use crate::renderer::buffer::BufferObjectHandle;
 use crate::renderer::context::Context;
+use crate::renderer::types::BufferObjectHandle;
 use cgmath::{Vector2, Vector4};
 
 pub fn draw_quad(

@@ -7,11 +7,9 @@ use crate::renderer::memory::MemoryManager;
 use crate::renderer::pipeline::PipelineContainer;
 use crate::renderer::rawarray::{PushError, RawArray, RawArrayPtr};
 use crate::renderer::stats::RenderStats;
-use crate::renderer::types::{PipelineHandle, UniformStage};
+use crate::renderer::types::{BufferObjectHandle, PipelineHandle, UniformStage};
 
-pub type BufferObjectHandle = usize;
-
-pub(super) struct BufferObjectManager {
+pub struct BufferObjectManager {
     image_count: usize,
     buffer_objects: Vec<BufferObject>,
 }
@@ -178,13 +176,13 @@ impl BufferObjectManager {
     }
 }
 
-pub(super) enum BufferObjectType {
+pub enum BufferObjectType {
     Uniform(UniformStage),
     Storage,
     Vertex,
 }
 
-pub(super) struct BufferObject {
+pub struct BufferObject {
     buffer_object_type: BufferObjectType,
     capacity_bytes: usize,
     staging_buffer: Vec<vk::Buffer>,

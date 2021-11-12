@@ -17,7 +17,7 @@ use crate::renderer::types::{
 
 const SHADER_ENTRYPOINT: &str = "main";
 
-pub(super) struct PipelineContainer {
+pub struct PipelineContainer {
     is_built: bool,
 
     // Vulkan objects

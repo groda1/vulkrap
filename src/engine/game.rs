@@ -89,9 +89,8 @@ impl VulkrapApplication {
         self.console.update(delta_time_s);
 
         self.context.begin_frame();
-        let render_job = self.scene.build_render_job(&mut self.context, &self.console);
-
-        let render_stats = self.context.draw_frame(render_job);
+        self.scene.draw(&mut self.context, &self.console);
+        let render_stats = self.context.end_frame();
 
         {
             let mut engine_stats = stats::get();

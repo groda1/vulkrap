@@ -80,7 +80,7 @@ impl SwapchainTarget {
     }
 }
 
-pub(super) struct RenderPass {
+pub struct RenderPass {
     handle: RenderPassHandle,
     extent: vk::Extent2D,
     target: SwapchainTarget,
@@ -264,25 +264,25 @@ impl RenderPassManager {
         // TODO should be done for all render passes
     }
 
-    pub(super) fn swapchain_target(&self) -> &SwapchainTarget {
+    pub fn swapchain_target(&self) -> &SwapchainTarget {
         debug_assert!(self.swapchain_pass.is_some());
 
         &self.swapchain_pass.as_ref().unwrap().target
     }
 
-    pub(super) fn swapchain_pass_mut(&mut self) -> &mut RenderPass {
+    pub fn swapchain_pass_mut(&mut self) -> &mut RenderPass {
         debug_assert!(self.swapchain_pass.is_some());
 
         self.swapchain_pass.as_mut().unwrap()
     }
 
-    pub(super) fn swapchain_extent(&self) -> vk::Extent2D {
+    pub fn swapchain_extent(&self) -> vk::Extent2D {
         debug_assert!(self.swapchain_pass.is_some());
 
         self.swapchain_pass.as_ref().unwrap().extent
     }
 
-    pub(super) fn _add(&mut self, pass_order: u32, render_pass: RenderPass) -> Result<RenderPassHandle, &str> {
+    pub fn _add(&mut self, pass_order: u32, render_pass: RenderPass) -> Result<RenderPassHandle, &str> {
         if self.render_passes.contains_key(&pass_order) {
             return Err("a render pass with same order already exists!");
         }
@@ -297,7 +297,7 @@ impl RenderPassManager {
     }
 
     // TODO which render pass?
-    pub(super) fn add_pipeline<T: VertexInputDescription>(
+    pub fn add_pipeline<T: VertexInputDescription>(
         &mut self,
         device: &ash::Device,
         buffer_object_manager: &mut BufferObjectManager,
@@ -402,7 +402,7 @@ impl RenderPassManager {
         pipeline_handle
     }
 
-    pub(super) fn rebuild_pipeline(
+    pub fn rebuild_pipeline(
         &mut self,
         device: &Device,
         pipeline_handle: PipelineHandle,
@@ -421,15 +421,15 @@ impl RenderPassManager {
         }
     }
 
-    pub(super) unsafe fn bake_command_buffer(
+    pub unsafe fn bake_command_buffer(
         &self,
         device: &ash::Device,
         command_buffer: vk::CommandBuffer,
         image_index: usize,
-        render_job: &[DrawCommand],
         render_stats: &mut RenderStats,
     ) {
         let render_pass = self.swapchain_pass.as_ref().unwrap();
+        let render_job = &render_pass.draw_cmd_buffer;
 
         // TODO optioanl
         let clear_values = [
@@ -477,13 +477,23 @@ impl RenderPassManager {
         device.cmd_end_render_pass(command_buffer);
     }
 
-    pub(crate) fn reset_job_buffers(&mut self) {
+    pub fn reset_draw_command_buffers(&mut self) {
         debug_assert!(self.swapchain_pass.is_some());
 
         self.swapchain_pass.as_mut().unwrap().draw_cmd_buffer.clear();
 
         for render_pass in self.render_passes.values_mut() {
             render_pass.draw_cmd_buffer.clear();
+        }
+    }
+
+    pub fn add_draw_command(&mut self, draw_command: DrawCommand) {
+        if draw_command.pipeline.render_pass == SWAPCHAIN_PASS {
+            debug_assert!(self.swapchain_pass.is_some());
+
+            self.swapchain_pass.as_mut().unwrap().draw_cmd_buffer.push(draw_command);
+        } else {
+            unimplemented!()
         }
     }
 }

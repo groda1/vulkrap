@@ -8,8 +8,8 @@ use crate::engine::ui::colors::{
 use crate::engine::ui::draw::{draw_quad, draw_text, draw_text_shadowed};
 use crate::log::logger;
 use crate::log::logger::{LogMessage, MessageLevel};
-use crate::renderer::buffer::BufferObjectHandle;
 use crate::renderer::context::Context;
+use crate::renderer::types::BufferObjectHandle;
 use crate::ENGINE_VERSION;
 
 use cgmath::{Vector2, Vector4};

@@ -18,7 +18,6 @@ pub struct Scene {
 
     terrain: Terrain,
     hud: Hud,
-    render_job_buffer: Vec<DrawCommand>,
 }
 
 impl Scene {
@@ -28,14 +27,12 @@ impl Scene {
         wobbly_pipeline: PipelineHandle,
         terrain_pipeline: PipelineHandle,
     ) -> Scene {
-        let render_job_buffer = Vec::new();
         let (window_width, window_height) = context.get_framebuffer_extent();
         let window_extent = WindowExtent::new(window_width, window_height);
 
         Scene {
             wobbly_objects: vec![],
             wobbly_pipeline,
-            render_job_buffer,
             terrain: Terrain::new(context, terrain_pipeline),
             hud: Hud::new(context, window_extent, mesh_manager),
         }
@@ -55,11 +52,9 @@ impl Scene {
         }
     }
 
-    pub fn build_render_job(&mut self, context: &mut Context, console: &Console) -> &Vec<DrawCommand> {
-        self.render_job_buffer.clear();
-
+    pub fn draw(&mut self, context: &mut Context, console: &Console) {
         for entity in self.wobbly_objects.iter() {
-            self.render_job_buffer.push(DrawCommand::new_buffered(
+            context.add_draw_command(DrawCommand::new_buffered(
                 self.wobbly_pipeline,
                 &entity.push_constant_buf as *const ModelWoblyPushConstant as RawArrayPtr,
                 entity.mesh.vertex_buffer,
@@ -70,10 +65,8 @@ impl Scene {
             ));
         }
 
-        self.terrain.draw(&mut self.render_job_buffer);
-        self.hud.draw(context, &mut self.render_job_buffer, console);
-
-        &self.render_job_buffer
+        self.terrain.draw(context);
+        self.hud.draw(context, console);
     }
 
     pub fn handle_window_resize(&mut self, context: &mut Context, new_extent: WindowExtent) {

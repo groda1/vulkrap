@@ -1,9 +1,9 @@
-pub mod buffer;
 pub mod context;
 pub mod rawarray;
 pub mod stats;
 pub mod types;
 
+mod buffer;
 mod constants;
 mod debug;
 mod image;

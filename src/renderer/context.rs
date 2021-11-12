@@ -9,7 +9,7 @@ use winit::window::Window;
 use crate::renderer::memory::MemoryManager;
 use crate::renderer::synchronization::SynchronizationHandler;
 use crate::renderer::types::{
-    DrawCommand, Index, PipelineConfiguration, PipelineHandle, RenderPassHandle, UniformStage,
+    BufferObjectHandle, DrawCommand, Index, PipelineConfiguration, PipelineHandle, RenderPassHandle, UniformStage,
 };
 use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
@@ -22,7 +22,7 @@ use super::queue::QueueFamilyIndices;
 use super::surface::SurfaceContainer;
 use super::swapchain;
 use super::vulkan_util;
-use crate::renderer::buffer::{BufferObjectHandle, BufferObjectManager, BufferObjectType};
+use crate::renderer::buffer::{BufferObjectManager, BufferObjectType};
 use crate::renderer::constants::DYNAMIC_BUFFER_INITIAL_CAPACITY;
 use crate::renderer::pass::RenderPassManager;
 use crate::renderer::stats::RenderStats;
@@ -169,12 +169,14 @@ impl Context {
     }
 
     pub fn begin_frame(&mut self) {
-        self.render_pass_manager.reset_job_buffers();
+        self.render_pass_manager.reset_draw_command_buffers();
     }
 
-    pub fn add_draw_command(&mut self, render_pass: RenderPassHandle, draw_command: DrawCommand) {}
+    pub fn add_draw_command(&mut self, draw_command: DrawCommand) {
+        self.render_pass_manager.add_draw_command(draw_command);
+    }
 
-    pub fn draw_frame(&mut self, render_job: &[DrawCommand]) -> RenderStats {
+    pub fn end_frame(&mut self) -> RenderStats {
         let mut stats = RenderStats::new();
 
         let (image_index, _is_sub_optimal) = unsafe {
@@ -236,7 +238,7 @@ impl Context {
 
         // Draw
         let draw_command_buffer = self.draw_command_buffers[image_index_usize];
-        self.bake_draw_command_buffer(draw_command_buffer, image_index_usize, render_job, &mut stats);
+        self.bake_draw_command_buffer(draw_command_buffer, image_index_usize, &mut stats);
 
         let draw_command_buffers = [draw_command_buffer];
 
@@ -454,7 +456,6 @@ impl Context {
         &self,
         command_buffer: vk::CommandBuffer,
         image_index: usize,
-        render_job: &[DrawCommand],
         render_stats: &mut RenderStats,
     ) -> bool {
         let start_time = Instant::now();
@@ -474,7 +475,6 @@ impl Context {
                 &self.logical_device,
                 command_buffer,
                 image_index,
-                render_job,
                 render_stats,
             );
 

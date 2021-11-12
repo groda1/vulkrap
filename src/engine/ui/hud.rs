@@ -12,7 +12,7 @@ use crate::engine::image;
 use crate::engine::mesh::PredefinedMesh::TexturedQuad;
 use crate::engine::mesh::{Mesh, MeshManager};
 use crate::engine::ui::widgets::{ConsoleRenderer, RenderStatsRenderer, TopBar, WipRenderer};
-use crate::renderer::buffer::BufferObjectHandle;
+use crate::renderer::types::BufferObjectHandle;
 
 use crate::renderer::context::Context;
 use crate::renderer::types::SWAPCHAIN_PASS;
@@ -89,7 +89,7 @@ impl Hud {
         }
     }
 
-    pub fn draw(&mut self, context: &mut Context, draw_command_buffer: &mut Vec<DrawCommand>, console: &Console) {
+    pub fn draw(&mut self, context: &mut Context, console: &Console) {
         context.reset_buffer_object(self.text_sbo);
         context.reset_buffer_object(self.quad_sbo);
 
@@ -102,7 +102,7 @@ impl Hud {
             foreground_instance_count += self.top_bar_renderer.draw(context, self.text_sbo);
         }
 
-        draw_command_buffer.push(DrawCommand::new_buffered(
+        context.add_draw_command(DrawCommand::new_buffered(
             self.text_pipeline,
             ptr::null(),
             self.mesh.vertex_buffer,
@@ -117,7 +117,7 @@ impl Hud {
                 self.console_renderer
                     .draw(context, self.text_sbo, self.quad_sbo, console);
 
-            draw_command_buffer.push(DrawCommand::new_buffered(
+            context.add_draw_command(DrawCommand::new_buffered(
                 self.quad_pipeline,
                 ptr::null(),
                 self.mesh.vertex_buffer,
@@ -127,7 +127,7 @@ impl Hud {
                 0,
             ));
 
-            draw_command_buffer.push(DrawCommand::new_buffered(
+            context.add_draw_command(DrawCommand::new_buffered(
                 self.text_pipeline,
                 ptr::null(),
                 self.mesh.vertex_buffer,

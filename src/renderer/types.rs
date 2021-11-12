@@ -1,4 +1,3 @@
-use crate::renderer::buffer::BufferObjectHandle;
 use crate::renderer::rawarray::RawArrayPtr;
 use crate::renderer::types::VertexData::Buffered;
 use ash::vk;
@@ -37,7 +36,14 @@ impl PipelineHandle {
 pub type TextureHandle = usize;
 pub type SamplerHandle = usize;
 
+//
+// Buffers
+//
+pub type BufferObjectHandle = usize;
+
+//
 // Pipeline
+//
 pub type UniformHandle = usize;
 
 pub trait VertexInputDescription {
