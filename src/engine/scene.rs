@@ -7,9 +7,9 @@ use crate::engine::terrain::Terrain;
 
 use crate::engine::console::Console;
 use crate::engine::ui::hud::Hud;
-use crate::renderer::context::{Context, PipelineHandle};
-use crate::renderer::pipeline::PipelineDrawCommand;
+use crate::renderer::context::Context;
 use crate::renderer::rawarray::RawArrayPtr;
+use crate::renderer::types::{DrawCommand, PipelineHandle};
 
 pub struct Scene {
     // TODO replace with entity content system ( specs? )
@@ -18,7 +18,7 @@ pub struct Scene {
 
     terrain: Terrain,
     hud: Hud,
-    render_job_buffer: Vec<PipelineDrawCommand>,
+    render_job_buffer: Vec<DrawCommand>,
 }
 
 impl Scene {
@@ -55,11 +55,11 @@ impl Scene {
         }
     }
 
-    pub fn build_render_job(&mut self, context: &mut Context, console: &Console) -> &Vec<PipelineDrawCommand> {
+    pub fn build_render_job(&mut self, context: &mut Context, console: &Console) -> &Vec<DrawCommand> {
         self.render_job_buffer.clear();
 
         for entity in self.wobbly_objects.iter() {
-            self.render_job_buffer.push(PipelineDrawCommand::new_buffered(
+            self.render_job_buffer.push(DrawCommand::new_buffered(
                 self.wobbly_pipeline,
                 &entity.push_constant_buf as *const ModelWoblyPushConstant as RawArrayPtr,
                 entity.mesh.vertex_buffer,

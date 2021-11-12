@@ -1,9 +1,7 @@
+use crate::renderer::types::{SamplerHandle, TextureHandle};
 use ash::vk;
 use ash::vk::{DeviceMemory, Image, ImageView, Sampler};
 use std::ptr;
-
-pub type TextureHandle = usize;
-pub type SamplerHandle = usize;
 
 struct Texture {
     image: Image,

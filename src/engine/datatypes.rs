@@ -1,4 +1,4 @@
-use crate::renderer::pipeline::VertexInputDescription;
+use crate::renderer::types::VertexInputDescription;
 use ash::vk;
 use ash::vk::{VertexInputAttributeDescription, VertexInputBindingDescription};
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};

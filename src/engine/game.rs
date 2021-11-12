@@ -13,8 +13,9 @@ use crate::engine::cvars::ConfigVariables;
 use crate::engine::mesh::{MeshManager, PredefinedMesh};
 use crate::engine::scene::Scene;
 use crate::engine::stats;
-use crate::renderer::context::{Context, UniformHandle};
-use crate::renderer::pipeline::{PipelineConfiguration, UniformStage, VertexTopology};
+use crate::renderer::context::Context;
+use crate::renderer::types::SWAPCHAIN_PASS;
+use crate::renderer::types::{PipelineConfiguration, UniformHandle, UniformStage, VertexTopology};
 use crate::util::file;
 
 pub struct VulkrapApplication {
@@ -53,7 +54,7 @@ impl VulkrapApplication {
             .with_push_constant::<ModelWoblyPushConstant>()
             .with_vertex_uniform(0, camera.get_uniform())
             .build();
-        let wobbly_pipeline = context.add_pipeline::<ColoredVertex>(pipeline_config);
+        let wobbly_pipeline = context.add_pipeline::<ColoredVertex>(SWAPCHAIN_PASS, pipeline_config);
 
         let pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/terrain_vert.spv")))
@@ -62,7 +63,7 @@ impl VulkrapApplication {
             .with_vertex_uniform(0, camera.get_uniform())
             .with_fragment_uniform(1, flags_uniform)
             .build();
-        let terrain_pipeline = context.add_pipeline::<VertexNormal>(pipeline_config);
+        let terrain_pipeline = context.add_pipeline::<VertexNormal>(SWAPCHAIN_PASS, pipeline_config);
 
         let scene = Scene::new(&mut context, &mesh_manager, wobbly_pipeline, terrain_pipeline);
 
@@ -87,6 +88,7 @@ impl VulkrapApplication {
         self.scene.update(delta_time_s);
         self.console.update(delta_time_s);
 
+        self.context.begin_frame();
         let render_job = self.scene.build_render_job(&mut self.context, &self.console);
 
         let render_stats = self.context.draw_frame(render_job);

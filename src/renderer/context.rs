@@ -7,10 +7,10 @@ use ash::vk::{PhysicalDevice, PhysicalDeviceMemoryProperties};
 use winit::window::Window;
 
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::{
-    Index, PipelineConfiguration, PipelineDrawCommand, UniformStage, VertexInputDescription,
-};
 use crate::renderer::synchronization::SynchronizationHandler;
+use crate::renderer::types::{
+    DrawCommand, Index, PipelineConfiguration, PipelineHandle, RenderPassHandle, UniformStage,
+};
 use crate::ENGINE_NAME;
 use crate::WINDOW_TITLE;
 
@@ -24,14 +24,13 @@ use super::swapchain;
 use super::vulkan_util;
 use crate::renderer::buffer::{BufferObjectHandle, BufferObjectManager, BufferObjectType};
 use crate::renderer::constants::DYNAMIC_BUFFER_INITIAL_CAPACITY;
-use crate::renderer::pass::{RenderPassHandler, SWAPCHAIN_PASS};
+use crate::renderer::pass::RenderPassManager;
 use crate::renderer::stats::RenderStats;
-use crate::renderer::texture::{SamplerHandle, TextureHandle, TextureManager};
+use crate::renderer::texture::TextureManager;
+use crate::renderer::types::{SamplerHandle, TextureHandle};
+use crate::renderer::types::{VertexInputDescription, SWAPCHAIN_PASS};
 use ash::extensions::ext::DebugUtils;
 use std::time::Instant;
-
-pub type PipelineHandle = usize;
-pub type UniformHandle = usize;
 
 pub struct Context {
     _entry: ash::Entry,
@@ -48,10 +47,8 @@ pub struct Context {
 
     surface_container: SurfaceContainer,
 
-    render_pass_handler: RenderPassHandler,
-
+    render_pass_manager: RenderPassManager,
     texture_manager: TextureManager,
-
     memory_manager: MemoryManager,
     buffer_object_manager: BufferObjectManager,
 
@@ -132,7 +129,7 @@ impl Context {
 
         let image_count = swapchain_container.image_views.len();
 
-        let mut render_pass_handler = RenderPassHandler::new();
+        let mut render_pass_handler = RenderPassManager::new();
         render_pass_handler.create_swapchain_pass(
             &logical_device,
             &instance,
@@ -157,7 +154,7 @@ impl Context {
             transfer_queue,
             present_queue,
             surface_container,
-            render_pass_handler,
+            render_pass_manager: render_pass_handler,
             texture_manager: TextureManager::new(),
             memory_manager,
             buffer_object_manager: BufferObjectManager::new(image_count),
@@ -171,26 +168,19 @@ impl Context {
         }
     }
 
-    pub fn _reset_frame(&mut self) {
-        unimplemented!();
-        // Loop through all render passes and reset its job buffer
+    pub fn begin_frame(&mut self) {
+        self.render_pass_manager.reset_job_buffers();
     }
 
-    pub fn _draw_frame(&mut self) -> RenderStats {
-        unimplemented!()
-    }
+    pub fn add_draw_command(&mut self, render_pass: RenderPassHandle, draw_command: DrawCommand) {}
 
-    pub fn _add_draw_command(_draw_command: PipelineDrawCommand) {
-        unimplemented!()
-    }
-
-    pub fn draw_frame(&mut self, render_job: &[PipelineDrawCommand]) -> RenderStats {
+    pub fn draw_frame(&mut self, render_job: &[DrawCommand]) -> RenderStats {
         let mut stats = RenderStats::new();
 
         let (image_index, _is_sub_optimal) = unsafe {
-            let result = self.render_pass_handler.swapchain_pass().loader().acquire_next_image(
-                self.render_pass_handler.swapchain_pass().swapchain(),
-                std::u64::MAX,
+            let result = self.render_pass_manager.swapchain_target().loader().acquire_next_image(
+                self.render_pass_manager.swapchain_target().swapchain(),
+                u64::MAX,
                 self.sync_handler.image_available_semaphore(),
                 vk::Fence::null(),
             );
@@ -284,7 +274,7 @@ impl Context {
         }
 
         // Present
-        let swapchains = [self.render_pass_handler.swapchain_pass().swapchain()];
+        let swapchains = [self.render_pass_manager.swapchain_target().swapchain()];
         let image_index_array = [image_index];
 
         let present_info = vk::PresentInfoKHR::builder()
@@ -295,8 +285,8 @@ impl Context {
 
         unsafe {
             let result = self
-                .render_pass_handler
-                .swapchain_pass()
+                .render_pass_manager
+                .swapchain_target()
                 .loader()
                 .queue_present(self.present_queue, &present_info);
 
@@ -389,12 +379,17 @@ impl Context {
         self.texture_manager.add_sampler(&self.logical_device)
     }
 
-    pub fn add_pipeline<T: VertexInputDescription>(&mut self, config: PipelineConfiguration) -> PipelineHandle {
-        self.render_pass_handler.add_pipeline::<T>(
+    pub fn add_pipeline<T: VertexInputDescription>(
+        &mut self,
+        render_pass: RenderPassHandle,
+        config: PipelineConfiguration,
+    ) -> PipelineHandle {
+        self.render_pass_manager.add_pipeline::<T>(
             &self.logical_device,
             &mut self.buffer_object_manager,
             &self.texture_manager,
             config,
+            render_pass,
         )
     }
 
@@ -407,7 +402,7 @@ impl Context {
     fn destroy_swapchain(&mut self) {
         unsafe {
             // Swapchain render pass, all images and its pipelines
-            self.render_pass_handler.destroy_swapchain(&self.logical_device);
+            self.render_pass_manager.destroy_swapchain(&self.logical_device);
 
             self.logical_device
                 .free_command_buffers(self.command_pool, &self.draw_command_buffers);
@@ -444,9 +439,9 @@ impl Context {
         self.buffer_object_manager
             .rebuild(&self.logical_device, &mut self.memory_manager, image_count);
         self.buffer_object_manager
-            .reassign_pipeline_buffers(self.render_pass_handler.swapchain_pass_mut().pipelines_mut());
+            .reassign_pipeline_buffers(self.render_pass_manager.swapchain_pass_mut().pipelines_mut());
 
-        self.render_pass_handler.create_swapchain_pass(
+        self.render_pass_manager.create_swapchain_pass(
             &self.logical_device,
             &self.instance,
             self.physical_device,
@@ -459,7 +454,7 @@ impl Context {
         &self,
         command_buffer: vk::CommandBuffer,
         image_index: usize,
-        render_job: &[PipelineDrawCommand],
+        render_job: &[DrawCommand],
         render_stats: &mut RenderStats,
     ) -> bool {
         let start_time = Instant::now();
@@ -475,7 +470,7 @@ impl Context {
                 .begin_command_buffer(command_buffer, &command_buffer_begin_info)
                 .expect("Failed to begin recording of Draw command buffer!");
 
-            self.render_pass_handler.bake_command_buffer(
+            self.render_pass_manager.bake_command_buffer(
                 &self.logical_device,
                 command_buffer,
                 image_index,
@@ -493,12 +488,12 @@ impl Context {
     }
 
     pub fn get_aspect_ratio(&self) -> f32 {
-        let extent = self.render_pass_handler.swapchain_pass().extent();
+        let extent = self.render_pass_manager.swapchain_extent();
         extent.width as f32 / extent.height as f32
     }
 
     pub fn get_framebuffer_extent(&self) -> (u32, u32) {
-        let extent = self.render_pass_handler.swapchain_pass().extent();
+        let extent = self.render_pass_manager.swapchain_extent();
         (extent.width, extent.height)
     }
 
@@ -526,7 +521,7 @@ impl Context {
                 &self.logical_device,
                 &mut self.memory_manager,
                 buffer_object,
-                self.render_pass_handler.swapchain_pass().image_count(),
+                self.render_pass_manager.swapchain_target().image_count(),
             );
 
             if resized {
@@ -536,14 +531,14 @@ impl Context {
                     //self.pipelines[*pipeline].update_storage_buffer(sbo.devices(), new_capacity);
 
                     // TODO THIS IS NOT LOCAL TO SWAPCHAIN PASS ONLY
-                    self.render_pass_handler.swapchain_pass_mut().pipelines_mut()[*pipeline]
+                    self.render_pass_manager.swapchain_pass_mut().pipelines_mut()[pipeline.index()]
                         .update_storage_buffer(sbo.devices(), new_capacity);
                 }
                 unsafe {
                     self.wait_idle();
                     for pipeline in sbo.assigned_pipelines().iter() {
                         // TODO THIS IS NOT LOCAL TO SWAPCHAIN PASS ONLY
-                        self.render_pass_handler
+                        self.render_pass_manager
                             .rebuild_pipeline(&self.logical_device, *pipeline, SWAPCHAIN_PASS)
 
                         /*
@@ -571,7 +566,7 @@ impl Drop for Context {
             self.sync_handler.destroy(&self.logical_device);
 
             // Shaders and descriptor sets
-            self.render_pass_handler
+            self.render_pass_manager
                 .destroy_static_pipeline_objects(&self.logical_device);
 
             // Swapchain

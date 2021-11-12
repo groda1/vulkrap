@@ -5,8 +5,8 @@ use num::Integer;
 
 use crate::engine::datatypes::VertexNormal;
 use crate::engine::mesh::Mesh;
-use crate::renderer::context::{Context, PipelineHandle};
-use crate::renderer::pipeline::PipelineDrawCommand;
+use crate::renderer::context::Context;
+use crate::renderer::types::{DrawCommand, PipelineHandle};
 
 const QUAD_SIZE: f32 = 1.0;
 
@@ -50,8 +50,8 @@ impl Terrain {
         }
     }
 
-    pub fn draw(&self, draw_command_buffer: &mut Vec<PipelineDrawCommand>) {
-        draw_command_buffer.push(PipelineDrawCommand::new_buffered(
+    pub fn draw(&self, draw_command_buffer: &mut Vec<DrawCommand>) {
+        draw_command_buffer.push(DrawCommand::new_buffered(
             self.pipeline,
             ptr::null(),
             self.chunk.vertex_buffer,

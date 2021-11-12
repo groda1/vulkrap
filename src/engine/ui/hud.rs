@@ -14,8 +14,9 @@ use crate::engine::mesh::{Mesh, MeshManager};
 use crate::engine::ui::widgets::{ConsoleRenderer, RenderStatsRenderer, TopBar, WipRenderer};
 use crate::renderer::buffer::BufferObjectHandle;
 
-use crate::renderer::context::{Context, PipelineHandle, UniformHandle};
-use crate::renderer::pipeline::{PipelineConfiguration, PipelineDrawCommand, UniformStage};
+use crate::renderer::context::Context;
+use crate::renderer::types::SWAPCHAIN_PASS;
+use crate::renderer::types::{DrawCommand, PipelineConfiguration, PipelineHandle, UniformHandle, UniformStage};
 
 use crate::util::file;
 
@@ -56,7 +57,7 @@ impl Hud {
             .with_alpha_blending()
             .add_texture(1, font_texture, sampler)
             .build();
-        let text_pipeline = context.add_pipeline::<TexturedVertex>(text_pipeline_config);
+        let text_pipeline = context.add_pipeline::<TexturedVertex>(SWAPCHAIN_PASS, text_pipeline_config);
         let quad_pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/2d_flat_ssbo_vert.spv")))
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/2d_flat_ssbo_frag.spv")))
@@ -64,7 +65,7 @@ impl Hud {
             .with_storage_buffer_object(2, quad_sbo)
             .with_alpha_blending()
             .build();
-        let quad_pipeline = context.add_pipeline::<TexturedVertex>(quad_pipeline_config);
+        let quad_pipeline = context.add_pipeline::<TexturedVertex>(SWAPCHAIN_PASS, quad_pipeline_config);
 
         let mesh = *mesh_manager.get_predefined_mesh(TexturedQuad);
         let wip_renderer = WipRenderer::new();
@@ -88,12 +89,7 @@ impl Hud {
         }
     }
 
-    pub fn draw(
-        &mut self,
-        context: &mut Context,
-        draw_command_buffer: &mut Vec<PipelineDrawCommand>,
-        console: &Console,
-    ) {
+    pub fn draw(&mut self, context: &mut Context, draw_command_buffer: &mut Vec<DrawCommand>, console: &Console) {
         context.reset_buffer_object(self.text_sbo);
         context.reset_buffer_object(self.quad_sbo);
 
@@ -106,7 +102,7 @@ impl Hud {
             foreground_instance_count += self.top_bar_renderer.draw(context, self.text_sbo);
         }
 
-        draw_command_buffer.push(PipelineDrawCommand::new_buffered(
+        draw_command_buffer.push(DrawCommand::new_buffered(
             self.text_pipeline,
             ptr::null(),
             self.mesh.vertex_buffer,
@@ -121,7 +117,7 @@ impl Hud {
                 self.console_renderer
                     .draw(context, self.text_sbo, self.quad_sbo, console);
 
-            draw_command_buffer.push(PipelineDrawCommand::new_buffered(
+            draw_command_buffer.push(DrawCommand::new_buffered(
                 self.quad_pipeline,
                 ptr::null(),
                 self.mesh.vertex_buffer,
@@ -131,7 +127,7 @@ impl Hud {
                 0,
             ));
 
-            draw_command_buffer.push(PipelineDrawCommand::new_buffered(
+            draw_command_buffer.push(DrawCommand::new_buffered(
                 self.text_pipeline,
                 ptr::null(),
                 self.mesh.vertex_buffer,

@@ -2,8 +2,8 @@ use crate::engine::cvars::{ConfigVariables, FOV, M_PITCH, M_SENSITIVITY, M_YAW};
 use crate::engine::datatypes::ViewProjectionUniform;
 use crate::engine::game::MovementFlags;
 use crate::renderer::buffer::BufferObjectHandle;
-use crate::renderer::context::{Context, UniformHandle};
-use crate::renderer::pipeline::UniformStage;
+use crate::renderer::context::Context;
+use crate::renderer::types::{UniformHandle, UniformStage};
 use cgmath::{dot, Deg, Matrix4, Quaternion, Rad, Rotation3, Vector3};
 
 const MOVE_SPEED: f32 = 25.0;

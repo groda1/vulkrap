@@ -3,11 +3,11 @@ use std::time::Instant;
 
 use ash::vk;
 
-use crate::renderer::context::PipelineHandle;
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::{PipelineContainer, UniformStage};
+use crate::renderer::pipeline::PipelineContainer;
 use crate::renderer::rawarray::{PushError, RawArray, RawArrayPtr};
 use crate::renderer::stats::RenderStats;
+use crate::renderer::types::{PipelineHandle, UniformStage};
 
 pub type BufferObjectHandle = usize;
 
@@ -72,11 +72,11 @@ impl BufferObjectManager {
         for buffer_object in self.buffer_objects.iter() {
             if let BufferObjectType::Uniform(stage) = buffer_object.buffer_object_type {
                 for pipeline in buffer_object.assigned_pipelines.iter() {
-                    pipelines[*pipeline].set_uniform_buffers(stage, buffer_object.devices());
+                    pipelines[pipeline.index()].set_uniform_buffers(stage, buffer_object.devices());
                 }
             } else if let BufferObjectType::Storage = buffer_object.buffer_object_type {
                 for pipeline in buffer_object.assigned_pipelines.iter() {
-                    pipelines[*pipeline].set_storage_buffers(buffer_object.devices());
+                    pipelines[pipeline.index()].set_storage_buffers(buffer_object.devices());
                 }
             }
         }

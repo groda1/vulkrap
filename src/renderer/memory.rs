@@ -2,7 +2,8 @@ use std::ptr;
 
 use ash::vk;
 
-use crate::renderer::pipeline::{Index, VertexInputDescription};
+use crate::renderer::types::Index;
+use crate::renderer::types::VertexInputDescription;
 use ash::vk::PhysicalDeviceMemoryProperties;
 use std::collections::HashMap;
 
