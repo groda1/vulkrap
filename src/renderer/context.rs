@@ -531,6 +531,10 @@ impl Context {
                     //self.pipelines[*pipeline].update_storage_buffer(sbo.devices(), new_capacity);
 
                     // TODO THIS IS NOT LOCAL TO SWAPCHAIN PASS ONLY
+                    if pipeline.render_pass != SWAPCHAIN_PASS {
+                        unimplemented!();
+                    }
+
                     self.render_pass_manager.swapchain_pass_mut().pipelines_mut()[pipeline.index()]
                         .update_storage_buffer(sbo.devices(), new_capacity);
                 }
@@ -538,6 +542,9 @@ impl Context {
                     self.wait_idle();
                     for pipeline in sbo.assigned_pipelines().iter() {
                         // TODO THIS IS NOT LOCAL TO SWAPCHAIN PASS ONLY
+                        if pipeline.render_pass != SWAPCHAIN_PASS {
+                            unimplemented!();
+                        }
                         self.render_pass_manager
                             .rebuild_pipeline(&self.logical_device, *pipeline, SWAPCHAIN_PASS)
 
