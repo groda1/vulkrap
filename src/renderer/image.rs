@@ -3,7 +3,7 @@ use ash::vk;
 use ash::vk::Extent2D;
 use std::ptr;
 
-pub fn create_texture_image(
+pub fn create_static_image(
     device: &ash::Device,
     command_pool: vk::CommandPool,
     submit_queue: vk::Queue,
@@ -69,6 +69,43 @@ pub fn create_texture_image(
     unsafe {
         memory_manager.destroy_buffer(device, staging_buffer);
     }
+
+    (texture_image, texture_image_memory)
+}
+
+pub fn create_colorattachment_image(
+    device: &ash::Device,
+    command_pool: vk::CommandPool,
+    submit_queue: vk::Queue,
+    memory_manager: &mut MemoryManager,
+    image_width: u32,
+    image_height: u32,
+) -> (vk::Image, vk::DeviceMemory) {
+    if image_width == 0 || image_height == 0 {
+        panic!("Failed to crate texture image!")
+    }
+
+    let (texture_image, texture_image_memory) = create_image(
+        device,
+        image_width,
+        image_height,
+        1,
+        vk::SampleCountFlags::TYPE_1,
+        vk::Format::R8G8B8A8_SRGB,
+        vk::ImageTiling::OPTIMAL,
+        vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
+        vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        memory_manager.physical_device_memory_properties(),
+    );
+    transition_image_layout(
+        device,
+        command_pool,
+        submit_queue,
+        texture_image,
+        vk::Format::R8G8B8A8_UNORM,
+        vk::ImageLayout::UNDEFINED,
+        vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+    );
 
     (texture_image, texture_image_memory)
 }

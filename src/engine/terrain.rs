@@ -4,9 +4,8 @@ use cgmath::{InnerSpace, Vector3};
 use num::Integer;
 
 use crate::engine::datatypes::VertexNormal;
-use crate::engine::mesh::Mesh;
 use crate::renderer::context::Context;
-use crate::renderer::types::{DrawCommand, PipelineHandle};
+use crate::renderer::types::{DrawCommand, VertexData, PipelineHandle};
 
 const QUAD_SIZE: f32 = 1.0;
 
@@ -14,7 +13,7 @@ pub struct _OctreeTerrainNode {
     size: f32, // quad_width_count * (adjusted for LOD QUAD_SIZE)
     center_point: Vector3<f32>,
 
-    mesh: Mesh,
+    mesh: VertexData,
 
     // Order: 0 = SW, 1 = SE, 2 = NW, 3 = NE
     children: Option<Box<[_OctreeTerrainNode; 4]>>,
@@ -23,7 +22,7 @@ pub struct _OctreeTerrainNode {
 pub struct Terrain {
     pipeline: PipelineHandle,
 
-    chunk: Mesh,
+    chunk: VertexData,
 }
 
 impl Terrain {
@@ -46,7 +45,7 @@ impl Terrain {
 
         Terrain {
             pipeline,
-            chunk: Mesh::new(vertex_buffer, index_buffer, chunk_data.indices.len() as u32),
+            chunk: VertexData::new(vertex_buffer, index_buffer, chunk_data.indices.len() as u32),
         }
     }
 
@@ -54,9 +53,7 @@ impl Terrain {
         context.add_draw_command(DrawCommand::new_buffered(
             self.pipeline,
             ptr::null(),
-            self.chunk.vertex_buffer,
-            self.chunk.index_buffer,
-            self.chunk.index_count,
+            self.chunk,
             1,
             0,
         ));

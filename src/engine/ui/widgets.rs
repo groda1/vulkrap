@@ -22,15 +22,18 @@ const TEXT_SIZE_PX: u32 = 16;
 const LINE_SPACING: u32 = 2;
 const INPUT_BOX_OFFSET: u32 = 2;
 
-pub struct WipRenderer {}
+pub struct TextRenderer {
+    text : String
+}
 
-impl WipRenderer {
-    pub fn new() -> Self {
-        WipRenderer {}
+impl TextRenderer {
+    pub fn new(text: String) -> Self {
+        TextRenderer {
+            text
+        }
     }
     pub fn draw(&mut self, context: &mut Context, storage_buffer: BufferObjectHandle) -> u32 {
-        let text = "derp";
-        draw_text(context, storage_buffer, text, Vector2::new(0, 0), 128, COLOR_TEXT_CVAR)
+        draw_text(context, storage_buffer, &self.text, Vector2::new(0, 0), 128, COLOR_TEXT_CVAR)
     }
 }
 

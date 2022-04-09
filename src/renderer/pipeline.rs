@@ -9,7 +9,7 @@ use ash::vk::{
 
 use crate::renderer::constants::{MAX_FRAMES_IN_FLIGHT, SAMPLER_DESCRIPTOR_POOL_SIZE, UNIFORM_DESCRIPTOR_POOL_SIZE};
 use crate::renderer::stats::DrawCommandStats;
-use crate::renderer::types::VertexData::Buffered;
+use crate::renderer::types::DrawData::Buffered;
 use crate::renderer::types::VertexInputDescription;
 use crate::renderer::types::{
     BufferObjectBindingConfiguration, DrawCommand, SamplerBindingConfiguration, UniformStage,

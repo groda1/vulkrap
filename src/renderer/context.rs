@@ -307,6 +307,11 @@ impl Context {
         stats
     }
 
+
+    pub fn create_render_pass() -> RenderPassHandle {
+        0
+    }
+
     pub fn create_static_vertex_buffer_sync<T: VertexInputDescription>(&mut self, vertices: &[T]) -> vk::Buffer {
         self.memory_manager.create_static_vertex_buffer_sync(
             &self.logical_device,
@@ -353,7 +358,7 @@ impl Context {
     }
 
     pub fn add_texture(&mut self, image_width: u32, image_height: u32, image_data: &[u8]) -> TextureHandle {
-        let (image, image_memory) = image::create_texture_image(
+        let (image, image_memory) = image::create_static_image(
             &self.logical_device,
             self.command_pool,
             self.graphics_queue,

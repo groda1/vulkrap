@@ -1,6 +1,22 @@
 use ash::vk;
 use ash::vk::SwapchainKHR;
 
+pub struct ImageTarget {
+    color_image: Vec<vk::Image>,
+    color_image_view: Vec<vk::ImageView>,
+    color_image_memory: Vec<vk::DeviceMemory>,
+
+    depth_image: vk::Image,
+    depth_image_view: vk::ImageView,
+    depth_image_memory: vk::DeviceMemory,
+
+    framebuffer: Vec<vk::Framebuffer>,
+}
+
+impl ImageTarget {
+
+}
+
 pub struct SwapchainTarget {
     swapchain_loader: ash::extensions::khr::Swapchain,
     swapchain: vk::SwapchainKHR,

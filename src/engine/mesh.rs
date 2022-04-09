@@ -2,26 +2,10 @@ use std::collections::HashMap;
 
 use cgmath::{Vector2, Vector3};
 
-use crate::engine::datatypes::{ColoredVertex, SimpleVertex, TexturedVertex};
+use crate::engine::datatypes::{ColoredVertex, Mesh, SimpleVertex, TexturedVertex};
 use crate::renderer::context::Context;
-use ash::vk::Buffer;
+use crate::renderer::types::VertexData;
 
-#[derive(Clone, Debug, Copy)]
-pub struct Mesh {
-    pub vertex_buffer: Buffer,
-    pub index_buffer: Buffer,
-    pub index_count: u32,
-}
-
-impl Mesh {
-    pub fn new(vertex_buffer: Buffer, index_buffer: Buffer, index_count: u32) -> Self {
-        Mesh {
-            vertex_buffer,
-            index_buffer,
-            index_count,
-        }
-    }
-}
 
 #[repr(u32)]
 pub enum PredefinedMesh {
@@ -78,15 +62,20 @@ impl MeshManager {
             let colored_vertex_buffer = context.create_static_vertex_buffer_sync(&colored_vertices);
             let simple_vertex_buffer = context.create_static_vertex_buffer_sync(&simple_vertices);
             let index_buffer = context.create_static_index_buffer_sync(&indices);
+
             let simple_mesh = Mesh {
-                vertex_buffer: simple_vertex_buffer,
-                index_buffer,
-                index_count: indices.len() as u32,
+                vertex_data: VertexData {
+                    vertex_buffer: simple_vertex_buffer,
+                    index_buffer,
+                    index_count: indices.len() as u32
+                }
             };
             let colored_mesh = Mesh {
-                vertex_buffer: colored_vertex_buffer,
-                index_buffer,
-                index_count: indices.len() as u32,
+                vertex_data: VertexData {
+                    vertex_buffer: colored_vertex_buffer,
+                    index_buffer,
+                    index_count: indices.len() as u32
+                }
             };
             self.meshes
                 .insert(PredefinedMesh::SimpleTriangle as MeshHandle, simple_mesh);
@@ -120,19 +109,25 @@ impl MeshManager {
             let textured_vertex_buffer = context.create_static_vertex_buffer_sync(&textured_vertices);
             let index_buffer = context.create_static_index_buffer_sync(&indices);
             let simple_mesh = Mesh {
-                vertex_buffer: simple_vertex_buffer,
-                index_buffer,
-                index_count: indices.len() as u32,
+                vertex_data: VertexData {
+                    vertex_buffer: simple_vertex_buffer,
+                    index_buffer,
+                    index_count: indices.len() as u32
+                }
             };
             let colored_mesh = Mesh {
-                vertex_buffer: colored_vertex_buffer,
-                index_buffer,
-                index_count: indices.len() as u32,
+                vertex_data: VertexData {
+                    vertex_buffer: colored_vertex_buffer,
+                    index_buffer,
+                    index_count: indices.len() as u32
+                }
             };
             let textured_mesh = Mesh {
-                vertex_buffer: textured_vertex_buffer,
-                index_buffer,
-                index_count: indices.len() as u32,
+                vertex_data: VertexData {
+                    vertex_buffer: textured_vertex_buffer,
+                    index_buffer,
+                    index_count: indices.len() as u32
+                }
             };
             self.meshes
                 .insert(PredefinedMesh::SimpleQuad as MeshHandle, simple_mesh);

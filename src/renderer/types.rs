@@ -1,7 +1,7 @@
 use crate::renderer::rawarray::RawArrayPtr;
-use crate::renderer::types::VertexData::Buffered;
+use crate::renderer::types::DrawData::Buffered;
 use ash::vk;
-use ash::vk::{ImageView, PrimitiveTopology, Sampler};
+use ash::vk::{Buffer, ImageView, PrimitiveTopology, Sampler};
 
 //
 // Render pass
@@ -235,29 +235,44 @@ impl BufferObjectBindingConfiguration {
     }
 }
 
+#[derive(Clone, Debug, Copy)]
+pub struct VertexData {
+    pub vertex_buffer: Buffer,
+    pub index_buffer: Buffer,
+    pub index_count: u32,
+}
+
+impl VertexData {
+    pub fn new(vertex_buffer: Buffer, index_buffer: Buffer, index_count: u32) -> Self {
+        VertexData {
+            vertex_buffer,
+            index_buffer,
+            index_count,
+        }
+    }
+}
+
 pub struct DrawCommand {
     pub pipeline: PipelineHandle,
     pub(super) push_constant_ptr: RawArrayPtr,
-    pub(super) vertex_data: VertexData,
+    pub(super) vertex_data: DrawData,
 }
 
 impl DrawCommand {
     pub fn new_buffered(
         pipeline: PipelineHandle,
         push_constant_ptr: RawArrayPtr,
-        vertex_buffer: vk::Buffer,
-        index_buffer: vk::Buffer,
-        index_count: u32,
+        vertex_data: VertexData,
         instance_count: u32,
         instance_start: u32,
     ) -> DrawCommand {
         DrawCommand {
             pipeline,
             push_constant_ptr,
-            vertex_data: Buffered(BufferData::new(
-                vertex_buffer,
-                index_buffer,
-                index_count,
+            vertex_data: Buffered(BufferDrawData::new(
+                vertex_data.vertex_buffer,
+                vertex_data.index_buffer,
+                vertex_data.index_count,
                 instance_count,
                 instance_start,
             )),
@@ -277,7 +292,7 @@ impl DrawCommand {
     }
 }
 
-pub(super) struct BufferData {
+pub(super) struct BufferDrawData {
     pub vertex_buffer: vk::Buffer,
     pub index_buffer: vk::Buffer,
     pub index_count: u32,
@@ -285,7 +300,7 @@ pub(super) struct BufferData {
     pub instance_start: u32,
 }
 
-impl BufferData {
+impl BufferDrawData {
     pub(super) fn new(
         vertex_buffer: vk::Buffer,
         index_buffer: vk::Buffer,
@@ -293,7 +308,7 @@ impl BufferData {
         instance_count: u32,
         instance_start: u32,
     ) -> Self {
-        BufferData {
+        BufferDrawData {
             vertex_buffer,
             index_buffer,
             index_count,
@@ -303,8 +318,8 @@ impl BufferData {
     }
 }
 
-pub(super) enum VertexData {
-    Buffered(BufferData),
+pub(super) enum DrawData {
+    Buffered(BufferDrawData),
 }
 
 pub type Index = u32;

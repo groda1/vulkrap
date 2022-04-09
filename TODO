@@ -1,13 +1,14 @@
 Renderer:
 
+    [ ] Pipelines can only have one uniform per stage. Fix!
     [ ] Pipelines can only have one storage buffer, and its hardcoded to be assigned to the vertex shader. Fix!
-    [ ] SSBO + instanced drawing for text rendering!
     [ ] Render to texture. Support for multiple renderpasses.
     [ ] Texture mipmaps
     [ ] Memory handling for images is weird. Handled by image.rs instead of the memory manager. fix!
     [ ] Proper device picking
     [ ] Dont allocate buffer memory on every vertex/index buffer creation. This could be managed by an allocator. See memory.rs
     [ ] Multiple textures could be stored as an array with a single binding. See descriptor_count in create_descriptor_set_layout (pipeline.rs)
+    [x] SSBO + instanced drawing for text rendering!
     [x] Maybe create a separate queue for transfering data instead of graphics_queue for everything?
     [x] push constants buffer handling. it is so bad that the user has to manage these. so easy to fuck up by forgetting to clear them which
                 leads to crashing and memory issues. fix asap. This needs to be handled automatically by the renderer.

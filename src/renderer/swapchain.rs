@@ -33,7 +33,7 @@ pub fn create_swapchain(
     let extent = _choose_swapchain_extent(&swapchain_support.capabilities);
 
     let image_count = 2;
-    if swapchain_support.capabilities.min_image_count > 2 || swapchain_support.capabilities.max_image_count < 2 {
+    if swapchain_support.capabilities.min_image_count > image_count || swapchain_support.capabilities.max_image_count < image_count {
         panic!("Unsupported swapchain image count: {}", image_count)
     }
 
@@ -81,6 +81,7 @@ pub fn create_swapchain(
             .get_swapchain_images(swapchain)
             .expect("Failed to get Swapchain Images.")
     };
+    log_debug!("image count: {}", images.len());
 
     let image_views = _create_image_views(device, surface_format.format, &images);
 

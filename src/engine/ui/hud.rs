@@ -1,18 +1,17 @@
 use std::path::Path;
 use std::ptr;
 
-use cgmath::{Matrix4, SquareMatrix};
+use cgmath::{Matrix4, SquareMatrix, Vector2, Vector4};
 
 use crate::engine::console::Console;
-use crate::engine::datatypes::{
-    InstancedCharacter, InstancedQuad, TexturedVertex, ViewProjectionUniform, WindowExtent,
-};
+use crate::engine::datatypes::{InstancedCharacter, InstancedQuad, Mesh, ModelColorPushConstant, TexturedVertex, ViewProjectionUniform, WindowExtent};
+use crate::engine::entity::DefaultEntity;
 
 use crate::engine::image;
 use crate::engine::mesh::PredefinedMesh::TexturedQuad;
-use crate::engine::mesh::{Mesh, MeshManager};
-use crate::engine::ui::widgets::{ConsoleRenderer, RenderStatsRenderer, TopBar, WipRenderer};
-use crate::renderer::types::BufferObjectHandle;
+use crate::engine::mesh::MeshManager;
+use crate::engine::ui::widgets::{ConsoleRenderer, RenderStatsRenderer, TopBar, TextRenderer};
+use crate::renderer::types::{BufferObjectHandle, VertexData};
 
 use crate::renderer::context::Context;
 use crate::renderer::types::SWAPCHAIN_PASS;
@@ -27,14 +26,16 @@ pub struct Hud {
     quad_sbo: BufferObjectHandle,
     text_pipeline: PipelineHandle,
     quad_pipeline: PipelineHandle,
+    textured_quad_pipeline: PipelineHandle,
     mesh: Mesh,
 
     render_stats_renderer: RenderStatsRenderer,
     console_renderer: ConsoleRenderer,
     top_bar_renderer: TopBar,
-    wip_renderer: WipRenderer,
+    derp_text: TextRenderer,
 
     window_extent: WindowExtent,
+
 }
 
 impl Hud {
@@ -42,16 +43,20 @@ impl Hud {
         let vp_uniform = context.create_uniform_buffer::<ViewProjectionUniform>(UniformStage::Vertex);
         let text_sbo = context.create_storage_buffer::<InstancedCharacter>(500);
         let quad_sbo = context.create_storage_buffer::<InstancedQuad>(10);
+
         let data = _create_view_projection_uniform(window_extent);
         context.set_buffer_object(vp_uniform, data);
 
         let font_image = image::load_image(Path::new("./resources/textures/font.png"));
         let font_texture = context.add_texture(font_image.width, font_image.height, &font_image.data);
+        let temp_image = image::load_image(Path::new("./resources/textures/test.png"));
+        let temp_texture = context.add_texture(temp_image.width, temp_image.height, &temp_image.data);
+
         let sampler = context.add_sampler();
 
         let text_pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/2d_text_ssbo_vert.spv")))
-            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/2d_text_ssbo_frag.spv")))
+            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/2d_texture_ssbo_frag.spv")))
             .with_vertex_uniform(0, vp_uniform)
             .with_storage_buffer_object(2, text_sbo)
             .with_alpha_blending()
@@ -67,11 +72,26 @@ impl Hud {
             .build();
         let quad_pipeline = context.add_pipeline::<TexturedVertex>(SWAPCHAIN_PASS, quad_pipeline_config);
 
+        let textured_quad_sbo = context.create_storage_buffer::<InstancedQuad>(1);
+        // TODO replace with vertex uniform
+        context.push_to_buffer_object(textured_quad_sbo, InstancedQuad::new(Vector2::new(256.0, 386.0), Vector2::new(256.0, 256.0), Vector4::new(1.0, 1.0, 1.0, 1.0)));
+        let textured_quad_pipeline_config = PipelineConfiguration::builder()
+            .with_vertex_shader(file::read_file(Path::new("./resources/shaders/2d_texture_ssbo_vert.spv")))
+            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/2d_texture_ssbo_frag.spv")))
+            .with_vertex_uniform(0, vp_uniform)
+            // TODO replace with another vertex uniform instead of SBO
+            .with_storage_buffer_object(2, textured_quad_sbo)
+            .add_texture(1, temp_texture, sampler)
+            .build();
+        let textured_quad_pipeline = context.add_pipeline::<TexturedVertex>(SWAPCHAIN_PASS, textured_quad_pipeline_config);
+
+
         let mesh = *mesh_manager.get_predefined_mesh(TexturedQuad);
-        let wip_renderer = WipRenderer::new();
+        let text_renderer = TextRenderer::new("foo".to_string());
         let render_stats_renderer = RenderStatsRenderer::new(window_extent);
         let console_renderer = ConsoleRenderer::new(window_extent);
         let top_bar_renderer = TopBar::new(window_extent);
+
 
         Hud {
             uniform: vp_uniform,
@@ -79,22 +99,30 @@ impl Hud {
             quad_sbo,
             text_pipeline,
             quad_pipeline,
+            textured_quad_pipeline,
             mesh,
             render_stats_renderer,
             console_renderer,
             top_bar_renderer,
-            wip_renderer,
+            derp_text: text_renderer,
 
             window_extent,
         }
     }
 
     pub fn draw(&mut self, context: &mut Context, console: &Console) {
+         context.add_draw_command(DrawCommand::new_buffered(self.textured_quad_pipeline,
+                                                            ptr::null(),
+             self.mesh.vertex_data,
+             1,
+             0
+         ));
+
         context.reset_buffer_object(self.text_sbo);
         context.reset_buffer_object(self.quad_sbo);
 
         let mut foreground_instance_count = 0;
-        foreground_instance_count += self.wip_renderer.draw(context, self.text_sbo);
+        foreground_instance_count += self.derp_text.draw(context, self.text_sbo);
         if self.render_stats_renderer.is_active() {
             foreground_instance_count += self.render_stats_renderer.draw(context, self.text_sbo);
         }
@@ -105,9 +133,7 @@ impl Hud {
         context.add_draw_command(DrawCommand::new_buffered(
             self.text_pipeline,
             ptr::null(),
-            self.mesh.vertex_buffer,
-            self.mesh.index_buffer,
-            self.mesh.index_count,
+            self.mesh.vertex_data,
             foreground_instance_count,
             0,
         ));
@@ -120,9 +146,7 @@ impl Hud {
             context.add_draw_command(DrawCommand::new_buffered(
                 self.quad_pipeline,
                 ptr::null(),
-                self.mesh.vertex_buffer,
-                self.mesh.index_buffer,
-                self.mesh.index_count,
+                self.mesh.vertex_data,
                 instance_count_quad,
                 0,
             ));
@@ -130,9 +154,7 @@ impl Hud {
             context.add_draw_command(DrawCommand::new_buffered(
                 self.text_pipeline,
                 ptr::null(),
-                self.mesh.vertex_buffer,
-                self.mesh.index_buffer,
-                self.mesh.index_count,
+                self.mesh.vertex_data,
                 console_instance_count_text,
                 foreground_instance_count,
             ));

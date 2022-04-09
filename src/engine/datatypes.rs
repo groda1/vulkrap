@@ -1,4 +1,4 @@
-use crate::renderer::types::VertexInputDescription;
+use crate::renderer::types::{VertexData, VertexInputDescription};
 use ash::vk;
 use ash::vk::{VertexInputAttributeDescription, VertexInputBindingDescription};
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
@@ -296,5 +296,18 @@ pub struct WindowExtent {
 impl WindowExtent {
     pub fn new(width: u32, heigh: u32) -> Self {
         WindowExtent { width, height: heigh }
+    }
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct Mesh {
+    pub vertex_data: VertexData,
+}
+
+impl Mesh {
+    pub fn new(vertex_data: VertexData) -> Self {
+        Mesh {
+            vertex_data
+        }
     }
 }

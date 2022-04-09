@@ -26,7 +26,7 @@ pub struct RenderPass {
 }
 
 impl RenderPass {
-    pub(super) fn new_swapchain_pass(
+    fn new_swapchain_pass(
         device: &ash::Device,
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,

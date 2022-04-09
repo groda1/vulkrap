@@ -268,7 +268,6 @@ impl BufferObject {
 
     pub fn staging(&self, image_index: usize) -> vk::Buffer {
         debug_assert!(self.staging_buffer.len() > image_index);
-
         self.staging_buffer[image_index]
     }
 

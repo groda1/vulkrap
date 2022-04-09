@@ -57,9 +57,7 @@ impl Scene {
             context.add_draw_command(DrawCommand::new_buffered(
                 self.wobbly_pipeline,
                 &entity.push_constant_buf as *const ModelWoblyPushConstant as RawArrayPtr,
-                entity.mesh.vertex_buffer,
-                entity.mesh.index_buffer,
-                entity.mesh.index_count,
+                entity.mesh.vertex_data,
                 1,
                 0,
             ));
