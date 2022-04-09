@@ -7,78 +7,13 @@ use crate::renderer::types::{
     BufferObjectBindingConfiguration, DrawCommand, PipelineConfiguration, PipelineHandle, RenderPassHandle,
     SamplerBindingConfiguration, UniformStage, VertexInputDescription, VertexTopology, SWAPCHAIN_PASS,
 };
-use ash::vk::{PhysicalDeviceMemoryProperties, SwapchainKHR};
+use ash::vk::PhysicalDeviceMemoryProperties;
 use ash::{vk, Device};
 use std::collections::HashMap;
 use std::ptr;
 
 use crate::renderer::image;
-
-pub struct SwapchainTarget {
-    swapchain_loader: ash::extensions::khr::Swapchain,
-    swapchain: vk::SwapchainKHR,
-
-    color_imageviews: Vec<vk::ImageView>,
-
-    depth_image: vk::Image,
-    depth_image_view: vk::ImageView,
-    depth_image_memory: vk::DeviceMemory,
-
-    framebuffers: Vec<vk::Framebuffer>,
-}
-
-impl SwapchainTarget {
-    pub fn new(
-        swapchain_loader: ash::extensions::khr::Swapchain,
-        swapchain: vk::SwapchainKHR,
-        color_imageviews: Vec<vk::ImageView>,
-        depth_image: vk::Image,
-        depth_image_view: vk::ImageView,
-        depth_image_memory: vk::DeviceMemory,
-        framebuffers: Vec<vk::Framebuffer>,
-    ) -> Self {
-        SwapchainTarget {
-            swapchain_loader,
-            swapchain,
-            color_imageviews,
-            depth_image,
-            depth_image_view,
-            depth_image_memory,
-            framebuffers,
-        }
-    }
-
-    pub unsafe fn destroy(&mut self, device: &ash::Device) {
-        // Depth buffer
-        device.destroy_image_view(self.depth_image_view, None);
-        device.destroy_image(self.depth_image, None);
-        device.free_memory(self.depth_image_memory, None);
-
-        // Color buffers
-        for color_imageview in self.color_imageviews.iter() {
-            device.destroy_image_view(*color_imageview, None);
-        }
-
-        // Framebuffers
-        for framebuffer in self.framebuffers.iter() {
-            device.destroy_framebuffer(*framebuffer, None);
-        }
-        self.swapchain_loader.destroy_swapchain(self.swapchain, None);
-    }
-
-    pub fn loader(&self) -> &ash::extensions::khr::Swapchain {
-        &self.swapchain_loader
-    }
-
-    pub fn swapchain(&self) -> SwapchainKHR {
-        self.swapchain
-    }
-
-    pub fn image_count(&self) -> usize {
-        debug_assert!(self.color_imageviews.len() == self.framebuffers.len());
-        self.color_imageviews.len()
-    }
-}
+use crate::renderer::target::SwapchainTarget;
 
 pub struct RenderPass {
     handle: RenderPassHandle,
@@ -91,7 +26,7 @@ pub struct RenderPass {
 }
 
 impl RenderPass {
-    pub(super) fn new(
+    pub(super) fn new_swapchain_pass(
         device: &ash::Device,
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
@@ -196,8 +131,52 @@ impl RenderPass {
         &mut self.pipelines
     }
 
-    pub(super) fn framebuffer(&self, image_index: usize) -> vk::Framebuffer {
-        self.target.framebuffers[image_index]
+    pub unsafe fn bake_command_buffer(
+        &self,
+        device: &ash::Device,
+        command_buffer: vk::CommandBuffer,
+        image_index: usize,
+        render_stats: &mut RenderStats,
+    ) {
+        // TODO optioanl
+        let clear_values = [
+            vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.05, 0.05, 0.1, 1.0],
+                },
+            },
+            vk::ClearValue {
+                // clear value for depth buffer
+                depth_stencil: vk::ClearDepthStencilValue { depth: 1.0, stencil: 0 },
+            },
+        ];
+        let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+            .render_pass(self.render_pass)
+            .framebuffer(self.target.framebuffer(image_index))
+            .render_area(vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent: self.extent,
+            })
+            .clear_values(&clear_values)
+            .build();
+
+        device.cmd_begin_render_pass(command_buffer, &render_pass_begin_info, vk::SubpassContents::INLINE);
+
+        let mut bound_pipeline = None;
+        for draw_command in self.draw_cmd_buffer.iter() {
+            debug_assert!(self.pipelines.len() > draw_command.pipeline.index());
+            let stats = self.pipelines[draw_command.pipeline.index()].bake_command_buffer(
+                device,
+                command_buffer,
+                draw_command,
+                image_index,
+                bound_pipeline.is_none() || bound_pipeline.unwrap() != draw_command.pipeline.index(),
+            );
+            bound_pipeline = Some(draw_command.pipeline.index());
+            render_stats.add_draw_command(stats);
+        }
+
+        device.cmd_end_render_pass(command_buffer);
     }
 }
 
@@ -234,7 +213,7 @@ impl RenderPassManager {
             Vec::new()
         };
 
-        let mut swapchain_pass = RenderPass::new(
+        let mut swapchain_pass = RenderPass::new_swapchain_pass(
             device,
             instance,
             physical_device,
@@ -428,53 +407,12 @@ impl RenderPassManager {
         image_index: usize,
         render_stats: &mut RenderStats,
     ) {
-        let render_pass = self.swapchain_pass.as_ref().unwrap();
-        let render_job = &render_pass.draw_cmd_buffer;
-
-        // TODO optioanl
-        let clear_values = [
-            vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.05, 0.05, 0.1, 1.0],
-                },
-            },
-            vk::ClearValue {
-                // clear value for depth buffer
-                depth_stencil: vk::ClearDepthStencilValue { depth: 1.0, stencil: 0 },
-            },
-        ];
-        let render_pass_begin_info = vk::RenderPassBeginInfo {
-            s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
-            p_next: ptr::null(),
-            render_pass: render_pass.render_pass,
-            framebuffer: render_pass.framebuffer(image_index),
-            render_area: vk::Rect2D {
-                offset: vk::Offset2D { x: 0, y: 0 },
-                extent: render_pass.extent,
-            },
-            clear_value_count: clear_values.len() as u32,
-            p_clear_values: clear_values.as_ptr(),
-        };
-
-        device.cmd_begin_render_pass(command_buffer, &render_pass_begin_info, vk::SubpassContents::INLINE);
-
-        let mut bound_pipeline = None;
-        for draw_command in render_job {
-            let pipelines = &self.swapchain_pass.as_ref().unwrap().pipelines;
-
-            debug_assert!(pipelines.len() > draw_command.pipeline.index());
-            let stats = pipelines[draw_command.pipeline.index()].bake_command_buffer(
-                device,
-                command_buffer,
-                draw_command,
-                image_index,
-                bound_pipeline.is_none() || bound_pipeline.unwrap() != draw_command.pipeline.index(),
-            );
-            bound_pipeline = Some(draw_command.pipeline.index());
-            render_stats.add_draw_command(stats);
+        for pass in self.render_passes.values() {
+            pass.bake_command_buffer(device, command_buffer, image_index, render_stats);
         }
 
-        device.cmd_end_render_pass(command_buffer);
+        debug_assert!(self.swapchain_pass.is_some());
+        self.swapchain_pass.as_ref().unwrap().bake_command_buffer(device, command_buffer, image_index, render_stats);
     }
 
     pub fn reset_draw_command_buffers(&mut self) {

@@ -242,14 +242,11 @@ impl Context {
 
         let draw_command_buffers = [draw_command_buffer];
 
-        if !transfer_required {
-            // TODO we need to signal the semaphore maunally
-            unimplemented!();
+        let mut draw_wait_semaphores = Vec::with_capacity(2);
+        if transfer_required {
+            draw_wait_semaphores.push(self.sync_handler.transfer_finished_semaphore());
         }
-        let draw_wait_semaphores = [
-            self.sync_handler.transfer_finished_semaphore(),
-            self.sync_handler.image_available_semaphore(),
-        ];
+        draw_wait_semaphores.push(self.sync_handler.image_available_semaphore());
 
         let draw_wait_stages = [
             vk::PipelineStageFlags::VERTEX_INPUT,
