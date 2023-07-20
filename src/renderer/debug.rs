@@ -67,7 +67,7 @@ unsafe extern "system" fn _debug_utils_callback(
     };
     let message = CStr::from_ptr((*p_callback_data).p_message);
     println!("VK: {}{}{:?}", severity, types, message);
-    log_debug!("{}{}{:?}", severity, types, message);
+    log_khronos!("{}{}{:?}", severity, types, message);
 
     vk::FALSE
 }

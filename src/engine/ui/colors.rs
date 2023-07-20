@@ -8,3 +8,4 @@ pub const COLOR_TEXT_ERROR: Vector4<f32> = Vector4::new(0.9, 0.3, 0.3, 1.0);
 pub const COLOR_TEXT_CVAR: Vector4<f32> = Vector4::new(0.3, 0.3, 0.9, 1.0);
 pub const COLOR_TEXT_INFO: Vector4<f32> = Vector4::new(0.3, 0.9, 0.3, 1.0);
 pub const COLOR_TEXT_DEBUG: Vector4<f32> = Vector4::new(0.3, 0.9, 0.9, 1.0);
+pub const COLOR_TEXT_KHRONOS: Vector4<f32> = Vector4::new(0.7, 0.3, 0.7, 1.0);

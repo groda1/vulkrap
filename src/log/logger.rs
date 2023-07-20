@@ -18,41 +18,13 @@ impl Logger {
         }
     }
 
-    fn input(&mut self, message: String) {
-        self.history.push(LogMessage::new(MessageLevel::Input, message));
-    }
-
-    fn output(&mut self, message: String) {
-        self.history.push(LogMessage::new(MessageLevel::Output, message));
-    }
-
-    fn cvar(&mut self, message: String) {
-        self.history.push(LogMessage::new(MessageLevel::Cvar, message));
-    }
-
-    fn error(&mut self, message: String) {
-        self.history.push(LogMessage::new(MessageLevel::Error, message));
-    }
-
-    fn warning(&mut self, message: String) {
-        self.history.push(LogMessage::new(MessageLevel::Warning, message));
-    }
-
-    fn info(&mut self, message: String) {
-        self.history.push(LogMessage::new(MessageLevel::Info, message));
-    }
-
-    fn debug(&mut self, message: String) {
-        self.history.push(LogMessage::new(MessageLevel::Debug, message));
-    }
-
-    fn debug_once(&mut self, message: String) {
+    fn add_once(&mut self, message: LogMessage) {
         if let Some(last_message) = self.history.last() {
-            if last_message.message.eq(&message) {
+            if last_message.message.eq(&message.message) {
                 return;
             }
         }
-        self.history.push(LogMessage::new(MessageLevel::Debug, message));
+        self.history.push(message);
     }
 
     pub fn get_history(&self, line_count: usize, scroll: usize) -> &[LogMessage] {
@@ -76,10 +48,14 @@ pub struct LogMessage {
 
 impl LogMessage {
     pub fn new(level: MessageLevel, message: String) -> Self {
-        LogMessage { level, message }
+        LogMessage {
+            level,
+            message
+        }
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum MessageLevel {
     Input,
     Output,
@@ -88,43 +64,65 @@ pub enum MessageLevel {
     Warning,
     Info,
     Debug,
+    Khronos,
+}
+
+fn fmt_line(line: &str, level: MessageLevel) -> impl Iterator<Item=LogMessage> + '_ {
+    line.split('\n')
+        // TODO how do we wrap long lines?
+        /*.flat_map(|s| s.split_whitespace()
+            .collect::<Vec<_>>()
+            .chunks(2000)
+            .map(|chunk| chunk.join(" "))
+            .collect::<Vec<_>>()
+        )*/
+        .map(move |str| LogMessage::new(level, String::from(str)))
+}
+
+fn add_line(line: &str, level: MessageLevel) {
+    fmt_line(line, level)
+        .for_each(|log_message| LOGGER.lock().unwrap().history.push(log_message));
+}
+
+fn add_line_once(line: &str, level: MessageLevel) {
+    fmt_line(line, level)
+        .for_each(|log_message| LOGGER.lock().unwrap().add_once(log_message));
 }
 
 pub fn input(line: &str) {
-    LOGGER.lock().unwrap().input(String::from(line));
+    add_line(line, MessageLevel::Input);
 }
 
 pub fn _output(line: &str) {
-    LOGGER.lock().unwrap().output(String::from(line));
+    add_line(line, MessageLevel::Output);
 }
 
 pub fn cvar(line: &str) {
-    LOGGER.lock().unwrap().cvar(String::from(line));
+    add_line(line, MessageLevel::Cvar);
 }
 
 pub fn error(line: &str) {
-    line.split('\n')
-        .for_each(|s| LOGGER.lock().unwrap().error(String::from(s)));
+    add_line(line, MessageLevel::Error);
 }
 
 pub fn warning(line: &str) {
-    line.split('\n')
-        .for_each(|s| LOGGER.lock().unwrap().warning(String::from(s)));
+    add_line(line, MessageLevel::Warning);
 }
 
 pub fn info(line: &str) {
-    line.split('\n')
-        .for_each(|s| LOGGER.lock().unwrap().info(String::from(s)));
+    add_line(line, MessageLevel::Info);
 }
 
 pub fn debug(line: &str) {
-    line.split('\n')
-        .for_each(|s| LOGGER.lock().unwrap().debug(String::from(s)));
+    add_line(line, MessageLevel::Debug);
+}
+
+pub fn khronos(line: &str) {
+    add_line(line, MessageLevel::Khronos);
 }
 
 pub fn debug_once(line: &str) {
-    line.split('\n')
-        .for_each(|s| LOGGER.lock().unwrap().debug_once(String::from(s)));
+    add_line_once(line, MessageLevel::Debug);
 }
 
 pub fn get() -> MutexGuard<'static, Logger> {

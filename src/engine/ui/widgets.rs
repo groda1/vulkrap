@@ -1,10 +1,7 @@
 use crate::engine::console::Console;
 use crate::engine::datatypes::WindowExtent;
 use crate::engine::stats;
-use crate::engine::ui::colors::{
-    COLOR_BLACK, COLOR_INPUT_TEXT, COLOR_TEXT, COLOR_TEXT_CVAR, COLOR_TEXT_DEBUG, COLOR_TEXT_ERROR, COLOR_TEXT_INFO,
-    COLOR_WHITE,
-};
+use crate::engine::ui::colors::{COLOR_BLACK, COLOR_INPUT_TEXT, COLOR_TEXT, COLOR_TEXT_CVAR, COLOR_TEXT_DEBUG, COLOR_TEXT_ERROR, COLOR_TEXT_INFO, COLOR_TEXT_KHRONOS, COLOR_WHITE};
 use crate::engine::ui::draw::{draw_quad, draw_text, draw_text_shadowed};
 use crate::log::logger;
 use crate::log::logger::{LogMessage, MessageLevel};
@@ -134,6 +131,7 @@ impl ConsoleRenderer {
                 MessageLevel::Info => ("[info] ", COLOR_TEXT_INFO),
                 MessageLevel::Debug => ("[debug]", COLOR_TEXT_DEBUG),
                 MessageLevel::Cvar => ("[cvar] ", COLOR_TEXT_CVAR),
+                MessageLevel::Khronos => ("[khr]  ", COLOR_TEXT_KHRONOS),
                 _ => ("---", COLOR_TEXT),
             };
 
