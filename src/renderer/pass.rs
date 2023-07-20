@@ -275,7 +275,6 @@ impl RenderPassManager {
         Ok(handle)
     }
 
-    // TODO which render pass?
     pub fn add_pipeline<T: VertexInputDescription>(
         &mut self,
         device: &ash::Device,
