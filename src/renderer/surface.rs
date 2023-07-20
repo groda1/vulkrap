@@ -1,4 +1,5 @@
 use ash::vk;
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use super::swapchain::SwapChainSupportDetail;
 
@@ -10,7 +11,13 @@ pub struct SurfaceContainer {
 impl SurfaceContainer {
     pub fn new(entry: &ash::Entry, instance: &ash::Instance, window: &winit::window::Window) -> SurfaceContainer {
         let surface =
-            unsafe { ash_window::create_surface(entry, instance, window, None).expect("Failed to create surface.") };
+            unsafe { ash_window::create_surface(entry,
+                                                instance,
+                                                window.raw_display_handle(),
+                                                window.raw_window_handle(),
+                                                None)
+                .expect("Failed to create surface.")
+            };
         let surface_loader = ash::extensions::khr::Surface::new(entry, instance);
 
         SurfaceContainer {

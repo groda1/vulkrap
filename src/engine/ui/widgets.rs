@@ -131,9 +131,9 @@ impl ConsoleRenderer {
             let (prefix_text, prefix_color) = match &line.level {
                 MessageLevel::Input => (">", COLOR_TEXT),
                 MessageLevel::Error => ("[error]", COLOR_TEXT_ERROR),
-                MessageLevel::Info => ("[info]", COLOR_TEXT_INFO),
-                MessageLevel::Debug => ("[dbg]", COLOR_TEXT_DEBUG),
-                MessageLevel::Cvar => ("[cvar]", COLOR_TEXT_CVAR),
+                MessageLevel::Info => ("[info] ", COLOR_TEXT_INFO),
+                MessageLevel::Debug => ("[debug]", COLOR_TEXT_DEBUG),
+                MessageLevel::Cvar => ("[cvar] ", COLOR_TEXT_CVAR),
                 _ => ("---", COLOR_TEXT),
             };
 

@@ -1,4 +1,3 @@
-use image::GenericImageView;
 use std::path::Path;
 
 pub struct Image {

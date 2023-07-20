@@ -236,12 +236,12 @@ impl PipelineContainer {
                 .src_alpha_blend_factor(vk::BlendFactor::ONE)
                 .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
                 .alpha_blend_op(vk::BlendOp::ADD)
-                .color_write_mask(vk::ColorComponentFlags::all())
+                .color_write_mask(vk::ColorComponentFlags::RGBA)
                 .build()]
         } else {
             [vk::PipelineColorBlendAttachmentState::builder()
                 .blend_enable(false)
-                .color_write_mask(vk::ColorComponentFlags::all())
+                .color_write_mask(vk::ColorComponentFlags::RGBA)
                 .build()]
         };
 

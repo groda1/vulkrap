@@ -67,6 +67,7 @@ unsafe extern "system" fn _debug_utils_callback(
     };
     let message = CStr::from_ptr((*p_callback_data).p_message);
     println!("VK: {}{}{:?}", severity, types, message);
+    log_debug!("{}{}{:?}", severity, types, message);
 
     vk::FALSE
 }
@@ -129,21 +130,7 @@ pub fn log_physical_device_extensions(instance: &ash::Instance, device: &Physica
     }
 }
 
-pub fn log_available_extension_properties(entry: &ash::Entry) {
-    let properties = entry
-        .enumerate_instance_extension_properties()
-        .expect("Failed to enumerate extenion properties!");
-
-    log_info!("Available Instance extension properties:");
-
-    for prop in properties {
-        let str = vk_cstr_to_str(&prop.extension_name);
-
-        log_info!(" - {} [{}]", str, vk_format_version(prop.spec_version));
-    }
-}
-
-pub fn log_validation_layer_support(entry: &ash::Entry) {
+pub fn log_instance_layer_properties(entry: &ash::Entry) {
     let layer_properties = entry
         .enumerate_instance_layer_properties()
         .expect("Failed to enumerate Instance Layers Properties!");
@@ -157,6 +144,16 @@ pub fn log_validation_layer_support(entry: &ash::Entry) {
             let desc = vk_cstr_to_str(&layer.description);
 
             log_info!(" - {} [{}] - {}", str, vk_format_version(layer.spec_version), desc);
+
+            let layer_name = unsafe { CStr::from_ptr(layer.layer_name.as_ptr()) };
+            let extension_properties = entry
+                .enumerate_instance_extension_properties(Some(layer_name))
+                .expect("Failed to enumerate Instance extension properties!");
+
+            for prop in extension_properties.iter() {
+                let ext_name =  vk_cstr_to_str(&prop.extension_name);
+                log_debug!("   * {} [{}]", ext_name, vk_format_version(prop.spec_version));
+            }
         }
     }
 }

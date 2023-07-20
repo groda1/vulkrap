@@ -5,6 +5,7 @@ use std::ptr;
 use ash::vk;
 use ash::vk::{PhysicalDevice, PhysicalDeviceMemoryProperties};
 use winit::window::Window;
+use raw_window_handle::HasRawDisplayHandle;
 
 use crate::renderer::memory::MemoryManager;
 use crate::renderer::synchronization::SynchronizationHandler;
@@ -68,9 +69,9 @@ pub struct Context {
 
 impl Context {
     pub fn new(window: &Window) -> Self {
-        let entry = unsafe { ash::Entry::new().unwrap() };
-        debug::log_available_extension_properties(&entry);
-        debug::log_validation_layer_support(&entry);
+        let entry = unsafe { ash::Entry::load().unwrap() };
+
+        debug::log_instance_layer_properties(&entry);
 
         #[cfg(debug_assertions)]
         let mut layers = Vec::new();
@@ -636,8 +637,10 @@ fn _create_instance(entry: &ash::Entry, layers: &[&str], window: &Window) -> ash
 
     layers.iter().for_each(|layer| log_debug!("Enabling layer:  {}", layer));
 
-    let mut extensions_temp =
-        ash_window::enumerate_required_extensions(window).expect("Failed to enumerate extensions");
+    let mut required_extensions =
+        ash_window::enumerate_required_extensions(window.raw_display_handle())
+            .expect("Failed to enumerate extensions")
+            .to_vec();
 
     #[cfg(debug_assertions)]
     let debug = true;
@@ -645,10 +648,8 @@ fn _create_instance(entry: &ash::Entry, layers: &[&str], window: &Window) -> ash
     let debug = false;
 
     if debug {
-        extensions_temp.push(DebugUtils::name());
+        required_extensions.push(DebugUtils::name().as_ptr());
     }
-
-    let required_extensions = extensions_temp.iter().map(|ext| ext.as_ptr()).collect::<Vec<_>>();
 
     let mut create_info_builder = vk::InstanceCreateInfo::builder()
         .application_info(&app_info)
@@ -723,7 +724,6 @@ fn _create_logical_device(
     layers: &[&str],
     queue_families: &QueueFamilyIndices,
 ) -> ash::Device {
-    // TODO :(
     let distinct_queue_familes: HashSet<u32> = [
         queue_families.graphics.family_index,
         queue_families.present.family_index,

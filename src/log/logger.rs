@@ -18,35 +18,35 @@ impl Logger {
         }
     }
 
-    pub fn input(&mut self, message: String) {
+    fn input(&mut self, message: String) {
         self.history.push(LogMessage::new(MessageLevel::Input, message));
     }
 
-    pub fn output(&mut self, message: String) {
+    fn output(&mut self, message: String) {
         self.history.push(LogMessage::new(MessageLevel::Output, message));
     }
 
-    pub fn cvar(&mut self, message: String) {
+    fn cvar(&mut self, message: String) {
         self.history.push(LogMessage::new(MessageLevel::Cvar, message));
     }
 
-    pub fn error(&mut self, message: String) {
+    fn error(&mut self, message: String) {
         self.history.push(LogMessage::new(MessageLevel::Error, message));
     }
 
-    pub fn warning(&mut self, message: String) {
+    fn warning(&mut self, message: String) {
         self.history.push(LogMessage::new(MessageLevel::Warning, message));
     }
 
-    pub fn info(&mut self, message: String) {
+    fn info(&mut self, message: String) {
         self.history.push(LogMessage::new(MessageLevel::Info, message));
     }
 
-    pub fn debug(&mut self, message: String) {
+    fn debug(&mut self, message: String) {
         self.history.push(LogMessage::new(MessageLevel::Debug, message));
     }
 
-    pub fn debug_once(&mut self, message: String) {
+    fn debug_once(&mut self, message: String) {
         if let Some(last_message) = self.history.last() {
             if last_message.message.eq(&message) {
                 return;

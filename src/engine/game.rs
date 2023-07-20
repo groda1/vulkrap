@@ -1,4 +1,5 @@
 use std::path::Path;
+use bitflags::bitflags;
 
 use cgmath::{Deg, Quaternion, Rotation3, Vector3};
 use winit::event::{ElementState, VirtualKeyCode};
@@ -179,6 +180,7 @@ impl VulkrapApplication {
 }
 
 bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct MovementFlags: u8 {
         const ZERO = 0;
         const FORWARD = 1 << 0;
@@ -191,6 +193,7 @@ bitflags! {
 }
 
 bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct ControlSignal: u8 {
         const ZERO = 0;
         const QUIT = 1 << 0;

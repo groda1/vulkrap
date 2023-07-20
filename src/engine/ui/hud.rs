@@ -4,14 +4,14 @@ use std::ptr;
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector4};
 
 use crate::engine::console::Console;
-use crate::engine::datatypes::{InstancedCharacter, InstancedQuad, Mesh, ModelColorPushConstant, TexturedVertex, ViewProjectionUniform, WindowExtent};
-use crate::engine::entity::DefaultEntity;
+use crate::engine::datatypes::{InstancedCharacter, InstancedQuad, Mesh, TexturedVertex, ViewProjectionUniform, WindowExtent};
+
 
 use crate::engine::image;
 use crate::engine::mesh::PredefinedMesh::TexturedQuad;
 use crate::engine::mesh::MeshManager;
 use crate::engine::ui::widgets::{ConsoleRenderer, RenderStatsRenderer, TopBar, TextRenderer};
-use crate::renderer::types::{BufferObjectHandle, VertexData};
+use crate::renderer::types::{BufferObjectHandle};
 
 use crate::renderer::context::Context;
 use crate::renderer::types::SWAPCHAIN_PASS;
@@ -35,7 +35,6 @@ pub struct Hud {
     derp_text: TextRenderer,
 
     window_extent: WindowExtent,
-
 }
 
 impl Hud {

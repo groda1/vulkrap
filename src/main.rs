@@ -2,8 +2,6 @@
 extern crate lazy_static;
 #[macro_use]
 extern crate memoffset;
-#[macro_use]
-extern crate bitflags;
 
 #[macro_export]
 macro_rules! log_debug {
