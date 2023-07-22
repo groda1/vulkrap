@@ -1,13 +1,13 @@
 pub mod datatypes;
-pub mod game;
+pub mod runtime;
+pub mod camera;
+pub mod entity;
+pub mod cvars;
+pub mod mesh;
+pub mod terrain;
 
-mod camera;
 mod console;
-mod cvars;
-mod entity;
 mod image;
-mod mesh;
-mod scene;
 mod stats;
-mod terrain;
+
 mod ui;

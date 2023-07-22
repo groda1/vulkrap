@@ -39,7 +39,7 @@ impl RenderPass {
         let (depth_image, depth_image_view, depth_image_memory) = image::create_depth_resources(
             device,
             swapchain_container.extent,
-            &physical_device_memory_properties,
+            physical_device_memory_properties,
             depth_format,
         );
 

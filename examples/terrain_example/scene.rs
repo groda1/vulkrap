@@ -1,15 +1,12 @@
 use cgmath::{Deg, Quaternion, Rotation3};
+use vulkrap::engine::datatypes::ModelWoblyPushConstant;
 
-use crate::engine::datatypes::{ModelWoblyPushConstant, WindowExtent};
-use crate::engine::entity::WobblyEntity;
-use crate::engine::mesh::MeshManager;
-use crate::engine::terrain::Terrain;
-
-use crate::engine::console::Console;
-use crate::engine::ui::hud::Hud;
-use crate::renderer::context::Context;
-use crate::renderer::rawarray::RawArrayPtr;
-use crate::renderer::types::{DrawCommand, PipelineHandle};
+use vulkrap::engine::entity::WobblyEntity;
+use vulkrap::engine::mesh::MeshManager;
+use vulkrap::engine::terrain::Terrain;
+use vulkrap::renderer::context::Context;
+use vulkrap::renderer::rawarray::RawArrayPtr;
+use vulkrap::renderer::types::{DrawCommand, PipelineHandle};
 
 pub struct Scene {
     // TODO replace with entity content system ( specs? )
@@ -17,24 +14,20 @@ pub struct Scene {
     wobbly_pipeline: PipelineHandle,
 
     terrain: Terrain,
-    hud: Hud,
 }
 
 impl Scene {
     pub fn new(
         context: &mut Context,
-        mesh_manager: &MeshManager,
+        _mesh_manager: &MeshManager,
         wobbly_pipeline: PipelineHandle,
         terrain_pipeline: PipelineHandle,
     ) -> Scene {
-        let (window_width, window_height) = context.get_framebuffer_extent();
-        let window_extent = WindowExtent::new(window_width, window_height);
 
         Scene {
             wobbly_objects: vec![],
             wobbly_pipeline,
             terrain: Terrain::new(context, terrain_pipeline),
-            hud: Hud::new(context, window_extent, mesh_manager),
         }
     }
 
@@ -52,7 +45,7 @@ impl Scene {
         }
     }
 
-    pub fn draw(&mut self, context: &mut Context, console: &Console) {
+    pub fn draw(&mut self, context: &mut Context) {
         for entity in self.wobbly_objects.iter() {
             context.add_draw_command(DrawCommand::new_buffered(
                 self.wobbly_pipeline,
@@ -64,10 +57,6 @@ impl Scene {
         }
 
         self.terrain.draw(context);
-        self.hud.draw(context, console);
     }
 
-    pub fn handle_window_resize(&mut self, context: &mut Context, new_extent: WindowExtent) {
-        self.hud.handle_window_resize(context, new_extent);
-    }
 }

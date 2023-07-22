@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 
+pub const WINDOW_TITLE: u32 = 100;
+pub const WINDOW_WIDTH: u32 = 101;
+pub const WINDOW_HEIGHT: u32 = 102;
+
 pub const M_SENSITIVITY: u32 = 1000;
 pub const M_YAW: u32 = 1001;
 pub const M_PITCH: u32 = 1002;
@@ -18,6 +22,10 @@ pub struct ConfigVariables {
 impl ConfigVariables {
     pub fn new() -> Self {
         let mut id_to_cvar = HashMap::new();
+
+        id_to_cvar.insert(WINDOW_TITLE, ConfigVariable::new("window_title", "Untitled".to_string(), "Window title"));
+        id_to_cvar.insert(WINDOW_WIDTH, ConfigVariable::new("window_width", 1920, "Window title"));
+        id_to_cvar.insert(WINDOW_HEIGHT, ConfigVariable::new("window_height", 1080, "Window title"));
 
         id_to_cvar.insert(
             M_SENSITIVITY,
@@ -54,27 +62,27 @@ impl ConfigVariables {
                 format!(
                     "{} = {} ({}, type: float, default: {})",
                     cvar.name,
-                    cvar.value.get_float(),
+                    cvar.value.as_float(),
                     cvar.description,
-                    cvar.default.get_float()
+                    cvar.default.as_float()
                 )
             }
             CvarType::Integer => {
                 format!(
                     "{} = {} ({}, type: int, default: {})",
                     cvar.name,
-                    cvar.value.get_int(),
+                    cvar.value.as_int(),
                     cvar.description,
-                    cvar.default.get_int()
+                    cvar.default.as_int()
                 )
             }
             CvarType::String => {
                 format!(
                     "{} = \"{}\" ({}, type: str, default: \"{}\")",
                     cvar.name,
-                    cvar.value.get_str(),
+                    cvar.value.as_str(),
                     cvar.description,
-                    cvar.default.get_str()
+                    cvar.default.as_str()
                 )
             }
         }
@@ -125,23 +133,23 @@ pub enum CvarType {
 }
 
 pub trait CvarValue {
-    fn get_float(&self) -> f32;
-    fn get_int(&self) -> u32;
-    fn get_str(&self) -> String;
+    fn as_float(&self) -> f32;
+    fn as_int(&self) -> u32;
+    fn as_str(&self) -> String;
     fn get_type(&self) -> CvarType;
     fn set(&mut self, val: &dyn CvarValue);
 }
 
 impl CvarValue for f32 {
-    fn get_float(&self) -> f32 {
+    fn as_float(&self) -> f32 {
         *self
     }
 
-    fn get_int(&self) -> u32 {
+    fn as_int(&self) -> u32 {
         *self as u32
     }
 
-    fn get_str(&self) -> String {
+    fn as_str(&self) -> String {
         format!("{}", *self)
     }
 
@@ -150,20 +158,20 @@ impl CvarValue for f32 {
     }
 
     fn set(&mut self, val: &dyn CvarValue) {
-        *self = val.get_float();
+        *self = val.as_float();
     }
 }
 
 impl CvarValue for u32 {
-    fn get_float(&self) -> f32 {
+    fn as_float(&self) -> f32 {
         *self as f32
     }
 
-    fn get_int(&self) -> u32 {
+    fn as_int(&self) -> u32 {
         *self
     }
 
-    fn get_str(&self) -> String {
+    fn as_str(&self) -> String {
         format!("{}", *self)
     }
 
@@ -172,20 +180,20 @@ impl CvarValue for u32 {
     }
 
     fn set(&mut self, val: &dyn CvarValue) {
-        *self = val.get_int();
+        *self = val.as_int();
     }
 }
 
 impl CvarValue for String {
-    fn get_float(&self) -> f32 {
+    fn as_float(&self) -> f32 {
         panic!()
     }
 
-    fn get_int(&self) -> u32 {
+    fn as_int(&self) -> u32 {
         panic!()
     }
 
-    fn get_str(&self) -> String {
+    fn as_str(&self) -> String {
         self.clone()
     }
 
@@ -194,6 +202,6 @@ impl CvarValue for String {
     }
 
     fn set(&mut self, val: &dyn CvarValue) {
-        *self = val.get_str();
+        *self = val.as_str();
     }
 }

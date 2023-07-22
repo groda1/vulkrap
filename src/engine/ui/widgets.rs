@@ -4,7 +4,7 @@ use crate::engine::stats;
 use crate::engine::ui::colors::{COLOR_BLACK, COLOR_INPUT_TEXT, COLOR_TEXT, COLOR_TEXT_CVAR, COLOR_TEXT_DEBUG, COLOR_TEXT_ERROR, COLOR_TEXT_INFO, COLOR_TEXT_KHRONOS, COLOR_WHITE};
 use crate::engine::ui::draw::{draw_quad, draw_text, draw_text_shadowed};
 use crate::log::logger;
-use crate::log::logger::{LogMessage, MessageLevel};
+use crate::log::logger::{MessageLevel};
 use crate::renderer::context::Context;
 use crate::renderer::types::BufferObjectHandle;
 use crate::ENGINE_VERSION;
@@ -74,7 +74,7 @@ impl ConsoleRenderer {
         text_instance_count += draw_text(
             context,
             text_sbo,
-            &*format!("> {}", console.get_current_input()),
+            &format!("> {}", console.get_current_input()),
             Vector2::new(BORDER_OFFSET, self.extent.height - height + offset + BORDER_OFFSET),
             TEXT_SIZE_PX,
             COLOR_INPUT_TEXT,
@@ -122,7 +122,7 @@ impl ConsoleRenderer {
             __history_len = history.len();
             __history_ptr = history.as_ptr();
         }
-        let history = unsafe { std::slice::from_raw_parts(__history_ptr as *const LogMessage, __history_len) };
+        let history = unsafe { std::slice::from_raw_parts(__history_ptr, __history_len) };
 
         for (i, line) in history.iter().rev().enumerate() {
             let (prefix_text, prefix_color) = match &line.level {
@@ -198,7 +198,7 @@ impl RenderStatsRenderer {
         instance_count += draw_text_shadowed(
             context,
             text_sbo,
-            &*format!("FPS: {}", renderstats.get_fps()),
+            &format!("FPS: {}", renderstats.get_fps()),
             self.position,
             16,
             COLOR_WHITE,
@@ -207,7 +207,7 @@ impl RenderStatsRenderer {
         instance_count += draw_text_shadowed(
             context,
             text_sbo,
-            &*format!("Frame time: {0:.3} ms", renderstats.get_frametime() * 1000f32),
+            &format!("Frame time: {0:.3} ms", renderstats.get_frametime() * 1000f32),
             self.position - Vector2::new(0, 18),
             16,
             COLOR_WHITE,
@@ -216,7 +216,7 @@ impl RenderStatsRenderer {
         instance_count += draw_text_shadowed(
             context,
             text_sbo,
-            &*format!("Draw count: {}", renderstats.get_render_stats().draw_command_count),
+            &format!("Draw count: {}", renderstats.get_render_stats().draw_command_count),
             self.position - Vector2::new(0, 18 * 3),
             16,
             COLOR_WHITE,
@@ -225,7 +225,7 @@ impl RenderStatsRenderer {
         instance_count += draw_text_shadowed(
             context,
             text_sbo,
-            &*format!("Triangle count: {}", renderstats.get_render_stats().triangle_count),
+            &format!("Triangle count: {}", renderstats.get_render_stats().triangle_count),
             self.position - Vector2::new(0, 18 * 4),
             16,
             COLOR_WHITE,
@@ -234,7 +234,7 @@ impl RenderStatsRenderer {
         instance_count += draw_text_shadowed(
             context,
             text_sbo,
-            &*format!(
+            &format!(
                 "TransferCmdBuf: {0:.3} ms",
                 renderstats.get_render_stats().transfer_commands_bake_time.as_micros() as f32 / 1000f32
             ),
@@ -246,7 +246,7 @@ impl RenderStatsRenderer {
         instance_count += draw_text_shadowed(
             context,
             text_sbo,
-            &*format!(
+            &format!(
                 "    DrawCmdBuf: {0:.3} ms",
                 renderstats.get_render_stats().draw_commands_bake_time.as_micros() as f32 / 1000f32
             ),
@@ -287,7 +287,7 @@ impl TopBar {
         instance_count += draw_text_shadowed(
             context,
             text_sbo,
-            &*format!("VULKRAP {}.{}.{}", ENGINE_VERSION.0, ENGINE_VERSION.1, ENGINE_VERSION.2),
+            &format!("VULKRAP {}.{}.{}", ENGINE_VERSION.0, ENGINE_VERSION.1, ENGINE_VERSION.2),
             Vector2::new(self.extent.width - 218, self.extent.height - 24),
             16,
             COLOR_WHITE,

@@ -1,5 +1,5 @@
 pub mod file;
-pub mod frametimer;
-pub mod mem;
+pub(crate) mod frametimer;
+pub(crate) mod mem;
 
 mod math_test;

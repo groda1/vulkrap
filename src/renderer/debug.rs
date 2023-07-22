@@ -152,7 +152,7 @@ pub fn log_instance_layer_properties(entry: &ash::Entry) {
 
             for prop in extension_properties.iter() {
                 let ext_name =  vk_cstr_to_str(&prop.extension_name);
-                log_debug!("   * {} [{}]", ext_name, vk_format_version(prop.spec_version));
+                log_debug!("     {} [{}]", ext_name, vk_format_version(prop.spec_version));
             }
         }
     }

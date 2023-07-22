@@ -4,7 +4,7 @@ use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCo
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
-use crate::engine::game::{ControlSignal, VulkrapApplication};
+use crate::engine::runtime::{ControlSignal, Runtime, VulkrapApplication};
 use crate::util::frametimer::FrameTimer;
 
 pub fn init_window(title: &'static str, width: u32, height: u32, event_loop: &EventLoop<()>) -> Window {
@@ -15,7 +15,7 @@ pub fn init_window(title: &'static str, width: u32, height: u32, event_loop: &Ev
         .expect("Failed to create window.")
 }
 
-pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut vulkrap_app: VulkrapApplication) {
+pub fn main_loop<T: VulkrapApplication + 'static>(event_loop: EventLoop<()>, window: Window, mut vulkrap_runtime: Runtime<T>) {
     let mut frame_timer = FrameTimer::new();
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -27,8 +27,8 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut vulkrap_app: Vul
                 } => match (virtual_keycode, state) {
                     (Some(VirtualKeyCode::Escape), ElementState::Pressed) => *control_flow = ControlFlow::Exit,
                     (Some(key), state) => {
-                        let signal = vulkrap_app.handle_keyboard_event(key, state);
-                        if signal.contains(ControlSignal::QUIT) {
+                        let signal = vulkrap_runtime.handle_keyboard_event(key, state);
+                        if signal == ControlSignal::QUIT {
                             *control_flow = ControlFlow::Exit;
                         }
                     }
@@ -36,13 +36,13 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut vulkrap_app: Vul
                 },
             },
             WindowEvent::Resized(new_size) => {
-                vulkrap_app.handle_window_resize(new_size.into());
+                vulkrap_runtime.handle_window_resize(new_size.into());
             }
             _ => {}
         },
         Event::DeviceEvent { event, .. } => match event {
             DeviceEvent::MouseMotion { delta } => {
-                vulkrap_app.handle_mouse_input(delta.0, delta.1);
+                vulkrap_runtime.handle_mouse_input(delta.0, delta.1);
             }
             _ => {}
         },
@@ -50,11 +50,11 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window, mut vulkrap_app: Vul
             window.request_redraw();
         }
         Event::RedrawRequested(_window_id) => {
-            vulkrap_app.update(frame_timer.delta_time_sec());
+            vulkrap_runtime.update(frame_timer.delta_time_sec());
             frame_timer.tick_frame();
         }
         Event::LoopDestroyed => {
-            vulkrap_app.exit();
+            vulkrap_runtime.exit();
         }
         _ => (),
     })

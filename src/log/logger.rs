@@ -70,12 +70,7 @@ pub enum MessageLevel {
 fn fmt_line(line: &str, level: MessageLevel) -> impl Iterator<Item=LogMessage> + '_ {
     line.split('\n')
         // TODO how do we wrap long lines?
-        /*.flat_map(|s| s.split_whitespace()
-            .collect::<Vec<_>>()
-            .chunks(2000)
-            .map(|chunk| chunk.join(" "))
-            .collect::<Vec<_>>()
-        )*/
+
         .map(move |str| LogMessage::new(level, String::from(str)))
 }
 
@@ -93,7 +88,7 @@ pub fn input(line: &str) {
     add_line(line, MessageLevel::Input);
 }
 
-pub fn _output(line: &str) {
+pub fn output(line: &str) {
     add_line(line, MessageLevel::Output);
 }
 

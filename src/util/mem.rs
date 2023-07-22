@@ -17,7 +17,7 @@ mod tests {
     #[test]
     fn into_slice() {
         let sw = Stopwatch::start_new();
-        let mem = vec![1 as u32; SIZE].into_boxed_slice();
+        let mem = vec![1u32; SIZE].into_boxed_slice();
         let sum: u32 = mem.iter().sum();
         println!("sum: {}", sum);
         println!("Took: {} ms", sw.elapsed_ms());

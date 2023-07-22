@@ -93,14 +93,14 @@ fn create_flat_normaled_chunk(
     quad_count_height: usize,
     raw_vertices: &[Vector3<f32>],
 ) -> ChunkData {
-    let strip_count = quad_count_height as usize;
-    let vertices_per_strip = ((quad_count_width + 1) * 2) as usize;
+    let strip_count = quad_count_height;
+    let vertices_per_strip = (quad_count_width + 1) * 2;
 
     let mut vertices = Vec::with_capacity(strip_count * vertices_per_strip);
     let mut indices = Vec::with_capacity(strip_count * vertices_per_strip + 1);
     let mut normals = Vec::with_capacity(vertices.len());
-    for i in 0..quad_count_height as usize {
-        for j in 0..(quad_count_width + 1) as usize {
+    for i in 0..quad_count_height {
+        for j in 0..(quad_count_width + 1) {
             indices.push(vertices.len() as u32);
             vertices.push(raw_vertices[j + i * (quad_count_width + 1)]);
             indices.push(vertices.len() as u32);
@@ -151,7 +151,7 @@ fn create_raw_vertices(
     let width = quad_count_width;
     let height = quad_count_height;
 
-    let vertex_count = ((width + 1) * (height + 1)) as usize;
+    let vertex_count = (width + 1) * (height + 1);
 
     let mut vertices = Vec::with_capacity(vertex_count);
 

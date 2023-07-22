@@ -1,8 +1,9 @@
 use std::ptr;
 
 use ash::vk;
-use ash::vk::PhysicalDevice;
-use num::clamp;
+use ash::vk::{Extent2D, Format, PhysicalDevice};
+
+
 
 use super::constants::USE_VSYNC;
 use super::image;
@@ -13,8 +14,8 @@ pub struct SwapChainContainer {
     pub loader: ash::extensions::khr::Swapchain,
     pub swapchain: vk::SwapchainKHR,
     pub images: Vec<vk::Image>,
-    pub format: vk::Format,
-    pub extent: vk::Extent2D,
+    pub format: Format,
+    pub extent: Extent2D,
     pub image_views: Vec<vk::ImageView>,
 }
 
@@ -30,7 +31,8 @@ pub fn create_swapchain(
 
     let surface_format = _choose_swapchain_format(&swapchain_support.formats);
     let present_mode = _choose_swapchain_present_mode(&swapchain_support.present_modes, USE_VSYNC);
-    let extent = _choose_swapchain_extent(&swapchain_support.capabilities);
+
+    let extent = choose_swapchain_extent(&swapchain_support.capabilities);
 
     let image_count = 2;
     if swapchain_support.capabilities.min_image_count > image_count || swapchain_support.capabilities.max_image_count < image_count {
@@ -131,22 +133,11 @@ fn _choose_swapchain_present_mode(available_present_modes: &[vk::PresentModeKHR]
     vk::PresentModeKHR::FIFO
 }
 
-fn _choose_swapchain_extent(capabilities: &vk::SurfaceCapabilitiesKHR) -> vk::Extent2D {
-    if capabilities.current_extent.width != u32::max_value() {
+fn choose_swapchain_extent(capabilities: &vk::SurfaceCapabilitiesKHR) -> Extent2D {
+    if capabilities.current_extent.width != u32::MAX {
         capabilities.current_extent
     } else {
-        vk::Extent2D {
-            width: clamp(
-                crate::WINDOW_WIDTH,
-                capabilities.min_image_extent.width,
-                capabilities.max_image_extent.width,
-            ),
-            height: clamp(
-                crate::WINDOW_HEIGHT,
-                capabilities.min_image_extent.height,
-                capabilities.max_image_extent.height,
-            ),
-        }
+        unreachable!();
     }
 }
 

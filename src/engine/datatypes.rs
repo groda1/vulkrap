@@ -1,6 +1,7 @@
 use crate::renderer::types::{VertexData, VertexInputDescription};
 use ash::vk;
 use ash::vk::{VertexInputAttributeDescription, VertexInputBindingDescription};
+use bitflags::bitflags;
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 
 #[repr(C)]
@@ -311,3 +312,17 @@ impl Mesh {
         }
     }
 }
+
+bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    pub struct MovementFlags: u8 {
+        const ZERO = 0;
+        const FORWARD = 1 << 0;
+        const BACKWARD = 1 << 1;
+        const LEFT = 1 << 2;
+        const RIGHT = 1 << 3;
+        const UP = 1 << 4;
+        const DOWN = 1 << 5;
+    }
+}
+

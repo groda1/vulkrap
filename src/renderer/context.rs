@@ -13,7 +13,6 @@ use crate::renderer::types::{
     BufferObjectHandle, DrawCommand, Index, PipelineConfiguration, PipelineHandle, RenderPassHandle, UniformStage,
 };
 use crate::ENGINE_NAME;
-use crate::WINDOW_TITLE;
 
 use super::constants;
 use super::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_VERSION};
@@ -60,7 +59,7 @@ pub struct Context {
     sync_handler: SynchronizationHandler,
 
     #[allow(dead_code)]
-    debug_utils_loader: ash::extensions::ext::DebugUtils,
+    debug_utils_loader: DebugUtils,
     #[allow(dead_code)]
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
 
@@ -68,9 +67,8 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(window: &Window) -> Self {
+    pub fn new(window: &Window) -> Context {
         let entry = unsafe { ash::Entry::load().unwrap() };
-
         debug::log_instance_layer_properties(&entry);
 
         #[cfg(debug_assertions)]
@@ -100,7 +98,7 @@ impl Context {
         let queue_families = QueueFamilyIndices::new(&instance, &physical_device, &surface_container);
         log_info!("Picked Queue families: {}", queue_families);
 
-        let logical_device = _create_logical_device(&instance, &physical_device, &layers, &queue_families);
+        let logical_device = create_logical_device(&instance, &physical_device, &queue_families);
         let graphics_queue = unsafe {
             logical_device.get_device_queue(
                 queue_families.graphics.family_index,
@@ -375,9 +373,9 @@ impl Context {
             vk::ImageAspectFlags::COLOR,
             1,
         );
-        let handle = self.texture_manager.add_texture(image, image_memory, image_view);
+        
 
-        handle
+        self.texture_manager.add_texture(image, image_memory, image_view)
     }
 
     pub fn add_sampler(&mut self) -> SamplerHandle {
@@ -620,7 +618,7 @@ fn _create_command_pool(device: &ash::Device, queue_families: &QueueFamilyIndice
 }
 
 fn _create_instance(entry: &ash::Entry, layers: &[&str], window: &Window) -> ash::Instance {
-    let app_name = CString::new(WINDOW_TITLE).unwrap();
+    let app_name = CString::new(ENGINE_NAME).unwrap();
     let engine_name = CString::new(ENGINE_NAME).unwrap();
     let app_info = vk::ApplicationInfo {
         s_type: vk::StructureType::APPLICATION_INFO,
@@ -718,10 +716,9 @@ fn _check_instance_layer_support(entry: &ash::Entry, layer_name: &str) -> bool {
     false
 }
 
-fn _create_logical_device(
+fn create_logical_device(
     instance: &ash::Instance,
-    physical_device: &vk::PhysicalDevice,
-    layers: &[&str],
+    physical_device: &PhysicalDevice,
     queue_families: &QueueFamilyIndices,
 ) -> ash::Device {
     let distinct_queue_familes: HashSet<u32> = [
@@ -748,8 +745,6 @@ fn _create_logical_device(
         queue_create_infos.push(queue_create_info);
     }
 
-    let layers_temp = vulkan_util::copy_str_slice_to_cstring_vec(layers);
-    let layers_converted = layers_temp.iter().map(|layer| layer.as_ptr()).collect::<Vec<_>>();
     let extensions_temp = vulkan_util::copy_str_slice_to_cstring_vec(&constants::DEVICE_EXTENSIONS);
     let extensions_converted = extensions_temp.iter().map(|layer| layer.as_ptr()).collect::<Vec<_>>();
 
@@ -757,7 +752,6 @@ fn _create_logical_device(
 
     let device_create_info = vk::DeviceCreateInfo::builder()
         .queue_create_infos(&queue_create_infos)
-        .enabled_layer_names(&layers_converted)
         .enabled_extension_names(&extensions_converted)
         .enabled_features(&physical_device_features)
         .build();

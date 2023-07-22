@@ -1,8 +1,8 @@
 use crate::engine::console::Command::{Quit, Unknown};
 use crate::engine::cvars::{ConfigVariables, CvarType};
-use crate::engine::game::ControlSignal;
 use crate::log::logger;
 use winit::event::{ElementState, VirtualKeyCode};
+use crate::engine::runtime::ControlSignal;
 
 const TOGGLE_SPEED: f32 = 7.5;
 const CARET_BLINK_SPEED: f32 = 1.5;
@@ -172,7 +172,7 @@ impl Console {
             return control;
         }
 
-        logger::input(&*self.get_current_input());
+        logger::input(&self.get_current_input());
         let input = self.get_current_input();
 
         let split: Vec<&str> = input.split(' ').collect();
@@ -192,7 +192,7 @@ impl Console {
                     log_error!("unknown command or cvar: {}", self.get_current_input());
                 }
                 Quit => {
-                    control.set(ControlSignal::QUIT, true);
+                    control = ControlSignal::QUIT;
                 }
             }
         }
@@ -302,7 +302,7 @@ fn _handle_input_cvar(cfg: &mut ConfigVariables, cvar_id: u32, arg_opt: Option<&
             log_error!("failed to parse cvar argument: {}", arg);
         }
     }
-    logger::cvar(&*cfg.get_desc(cvar_id));
+    logger::cvar(&cfg.get_desc(cvar_id));
 }
 
 fn _parse_input_command(command: &str) -> Command {
