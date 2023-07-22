@@ -4,7 +4,7 @@ use winit::window::Window;
 use crate::engine::datatypes::{WindowExtent};
 
 use crate::engine::console::Console;
-use crate::engine::cvars::{ConfigVariables};
+use crate::engine::cvars::{ConfigVariables, WINDOW_HEIGHT, WINDOW_WIDTH};
 use crate::engine::mesh::{MeshManager};
 use crate::engine::stats;
 use crate::engine::ui::hud::Hud;
@@ -17,7 +17,7 @@ pub trait VulkrapApplication {
 
     fn reconfigure(&mut self, config: &ConfigVariables);
     fn handle_mouse_input(&mut self, x_delta: f64, y_delta: f64);
-    fn handle_window_resize(&mut self, context: &mut Context, new_size: WindowExtent);
+    fn handle_window_resize(&mut self, context: &mut Context, new_extent: WindowExtent);
     fn handle_keyboard_event(&mut self, context: &mut Context, key: VirtualKeyCode, state: ElementState) -> ControlSignal;
 }
 
@@ -74,11 +74,18 @@ impl<T: VulkrapApplication> Runtime<T> {
         self.app.handle_mouse_input(x_delta, y_delta);
     }
 
-    pub fn handle_window_resize(&mut self, new_size: WindowExtent) {
-        self.hud.handle_window_resize(&mut self.context, new_size);
-        self.app.handle_window_resize(&mut self.context, new_size);
+    pub fn handle_window_resize(&mut self, new_extent: WindowExtent) {
+        self.config.set(WINDOW_WIDTH, new_extent.width);
+        self.config.set(WINDOW_HEIGHT, new_extent.height);
+
+        self.hud.handle_window_resize(&mut self.context, new_extent);
+        self.app.handle_window_resize(&mut self.context, new_extent);
 
         self.context.handle_window_resize();
+    }
+
+    pub fn get_configured_extent(&self) -> WindowExtent {
+        WindowExtent::new(self.config.get(WINDOW_WIDTH).as_int(), self.config.get(WINDOW_HEIGHT).as_int())
     }
 
     pub fn exit(&self) {
@@ -113,12 +120,14 @@ impl<T: VulkrapApplication> Runtime<T> {
 
         self.config.clear_dirty();
     }
+
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum ControlSignal {
-    ZERO,
-    QUIT
+    None,
+    Quit,
+    ResizeWindow,
 }
 
 

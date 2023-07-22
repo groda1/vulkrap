@@ -3,6 +3,7 @@ use crate::engine::cvars::{ConfigVariables, CvarType};
 use crate::log::logger;
 use winit::event::{ElementState, VirtualKeyCode};
 use crate::engine::runtime::ControlSignal;
+use crate::log::logger::cvar;
 
 const TOGGLE_SPEED: f32 = 7.5;
 const CARET_BLINK_SPEED: f32 = 1.5;
@@ -62,7 +63,7 @@ impl Console {
             self._reset_caret();
         }
 
-        let mut control = ControlSignal::ZERO;
+        let mut control = ControlSignal::None;
         match (key, state) {
             (VirtualKeyCode::Back, ElementState::Pressed) => {
                 if self.input_index > 0 {
@@ -166,7 +167,7 @@ impl Console {
 
     fn _handle_input(&mut self, cfg: &mut ConfigVariables) -> ControlSignal {
         self.scroll = 0;
-        let mut control = ControlSignal::ZERO;
+        let mut control = ControlSignal::None;
 
         if self.input_buffer.is_empty() {
             return control;
@@ -184,7 +185,7 @@ impl Console {
             } else {
                 None
             };
-            _handle_input_cvar(cfg, cvar, cvar_argument);
+            control = _handle_input_cvar(cfg, cvar, cvar_argument);
         } else {
             let command = _parse_input_command(split[0]);
             match command {
@@ -192,7 +193,7 @@ impl Console {
                     log_error!("unknown command or cvar: {}", self.get_current_input());
                 }
                 Quit => {
-                    control = ControlSignal::QUIT;
+                    control = ControlSignal::Quit;
                 }
             }
         }
@@ -266,7 +267,8 @@ impl Console {
     }
 }
 
-fn _handle_input_cvar(cfg: &mut ConfigVariables, cvar_id: u32, arg_opt: Option<&str>) {
+fn _handle_input_cvar(cfg: &mut ConfigVariables, cvar_id: u32, arg_opt: Option<&str>) -> ControlSignal {
+    let mut ret = ControlSignal::None;
     if let Some(arg) = arg_opt {
         let datatype = cfg.get(cvar_id).get_type();
         let mut parsed = false;
@@ -298,11 +300,16 @@ fn _handle_input_cvar(cfg: &mut ConfigVariables, cvar_id: u32, arg_opt: Option<&
                 }
             }
         }
-        if !parsed {
+
+        if parsed {
+            ret = cfg.get_trigger(cvar_id);
+        } else {
             log_error!("failed to parse cvar argument: {}", arg);
         }
     }
-    logger::cvar(&cfg.get_desc(cvar_id));
+    cvar(&cfg.get_desc(cvar_id));
+
+    ret
 }
 
 fn _parse_input_command(command: &str) -> Command {

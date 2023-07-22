@@ -48,6 +48,7 @@ macro_rules! log_error {
     })
 }
 
+use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 use crate::engine::cvars::{ConfigVariables};
 use crate::engine::runtime::{Runtime, VulkrapApplication, VulkrapApplicationFactory};
@@ -63,7 +64,8 @@ const ENGINE_NAME: &str = "vulkrap";
 const APPLICATION_VERSION: (u32, u32, u32) = (1, 0, 0);
 const ENGINE_VERSION: (u32, u32, u32) = (0, 0, 1);
 
-
+pub const MIN_WIDTH: u32 = 1280;
+pub const MIN_HEIGHT: u32 = 720;
 pub fn vulkrap_start<T: VulkrapApplication + 'static>(window_title: &'static str,
                                                       window_width: u32,
                                                       window_height: u32,
@@ -74,6 +76,7 @@ pub fn vulkrap_start<T: VulkrapApplication + 'static>(window_title: &'static str
     let event_loop = EventLoop::new();
     let window = window::winit::init_window(window_title, window_width, window_height, &event_loop);
     window.set_cursor_visible(false);
+    window.set_min_inner_size(Some(PhysicalSize::new(MIN_WIDTH, MIN_HEIGHT)));
 
     let config = ConfigVariables::new();
 

@@ -28,9 +28,15 @@ pub fn main_loop<T: VulkrapApplication + 'static>(event_loop: EventLoop<()>, win
                     (Some(VirtualKeyCode::Escape), ElementState::Pressed) => *control_flow = ControlFlow::Exit,
                     (Some(key), state) => {
                         let signal = vulkrap_runtime.handle_keyboard_event(key, state);
-                        if signal == ControlSignal::QUIT {
+                        if signal == ControlSignal::Quit {
                             *control_flow = ControlFlow::Exit;
                         }
+
+                        if signal == ControlSignal::ResizeWindow {
+                            let new_extent = vulkrap_runtime.get_configured_extent();
+                            window.set_inner_size(PhysicalSize::new(new_extent.width, new_extent.height));
+                        }
+
                     }
                     _ => {}
                 },

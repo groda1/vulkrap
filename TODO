@@ -26,9 +26,9 @@ Renderer:
 
 Engine:
     [ ] changing window size cvars should resize the window
-    [ ] limits to cvars
     [ ] read and save config file
     [ ] Include shaders in binary
+    [x] limits to cvars
     [x] Config system
     [x] Camera
     [x] Setup game structure. Which holds the rendering context and is called from window

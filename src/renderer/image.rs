@@ -1,6 +1,5 @@
 use crate::renderer::memory::MemoryManager;
 use ash::vk;
-use ash::vk::Extent2D;
 use std::ptr;
 
 pub fn create_static_image(
@@ -463,7 +462,7 @@ pub fn create_framebuffers(
     device: &ash::Device,
     color_image_views: &[vk::ImageView],
     depth_image_view: vk::ImageView,
-    extent: Extent2D,
+    extent: vk::Extent2D,
     render_pass: vk::RenderPass,
 ) -> Vec<vk::Framebuffer> {
     let mut framebuffers = Vec::with_capacity(color_image_views.len());
@@ -480,7 +479,7 @@ pub fn create_framebuffer(
     device: &ash::Device,
     image_view: Option<vk::ImageView>,
     depth_image_view: Option<vk::ImageView>,
-    extent: Extent2D,
+    extent: vk::Extent2D,
     render_pass: vk::RenderPass,
 ) -> vk::Framebuffer {
     let mut attachments = Vec::new();

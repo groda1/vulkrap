@@ -288,7 +288,7 @@ impl TopBar {
             context,
             text_sbo,
             &format!("VULKRAP {}.{}.{}", ENGINE_VERSION.0, ENGINE_VERSION.1, ENGINE_VERSION.2),
-            Vector2::new(self.extent.width - 218, self.extent.height - 24),
+            Vector2::new(self.extent.width.wrapping_sub(218), self.extent.height.wrapping_sub(24)),
             16,
             COLOR_WHITE,
             COLOR_BLACK,

@@ -69,7 +69,7 @@ impl VulkrapApplication for TestApp {
             _ => {}
         }
 
-        ControlSignal::ZERO
+        ControlSignal::None
     }
 }
 
