@@ -1,7 +1,43 @@
 use ash::vk;
 use ash::vk::SwapchainKHR;
 
+pub enum RenderTarget {
+    ImageTarget(ImageTarget),
+    SwapchainTarget(SwapchainTarget),
+}
+
+impl RenderTarget {
+    pub unsafe fn destroy(&mut self, device: &ash::Device) {
+        match self {
+            RenderTarget::ImageTarget(image) => { image.destroy(device); }
+            RenderTarget::SwapchainTarget(swapchain) => { swapchain.destroy(device); }
+        }
+    }
+
+    pub fn swapchain_target(&self) -> Option<&SwapchainTarget> {
+        match self {
+            RenderTarget::SwapchainTarget(swapchain) => Some(swapchain),
+            _ => None
+        }
+    }
+
+    pub fn image_count(&self) -> usize {
+        match self {
+            RenderTarget::ImageTarget(_) => { 1 }
+            RenderTarget::SwapchainTarget(swapchain) => { swapchain.image_count() }
+        }
+    }
+
+    pub fn framebuffer(&self, image_index: usize) -> vk::Framebuffer {
+        match self {
+            RenderTarget::ImageTarget(image) => { image.framebuffer }
+            RenderTarget::SwapchainTarget(swapchain) => { swapchain.framebuffers[image_index] }
+        }
+    }
+}
+
 pub struct ImageTarget {
+    /* TODO: I dont think we need to keep any of this as all this will is owned by the texture manager */
     color_image: vk::Image,
     color_image_view: vk::ImageView,
     color_image_memory: vk::DeviceMemory,
@@ -10,16 +46,18 @@ pub struct ImageTarget {
     depth_image_view: vk::ImageView,
     depth_image_memory: vk::DeviceMemory,
 
-    framebuffer: Vec<vk::Framebuffer>,
+    framebuffer: vk::Framebuffer,
 }
 
 impl ImageTarget {
-
+    pub unsafe fn destroy(&mut self, device: &ash::Device) {
+        unimplemented!()
+    }
 }
 
 pub struct SwapchainTarget {
     swapchain_loader: ash::extensions::khr::Swapchain,
-    swapchain: vk::SwapchainKHR,
+    swapchain: SwapchainKHR,
 
     color_imageviews: Vec<vk::ImageView>,
 
@@ -33,7 +71,7 @@ pub struct SwapchainTarget {
 impl SwapchainTarget {
     pub fn new(
         swapchain_loader: ash::extensions::khr::Swapchain,
-        swapchain: vk::SwapchainKHR,
+        swapchain: SwapchainKHR,
         color_imageviews: Vec<vk::ImageView>,
         depth_image: vk::Image,
         depth_image_view: vk::ImageView,
@@ -51,7 +89,7 @@ impl SwapchainTarget {
         }
     }
 
-    pub unsafe fn destroy(&mut self, device: &ash::Device) {
+    unsafe fn destroy(&mut self, device: &ash::Device) {
         // Depth buffer
         device.destroy_image_view(self.depth_image_view, None);
         device.destroy_image(self.depth_image, None);
@@ -80,9 +118,5 @@ impl SwapchainTarget {
     pub fn image_count(&self) -> usize {
         debug_assert!(self.color_imageviews.len() == self.framebuffers.len());
         self.color_imageviews.len()
-    }
-
-    pub fn framebuffer(&self, image_index: usize) -> vk::Framebuffer {
-        self.framebuffers[image_index]
     }
 }

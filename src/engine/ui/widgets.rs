@@ -1,16 +1,19 @@
+use std::path::Path;
 use crate::engine::console::Console;
-use crate::engine::datatypes::WindowExtent;
+use crate::engine::datatypes::{InstancedCharacter, InstancedQuad, Mesh, ModelWoblyPushConstant, PosSizeColor2dPushConstant, TexturedVertex, WindowExtent};
 use crate::engine::stats;
 use crate::engine::ui::colors::{COLOR_BLACK, COLOR_INPUT_TEXT, COLOR_TEXT, COLOR_TEXT_CVAR, COLOR_TEXT_DEBUG, COLOR_TEXT_ERROR, COLOR_TEXT_INFO, COLOR_TEXT_KHRONOS, COLOR_WHITE};
 use crate::engine::ui::draw::{draw_quad, draw_text, draw_text_shadowed};
 use crate::log::logger;
 use crate::log::logger::{MessageLevel};
 use crate::renderer::context::Context;
-use crate::renderer::types::BufferObjectHandle;
+use crate::renderer::types::{BufferObjectHandle, DrawCommand, PipelineConfiguration, PipelineHandle, SamplerHandle, SWAPCHAIN_PASS, TextureHandle, UniformHandle};
 use crate::ENGINE_VERSION;
 
 use cgmath::{Vector2, Vector4};
 use std::ptr;
+use crate::renderer::rawarray::RawArrayPtr;
+use crate::util::file;
 
 // Console
 const BORDER_OFFSET: u32 = 4;
@@ -19,8 +22,49 @@ const TEXT_SIZE_PX: u32 = 16;
 const LINE_SPACING: u32 = 2;
 const INPUT_BOX_OFFSET: u32 = 2;
 
+pub struct TexturedQuadRenderer {
+    pipeline: PipelineHandle,
+    push_constant_buf: PosSizeColor2dPushConstant,
+    mesh: Mesh,
+}
+
+impl TexturedQuadRenderer {
+    pub fn new(context: &mut Context, vp_uniform: UniformHandle, mesh: Mesh, texture: TextureHandle, sampler: SamplerHandle) -> Self {
+        let textured_quad_pipeline_config = PipelineConfiguration::builder()
+            .with_vertex_shader(file::read_file(Path::new("./resources/shaders/2d_texture_push_vert.spv")))
+            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/2d_texture_ssbo_frag.spv")))
+            .with_vertex_uniform(0, vp_uniform)
+            .with_push_constant::<PosSizeColor2dPushConstant>()
+            .add_texture(1, texture, sampler)
+            .build();
+
+        let pipeline = context.add_pipeline::<TexturedVertex>(SWAPCHAIN_PASS, textured_quad_pipeline_config);
+
+        TexturedQuadRenderer {
+            pipeline,
+            push_constant_buf: PosSizeColor2dPushConstant::default(),
+            mesh,
+        }
+    }
+
+    pub fn set(&mut self, position: Vector2<f32>, size: Vector2<f32>, color: Vector4<f32>) {
+        self.push_constant_buf = PosSizeColor2dPushConstant::new(position, size, color);
+    }
+
+    pub fn draw(&mut self, context: &mut Context) {
+        context.add_draw_command(DrawCommand::new_buffered(
+            self.pipeline,
+            &self.push_constant_buf as *const PosSizeColor2dPushConstant as RawArrayPtr,
+            self.mesh.vertex_data,
+            1,
+            0,
+        ));
+    }
+}
+
+
 pub struct TextRenderer {
-    text : String
+    text: String,
 }
 
 impl TextRenderer {
@@ -36,11 +80,42 @@ impl TextRenderer {
 
 pub struct ConsoleRenderer {
     extent: WindowExtent,
+    text_sbo: BufferObjectHandle,
+    quad_sbo: BufferObjectHandle,
+    text_pipeline: PipelineHandle,
+    quad_pipeline: PipelineHandle,
+    mesh: Mesh,
 }
 
 impl ConsoleRenderer {
-    pub fn new(window_extent: WindowExtent) -> ConsoleRenderer {
-        ConsoleRenderer { extent: window_extent }
+    pub fn new(context: &mut Context,
+               vp_uniform: BufferObjectHandle,
+               mesh: Mesh,
+               extent: WindowExtent,
+               font_texture: TextureHandle,
+               sampler: SamplerHandle) -> ConsoleRenderer {
+        let text_sbo = context.create_storage_buffer::<InstancedCharacter>(500);
+        let quad_sbo = context.create_storage_buffer::<InstancedQuad>(10);
+
+        let text_pipeline_config = PipelineConfiguration::builder()
+            .with_vertex_shader(file::read_file(Path::new("./resources/shaders/2d_text_ssbo_vert.spv")))
+            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/2d_texture_ssbo_frag.spv")))
+            .with_vertex_uniform(0, vp_uniform)
+            .with_storage_buffer_object(2, text_sbo)
+            .with_alpha_blending()
+            .add_texture(1, font_texture, sampler)
+            .build();
+        let text_pipeline = context.add_pipeline::<TexturedVertex>(SWAPCHAIN_PASS, text_pipeline_config);
+        let quad_pipeline_config = PipelineConfiguration::builder()
+            .with_vertex_shader(file::read_file(Path::new("./resources/shaders/2d_flat_ssbo_vert.spv")))
+            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/2d_flat_ssbo_frag.spv")))
+            .with_vertex_uniform(0, vp_uniform)
+            .with_storage_buffer_object(2, quad_sbo)
+            .with_alpha_blending()
+            .build();
+        let quad_pipeline = context.add_pipeline::<TexturedVertex>(SWAPCHAIN_PASS, quad_pipeline_config);
+
+        ConsoleRenderer { extent, text_sbo, quad_sbo, text_pipeline, quad_pipeline, mesh }
     }
 
     pub fn handle_window_resize(&mut self, new_extent: WindowExtent) {
@@ -50,10 +125,10 @@ impl ConsoleRenderer {
     pub fn draw(
         &mut self,
         context: &mut Context,
-        text_sbo: BufferObjectHandle,
-        quad_sbo: BufferObjectHandle,
-        console: &Console,
-    ) -> (u32, u32) {
+        console: &Console) {
+        context.reset_buffer_object(self.text_sbo);
+        context.reset_buffer_object(self.quad_sbo);
+
         let height = (self.extent.height as f32 * CONSOLE_HEIGHT_FACTOR) as u32;
         let offset = (console.get_current_y_offset() * height as f32) as u32;
 
@@ -63,7 +138,7 @@ impl ConsoleRenderer {
         // Draw console bg
         quad_instance_count += draw_quad(
             context,
-            quad_sbo,
+            self.quad_sbo,
             Vector2::new(0, self.extent.height - height + offset),
             Vector2::new(self.extent.width, height),
             //Vector4::new(0.02, 0.02, 0.02, 0.95),
@@ -73,7 +148,7 @@ impl ConsoleRenderer {
         // Draw prompt
         text_instance_count += draw_text(
             context,
-            text_sbo,
+            self.text_sbo,
             &format!("> {}", console.get_current_input()),
             Vector2::new(BORDER_OFFSET, self.extent.height - height + offset + BORDER_OFFSET),
             TEXT_SIZE_PX,
@@ -84,7 +159,7 @@ impl ConsoleRenderer {
         if console.is_caret_visible() && console.is_active() {
             quad_instance_count += draw_quad(
                 context,
-                quad_sbo,
+                self.quad_sbo,
                 Vector2::new(
                     BORDER_OFFSET + console.get_input_index() * TEXT_SIZE_PX + (2 * TEXT_SIZE_PX),
                     self.extent.height - height + offset + BORDER_OFFSET,
@@ -95,9 +170,23 @@ impl ConsoleRenderer {
         }
 
         // Draw history
-        text_instance_count += self._draw_console_history(context, text_sbo, console, height, offset);
+        text_instance_count += self._draw_console_history(context, self.text_sbo, console, height, offset);
 
-        (text_instance_count, quad_instance_count)
+        context.add_draw_command(DrawCommand::new_buffered(
+            self.quad_pipeline,
+            ptr::null(),
+            self.mesh.vertex_data,
+            quad_instance_count,
+            0,
+        ));
+
+        context.add_draw_command(DrawCommand::new_buffered(
+            self.text_pipeline,
+            ptr::null(),
+            self.mesh.vertex_data,
+            text_instance_count,
+            0,
+        ));
     }
 
     fn _draw_console_history(
@@ -170,118 +259,74 @@ impl ConsoleRenderer {
     }
 }
 
-pub struct RenderStatsRenderer {
-    position: Vector2<u32>,
-    active: bool,
-}
-
-impl RenderStatsRenderer {
-    pub fn new(window_extent: WindowExtent) -> RenderStatsRenderer {
-        let position = Vector2::new(8, window_extent.height - 24);
-
-        RenderStatsRenderer { position, active: true }
-    }
-
-    pub fn handle_window_resize(&mut self, new_extent: WindowExtent) {
-        self.position = Vector2::new(8, new_extent.height - 24);
-    }
-
-    pub fn is_active(&self) -> bool {
-        self.active
-    }
-
-    pub fn draw(&mut self, context: &mut Context, text_sbo: BufferObjectHandle) -> u32 {
-        let renderstats = stats::get();
-
-        let mut instance_count = 0;
-
-        instance_count += draw_text_shadowed(
-            context,
-            text_sbo,
-            &format!("FPS: {}", renderstats.get_fps()),
-            self.position,
-            16,
-            COLOR_WHITE,
-            COLOR_BLACK,
-        );
-        instance_count += draw_text_shadowed(
-            context,
-            text_sbo,
-            &format!("Frame time: {0:.3} ms", renderstats.get_frametime() * 1000f32),
-            self.position - Vector2::new(0, 18),
-            16,
-            COLOR_WHITE,
-            COLOR_BLACK,
-        );
-        instance_count += draw_text_shadowed(
-            context,
-            text_sbo,
-            &format!("Draw count: {}", renderstats.get_render_stats().draw_command_count),
-            self.position - Vector2::new(0, 18 * 3),
-            16,
-            COLOR_WHITE,
-            COLOR_BLACK,
-        );
-        instance_count += draw_text_shadowed(
-            context,
-            text_sbo,
-            &format!("Triangle count: {}", renderstats.get_render_stats().triangle_count),
-            self.position - Vector2::new(0, 18 * 4),
-            16,
-            COLOR_WHITE,
-            COLOR_BLACK,
-        );
-        instance_count += draw_text_shadowed(
-            context,
-            text_sbo,
-            &format!(
-                "TransferCmdBuf: {0:.3} ms",
-                renderstats.get_render_stats().transfer_commands_bake_time.as_micros() as f32 / 1000f32
-            ),
-            self.position - Vector2::new(0, 18 * 6),
-            16,
-            COLOR_WHITE,
-            COLOR_BLACK,
-        );
-        instance_count += draw_text_shadowed(
-            context,
-            text_sbo,
-            &format!(
-                "    DrawCmdBuf: {0:.3} ms",
-                renderstats.get_render_stats().draw_commands_bake_time.as_micros() as f32 / 1000f32
-            ),
-            self.position - Vector2::new(0, 18 * 7),
-            16,
-            COLOR_WHITE,
-            COLOR_BLACK,
-        );
-
-        instance_count
-    }
-}
-
-pub struct TopBar {
+pub struct TextOverlayRenderer {
     extent: WindowExtent,
-    active: bool,
+    text_sbo: BufferObjectHandle,
+    quad_sbo: BufferObjectHandle,
+    text_pipeline: PipelineHandle,
+    quad_pipeline: PipelineHandle,
+    mesh: Mesh,
+
+    renderstats_active: bool,
+    version_active: bool,
 }
 
-impl TopBar {
-    pub fn new(window_extent: WindowExtent) -> TopBar {
-        TopBar {
-            extent: window_extent,
-            active: true,
-        }
+impl TextOverlayRenderer {
+    pub fn new(context: &mut Context,
+               vp_uniform: BufferObjectHandle,
+               mesh: Mesh,
+               extent: WindowExtent,
+               font_texture: TextureHandle,
+               sampler: SamplerHandle) -> Self {
+        let text_sbo = context.create_storage_buffer::<InstancedCharacter>(500);
+        let quad_sbo = context.create_storage_buffer::<InstancedQuad>(10);
+
+        let text_pipeline_config = PipelineConfiguration::builder()
+            .with_vertex_shader(file::read_file(Path::new("./resources/shaders/2d_text_ssbo_vert.spv")))
+            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/2d_texture_ssbo_frag.spv")))
+            .with_vertex_uniform(0, vp_uniform)
+            .with_storage_buffer_object(2, text_sbo)
+            .with_alpha_blending()
+            .add_texture(1, font_texture, sampler)
+            .build();
+        let text_pipeline = context.add_pipeline::<TexturedVertex>(SWAPCHAIN_PASS, text_pipeline_config);
+        let quad_pipeline_config = PipelineConfiguration::builder()
+            .with_vertex_shader(file::read_file(Path::new("./resources/shaders/2d_flat_ssbo_vert.spv")))
+            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/2d_flat_ssbo_frag.spv")))
+            .with_vertex_uniform(0, vp_uniform)
+            .with_storage_buffer_object(2, quad_sbo)
+            .with_alpha_blending()
+            .build();
+        let quad_pipeline = context.add_pipeline::<TexturedVertex>(SWAPCHAIN_PASS, quad_pipeline_config);
+
+        TextOverlayRenderer { extent, text_sbo, quad_sbo, text_pipeline, quad_pipeline, mesh, renderstats_active: true, version_active: true }
     }
 
     pub fn handle_window_resize(&mut self, new_extent: WindowExtent) {
         self.extent = new_extent;
     }
 
-    pub fn is_active(&self) -> bool {
-        self.active
+    pub fn draw(&mut self, context: &mut Context) {
+        context.reset_buffer_object(self.text_sbo);
+        context.reset_buffer_object(self.quad_sbo);
+
+        let mut foreground_instance_count = 0;
+        if self.renderstats_active {
+            foreground_instance_count += self.draw_renderstats(context, self.text_sbo);
+        }
+        if self.version_active {
+            foreground_instance_count += self.draw_engine_info(context, self.text_sbo);
+        }
+        context.add_draw_command(DrawCommand::new_buffered(
+            self.text_pipeline,
+            ptr::null(),
+            self.mesh.vertex_data,
+            foreground_instance_count,
+            0,
+        ));
     }
 
-    pub fn draw(&mut self, context: &mut Context, text_sbo: BufferObjectHandle) -> u32 {
+    fn draw_engine_info(&mut self, context: &mut Context, text_sbo: BufferObjectHandle) -> u32 {
         let mut instance_count = 0;
 
         instance_count += draw_text_shadowed(
@@ -293,6 +338,76 @@ impl TopBar {
             COLOR_WHITE,
             COLOR_BLACK,
         );
+        instance_count
+    }
+
+    fn draw_renderstats(&mut self, context: &mut Context, text_sbo: BufferObjectHandle) -> u32 {
+        let position = Vector2::new(8, self.extent.height - 24);
+        let renderstats = stats::get();
+
+        let mut instance_count = 0;
+
+        instance_count += draw_text_shadowed(
+            context,
+            text_sbo,
+            &format!("FPS: {}", renderstats.get_fps()),
+            position,
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
+        );
+        instance_count += draw_text_shadowed(
+            context,
+            text_sbo,
+            &format!("Frame time: {0:.3} ms", renderstats.get_frametime() * 1000f32),
+            position - Vector2::new(0, 18),
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
+        );
+        instance_count += draw_text_shadowed(
+            context,
+            text_sbo,
+            &format!("Draw count: {}", renderstats.get_render_stats().draw_command_count),
+            position - Vector2::new(0, 18 * 3),
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
+        );
+        instance_count += draw_text_shadowed(
+            context,
+            text_sbo,
+            &format!("Triangle count: {}", renderstats.get_render_stats().triangle_count),
+            position - Vector2::new(0, 18 * 4),
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
+        );
+        instance_count += draw_text_shadowed(
+            context,
+            text_sbo,
+            &format!(
+                "TransferCmdBuf: {0:.3} ms",
+                renderstats.get_render_stats().transfer_commands_bake_time.as_micros() as f32 / 1000f32
+            ),
+            position - Vector2::new(0, 18 * 6),
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
+        );
+        instance_count += draw_text_shadowed(
+            context,
+            text_sbo,
+            &format!(
+                "    DrawCmdBuf: {0:.3} ms",
+                renderstats.get_render_stats().draw_commands_bake_time.as_micros() as f32 / 1000f32
+            ),
+            position - Vector2::new(0, 18 * 7),
+            16,
+            COLOR_WHITE,
+            COLOR_BLACK,
+        );
+
         instance_count
     }
 }

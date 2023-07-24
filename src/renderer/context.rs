@@ -373,10 +373,31 @@ impl Context {
             vk::ImageAspectFlags::COLOR,
             1,
         );
-        
 
         self.texture_manager.add_texture(image, image_memory, image_view)
     }
+
+    pub fn add_render_texture(&mut self, image_width: u32, image_height: u32) -> TextureHandle {
+        let (image, image_memory) = image::create_colorattachment_image(
+            &self.logical_device,
+            self.command_pool,
+            self.graphics_queue,
+            &mut self.memory_manager,
+            image_width,
+            image_height
+        );
+
+        let image_view = image::create_image_view(
+            &self.logical_device,
+            image,
+            vk::Format::R8G8B8A8_SRGB,
+            vk::ImageAspectFlags::COLOR,
+            1,
+        );
+
+        self.texture_manager.add_texture(image, image_memory, image_view)
+    }
+
 
     pub fn add_sampler(&mut self) -> SamplerHandle {
         self.texture_manager.add_sampler(&self.logical_device)

@@ -63,7 +63,9 @@ impl ConfigVariables {
 
         id_to_cvar.insert(FOV, ConfigVariable::builder()
             .name("fov")
-            .default( 60.0f32)
+            .default( 60f32)
+            .min_value(10f32)
+            .max_value(170f32)
             .description( "Vertical field of view")
             .build());
 
@@ -89,7 +91,7 @@ impl ConfigVariables {
         match cvar.value.get_type() {
             CvarType::Float => {
                 let mut str = format!(
-                    "{} = {} ({}, type: float, default: {})",
+                    "{} = {} ({}, type: float, default: {}",
                     cvar.name,
                     cvar.value.as_float(),
                     cvar.description,
@@ -201,6 +203,7 @@ impl ConfigVariableBuilder {
         self.min_value = Some(Box::new(min_value));
         self
     }
+
     fn max_value<T:CvarValue + Clone + 'static>(mut self, max_value: T) -> Self {
         self.max_value = Some(Box::new(max_value));
         self

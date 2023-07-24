@@ -13,12 +13,13 @@ use std::collections::HashMap;
 use std::ptr;
 
 use crate::renderer::image;
-use crate::renderer::target::SwapchainTarget;
+use crate::renderer::target::{RenderTarget, SwapchainTarget};
+
 
 pub struct RenderPass {
     handle: RenderPassHandle,
     extent: vk::Extent2D,
-    target: SwapchainTarget,
+    target: RenderTarget,
     render_pass: vk::RenderPass,
     pipelines: Vec<PipelineContainer>,
     draw_cmd_buffer: Vec<DrawCommand>,
@@ -27,7 +28,7 @@ pub struct RenderPass {
 
 impl RenderPass {
     fn new_swapchain_pass(
-        device: &ash::Device,
+        device: &Device,
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         physical_device_memory_properties: &PhysicalDeviceMemoryProperties,
@@ -66,7 +67,7 @@ impl RenderPass {
         RenderPass {
             handle: SWAPCHAIN_PASS,
             extent,
-            target,
+            target: RenderTarget::SwapchainTarget(target),
             render_pass,
             pipelines,
             draw_cmd_buffer: Vec::new(),
@@ -182,6 +183,7 @@ impl RenderPass {
 
 pub struct RenderPassManager {
     render_passes: HashMap<RenderPassHandle, RenderPass>,
+
     _pass_order: Vec<RenderPassHandle>,
 
     swapchain_pass: Option<RenderPass>,
@@ -192,13 +194,36 @@ impl RenderPassManager {
         Self {
             render_passes: HashMap::new(),
             _pass_order: Vec::new(),
-            swapchain_pass: Option::None,
+            swapchain_pass: None,
         }
+    }
+
+    pub fn create_imagetarget_pass(
+        &mut self,
+        device: &Device,
+    ) {
+
+
+        /*
+        pub fn add(&mut self, pass_order: u32, render_pass: RenderPass) -> Result<RenderPassHandle, &str> {
+            if self.render_passes.contains_key(&pass_order) {
+                return Err("a render pass with same order already exists!");
+            }
+
+            let handle = pass_order;
+            self.render_passes.insert(handle, render_pass);
+
+            self._pass_order.push(handle);
+            self._pass_order.sort_unstable();
+
+            Ok(handle)
+        }*/
+
     }
 
     pub fn create_swapchain_pass(
         &mut self,
-        device: &ash::Device,
+        device: &Device,
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         physical_device_memory_properties: &PhysicalDeviceMemoryProperties,
@@ -246,7 +271,8 @@ impl RenderPassManager {
     pub fn swapchain_target(&self) -> &SwapchainTarget {
         debug_assert!(self.swapchain_pass.is_some());
 
-        &self.swapchain_pass.as_ref().unwrap().target
+        self.swapchain_pass.as_ref().unwrap().target.swapchain_target()
+            .expect("Bug. No swapchain target in swapchain pass")
     }
 
     pub fn swapchain_pass_mut(&mut self) -> &mut RenderPass {
@@ -261,23 +287,9 @@ impl RenderPassManager {
         self.swapchain_pass.as_ref().unwrap().extent
     }
 
-    pub fn _add(&mut self, pass_order: u32, render_pass: RenderPass) -> Result<RenderPassHandle, &str> {
-        if self.render_passes.contains_key(&pass_order) {
-            return Err("a render pass with same order already exists!");
-        }
-
-        let handle = pass_order;
-        self.render_passes.insert(handle, render_pass);
-
-        self._pass_order.push(handle);
-        self._pass_order.sort_unstable();
-
-        Ok(handle)
-    }
-
     pub fn add_pipeline<T: VertexInputDescription>(
         &mut self,
-        device: &ash::Device,
+        device: &Device,
         buffer_object_manager: &mut BufferObjectManager,
         texture_manager: &TextureManager,
         config: PipelineConfiguration,
@@ -386,7 +398,6 @@ impl RenderPassManager {
         pipeline_handle: PipelineHandle,
         render_pass_handle: RenderPassHandle,
     ) {
-        // TODO need to rebuild pipeline_handle so that it also tells which render pass it belongs to
 
         if render_pass_handle == SWAPCHAIN_PASS {
             debug_assert!(self.swapchain_pass.is_some());
@@ -435,7 +446,7 @@ impl RenderPassManager {
     }
 }
 
-fn create_render_pass(device: &ash::Device, color_format: vk::Format, depth_format: vk::Format) -> vk::RenderPass {
+fn create_render_pass(device: &Device, color_format: vk::Format, depth_format: vk::Format) -> vk::RenderPass {
     let color_attachment = vk::AttachmentDescription {
         flags: vk::AttachmentDescriptionFlags::empty(),
         format: color_format,

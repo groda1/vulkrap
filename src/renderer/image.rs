@@ -103,7 +103,7 @@ pub fn create_colorattachment_image(
         texture_image,
         vk::Format::R8G8B8A8_UNORM,
         vk::ImageLayout::UNDEFINED,
-        vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+        vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     );
 
     (texture_image, texture_image_memory)

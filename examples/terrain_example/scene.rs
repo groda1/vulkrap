@@ -24,6 +24,10 @@ impl Scene {
         terrain_pipeline: PipelineHandle,
     ) -> Scene {
 
+
+
+
+
         Scene {
             wobbly_objects: vec![],
             wobbly_pipeline,

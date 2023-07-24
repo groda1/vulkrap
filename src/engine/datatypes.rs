@@ -3,6 +3,7 @@ use ash::vk;
 use ash::vk::{VertexInputAttributeDescription, VertexInputBindingDescription};
 use bitflags::bitflags;
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
+use num::Zero;
 
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
@@ -281,10 +282,31 @@ pub struct ModelColorPushConstant {
     color: Vector4<f32>,
 }
 
-#[allow(dead_code)]
 impl ModelColorPushConstant {
     pub fn new(model_transform: Matrix4<f32>, color: Vector4<f32>) -> Self {
         ModelColorPushConstant { model_transform, color }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Debug, Copy)]
+pub struct PosSizeColor2dPushConstant {
+    position: Vector2<f32>,
+    size: Vector2<f32>,
+    color: Vector4<f32>,
+}
+
+impl PosSizeColor2dPushConstant {
+    pub fn default() -> Self {
+        PosSizeColor2dPushConstant {
+            position: Vector2::zero(),
+            size: Vector2::zero(),
+            color: Vector4::new(1.0, 1.0, 1.0, 1.0)
+        }
+    }
+
+    pub fn new(position: Vector2<f32>, size: Vector2<f32>, color: Vector4<f32>) -> Self {
+        PosSizeColor2dPushConstant { position, size, color }
     }
 }
 

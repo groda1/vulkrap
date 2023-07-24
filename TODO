@@ -4,6 +4,7 @@ Renderer:
     [ ] Pipelines can only have one uniform per stage. Fix!
     [ ] Pipelines can only have one storage buffer, and its hardcoded to be assigned to the vertex shader. Fix!
     [ ] Render to texture. Support for multiple renderpasses.
+    [ ] Pipeline creation parameter passing makes no sense. Most params are in the config, vertex shader input is generic and renderpass comes as add pipeline parameter. All should be in the config.
     [ ] Texture mipmaps
     [ ] Memory handling for images is weird. Handled by image.rs instead of the memory manager. fix!
     [ ] Proper device picking
@@ -25,9 +26,9 @@ Renderer:
     [x] Recreating swapchain should possibly recreate uniform buffers as the number of images could change.
 
 Engine:
-    [ ] changing window size cvars should resize the window
     [ ] read and save config file
     [ ] Include shaders in binary
+    [x] changing window size cvars should resize the window
     [x] limits to cvars
     [x] Config system
     [x] Camera
@@ -44,3 +45,6 @@ Terrain:
 Window:
     [x] Handle resize events. Make sure this works on mac. Seems broken atm
     [x] Measure delta time properly
+
+Misc:
+    [ ] Remove compiled shaders from git

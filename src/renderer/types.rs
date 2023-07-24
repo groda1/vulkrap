@@ -72,13 +72,13 @@ pub struct PipelineConfiguration {
 impl PipelineConfiguration {
     pub fn builder() -> PipelineConfigurationBuilder {
         PipelineConfigurationBuilder {
-            vertex_shader_code: Option::None,
-            fragment_shader_code: Option::None,
-            push_constant_buffer_size: Option::None,
-            vertex_topology: Option::None,
-            vertex_uniform_cfg: Option::None,
-            fragment_uniform_cfg: Option::None,
-            storage_buffer_cfg: Option::None,
+            vertex_shader_code: None,
+            fragment_shader_code: None,
+            push_constant_buffer_size: None,
+            vertex_topology: None,
+            vertex_uniform_cfg: None,
+            fragment_uniform_cfg: None,
+            storage_buffer_cfg: None,
             texture_cfgs: Vec::new(),
             alpha_blending: false,
         }
@@ -293,8 +293,8 @@ impl DrawCommand {
 }
 
 pub(super) struct BufferDrawData {
-    pub vertex_buffer: vk::Buffer,
-    pub index_buffer: vk::Buffer,
+    pub vertex_buffer: Buffer,
+    pub index_buffer: Buffer,
     pub index_count: u32,
     pub instance_count: u32,
     pub instance_start: u32,
@@ -302,8 +302,8 @@ pub(super) struct BufferDrawData {
 
 impl BufferDrawData {
     pub(super) fn new(
-        vertex_buffer: vk::Buffer,
-        index_buffer: vk::Buffer,
+        vertex_buffer: Buffer,
+        index_buffer: Buffer,
         index_count: u32,
         instance_count: u32,
         instance_start: u32,
