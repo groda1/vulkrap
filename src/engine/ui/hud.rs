@@ -1,14 +1,13 @@
 use std::path::Path;
-use cgmath::{Matrix4, SquareMatrix, Vector2, Vector4};
+use cgmath::{Matrix4, SquareMatrix};
 
 use crate::engine::console::Console;
 use crate::engine::datatypes::{ViewProjectionUniform, WindowExtent};
 
-
 use crate::engine::image;
 use crate::engine::mesh::PredefinedMesh::TexturedQuad;
 use crate::engine::mesh::MeshManager;
-use crate::engine::ui::widgets::{ConsoleRenderer, TexturedQuadRenderer, TextOverlayRenderer};
+use crate::engine::ui::widgets::{ConsoleRenderer, TextOverlayRenderer};
 
 use crate::renderer::context::Context;
 use crate::renderer::types::{UniformHandle, UniformStage};
@@ -18,7 +17,6 @@ pub struct Hud {
 
     text_overlay_renderer: TextOverlayRenderer,
     console_renderer: ConsoleRenderer,
-    texture_quad_renderer: TexturedQuadRenderer,
 
     window_extent: WindowExtent,
 }
@@ -32,8 +30,6 @@ impl Hud {
 
         let font_image = image::load_image(Path::new("./resources/textures/font.png"));
         let font_texture = context.add_texture(font_image.width, font_image.height, &font_image.data);
-        let temp_image = image::load_image(Path::new("./resources/textures/test.png"));
-        let temp_texture = context.add_texture(temp_image.width, temp_image.height, &temp_image.data);
         let sampler = context.add_sampler();
 
         let mesh = *mesh_manager.get_predefined_mesh(TexturedQuad);
@@ -41,14 +37,10 @@ impl Hud {
         let text_overlay_renderer = TextOverlayRenderer::new(context, vp_uniform, mesh, window_extent, font_texture, sampler);
         let console_renderer = ConsoleRenderer::new(context, vp_uniform, mesh, window_extent, font_texture, sampler);
 
-        let mut texture_quad_renderer = TexturedQuadRenderer::new(context, vp_uniform, mesh, temp_texture, sampler);
-        texture_quad_renderer.set(Vector2::new(256.0, 386.0), Vector2::new(256.0, 256.0), Vector4::new(1.0, 1.0, 1.0, 1.0));
-
         Hud {
             uniform: vp_uniform,
             text_overlay_renderer,
             console_renderer,
-            texture_quad_renderer,
 
             window_extent,
         }
@@ -60,8 +52,6 @@ impl Hud {
         if console.is_visible() {
             self.console_renderer.draw(context, console);
         }
-
-        self.texture_quad_renderer.draw(context);
     }
 
     pub fn handle_window_resize(&mut self, context: &mut Context, new_extent: WindowExtent) {
@@ -71,6 +61,10 @@ impl Hud {
 
         self.text_overlay_renderer.handle_window_resize(new_extent);
         self.console_renderer.handle_window_resize(new_extent);
+    }
+
+    pub fn get_vp_uniform(&self) -> UniformHandle {
+        self.uniform
     }
 }
 

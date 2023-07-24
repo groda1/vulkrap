@@ -96,6 +96,7 @@ pub fn create_colorattachment_image(
         vk::MemoryPropertyFlags::DEVICE_LOCAL,
         memory_manager.physical_device_memory_properties(),
     );
+
     transition_image_layout(
         device,
         command_pool,

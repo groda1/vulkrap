@@ -9,6 +9,7 @@ use crate::engine::mesh::{MeshManager};
 use crate::engine::stats;
 use crate::engine::ui::hud::Hud;
 use crate::renderer::context::Context;
+use crate::renderer::types::UniformHandle;
 
 pub trait VulkrapApplication {
 
@@ -21,7 +22,16 @@ pub trait VulkrapApplication {
     fn handle_keyboard_event(&mut self, context: &mut Context, key: VirtualKeyCode, state: ElementState) -> ControlSignal;
 }
 
-pub type VulkrapApplicationFactory<T> = fn(context: &mut Context, mesh_manager: &mut MeshManager, config: &ConfigVariables, window_extent: WindowExtent) -> T;
+pub struct EngineParameters<'a> {
+    pub mesh_manager: &'a mut MeshManager,
+    pub config: &'a ConfigVariables,
+    pub window_extent: WindowExtent,
+
+    pub hud_vp_uniform: UniformHandle,
+}
+
+//pub type VulkrapApplicationFactory<T> = fn(context: &mut Context, mesh_manager: &mut MeshManager, config: &ConfigVariables, window_extent: WindowExtent) -> T;
+pub type VulkrapApplicationFactory<T> = fn(context: &mut Context, engine_parameters : EngineParameters) -> T;
 
 pub struct Runtime<T: VulkrapApplication> {
     context: Context,
@@ -41,7 +51,14 @@ impl<T: VulkrapApplication> Runtime<T> {
 
         let hud = Hud::new(&mut context, window_extent, &mut mesh_manager);
 
-        let app = app_factory(&mut context, &mut mesh_manager, &config, window_extent);
+        let engine_params = EngineParameters {
+            mesh_manager: &mut mesh_manager,
+            config: &config,
+            window_extent,
+            hud_vp_uniform: hud.get_vp_uniform()
+        };
+
+        let app = app_factory(&mut context, engine_params);
 
         Runtime {
             context,

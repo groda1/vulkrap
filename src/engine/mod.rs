@@ -6,9 +6,10 @@ pub mod cvars;
 pub mod mesh;
 pub mod terrain;
 pub mod ui;
+pub mod image;
 
 mod console;
-mod image;
+
 mod stats;
 
 

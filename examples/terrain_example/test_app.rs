@@ -1,12 +1,14 @@
 use std::path::Path;
+use cgmath::{Vector2, Vector4};
 
 use winit::event::{ElementState, VirtualKeyCode};
 
 use vulkrap::engine::camera::Camera;
 use vulkrap::engine::cvars::ConfigVariables;
 use vulkrap::engine::datatypes::{MovementFlags, VertexNormal, WindowExtent};
-use vulkrap::engine::mesh::MeshManager;
-use vulkrap::engine::runtime::{ControlSignal, VulkrapApplication};
+use vulkrap::engine::mesh::PredefinedMesh::TexturedQuad;
+use vulkrap::engine::runtime::{ControlSignal, EngineParameters, VulkrapApplication};
+use vulkrap::engine::ui::widgets::TexturedQuadRenderer;
 use vulkrap::renderer::context::Context;
 use vulkrap::renderer::types::{PipelineConfiguration, SWAPCHAIN_PASS, UniformHandle, UniformStage, VertexTopology};
 use vulkrap::util::file;
@@ -15,8 +17,10 @@ use crate::terrain_example::scene::Scene;
 
 pub struct TestApp {
     scene: Scene,
-
     camera: Camera,
+
+    texture_quad_renderer: TexturedQuadRenderer,
+
     flags_uniform: UniformHandle,
     movement: MovementFlags,
 
@@ -33,6 +37,8 @@ impl VulkrapApplication for TestApp {
 
     fn draw(&mut self, context: &mut Context) {
         self.scene.draw(context);
+
+        self.texture_quad_renderer.draw(context);
     }
 
     fn reconfigure(&mut self, config: &ConfigVariables) {
@@ -73,13 +79,14 @@ impl VulkrapApplication for TestApp {
 
 
 impl TestApp {
-    pub fn new(context: &mut Context, mesh_manager: &mut MeshManager, config: &ConfigVariables, window_extent: WindowExtent) -> TestApp {
+    pub fn new(context: &mut Context, engine_params: EngineParameters) -> TestApp {
 
-        let camera = Camera::new(context, config);
+        let camera = Camera::new(context, engine_params.config);
         let flags_uniform = context.create_uniform_buffer::<u32>(UniformStage::Fragment);
 
         context.set_buffer_object(flags_uniform, 0_u32);
 
+        // TODO: move all this shit to the scene
         let pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/terrain_vert.spv")))
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/terrain_frag.spv")))
@@ -89,11 +96,24 @@ impl TestApp {
             .build();
         let terrain_pipeline = context.add_pipeline::<VertexNormal>(SWAPCHAIN_PASS, pipeline_config);
 
-        let scene = Scene::new(context, &mesh_manager, terrain_pipeline);
+        let scene = Scene::new(context, engine_params.mesh_manager, terrain_pipeline);
+
+        //let temp_image = image::load_image(Path::new("./resources/textures/test.png"));
+        //let temp_texture = context.add_texture(temp_image.width, temp_image.height, &temp_image.data);
+        let temp_texture = context.add_render_texture(512, 512);
+        let sampler = context.add_sampler();
+
+        let mesh = *engine_params.mesh_manager.get_predefined_mesh(TexturedQuad);
+
+        let mut texture_quad_renderer = TexturedQuadRenderer::new(context, engine_params.hud_vp_uniform, mesh, temp_texture, sampler);
+        texture_quad_renderer.set(Vector2::new(768.0, 386.0), Vector2::new(256.0, 256.0), Vector4::new(1.0, 1.0, 1.0, 1.0));
 
         let mut app = TestApp {
             scene,
             camera,
+
+            texture_quad_renderer,
+
             flags_uniform,
             movement: MovementFlags::ZERO,
             draw_wireframe: false,
