@@ -21,7 +21,7 @@ pub trait VulkrapApplication {
     fn handle_keyboard_event(&mut self, context: &mut Context, key: VirtualKeyCode, state: ElementState) -> ControlSignal;
 }
 
-pub type VulkrapApplicationFactory<T> = fn(context: &mut Context, mesh_manager: &mut MeshManager, config: &ConfigVariables) -> T;
+pub type VulkrapApplicationFactory<T> = fn(context: &mut Context, mesh_manager: &mut MeshManager, config: &ConfigVariables, window_extent: WindowExtent) -> T;
 
 pub struct Runtime<T: VulkrapApplication> {
     context: Context,
@@ -41,7 +41,7 @@ impl<T: VulkrapApplication> Runtime<T> {
 
         let hud = Hud::new(&mut context, window_extent, &mut mesh_manager);
 
-        let app = app_factory(&mut context, &mut mesh_manager, &config);
+        let app = app_factory(&mut context, &mut mesh_manager, &config, window_extent);
 
         Runtime {
             context,

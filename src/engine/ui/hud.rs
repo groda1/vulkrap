@@ -2,7 +2,7 @@ use std::path::Path;
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector4};
 
 use crate::engine::console::Console;
-use crate::engine::datatypes::{InstancedCharacter, InstancedQuad, ViewProjectionUniform, WindowExtent};
+use crate::engine::datatypes::{ViewProjectionUniform, WindowExtent};
 
 
 use crate::engine::image;
@@ -26,8 +26,6 @@ pub struct Hud {
 impl Hud {
     pub fn new(context: &mut Context, window_extent: WindowExtent, mesh_manager: &MeshManager) -> Self {
         let vp_uniform = context.create_uniform_buffer::<ViewProjectionUniform>(UniformStage::Vertex);
-        let text_sbo = context.create_storage_buffer::<InstancedCharacter>(500);
-        let quad_sbo = context.create_storage_buffer::<InstancedQuad>(10);
 
         let data = _create_view_projection_uniform(window_extent);
         context.set_buffer_object(vp_uniform, data);

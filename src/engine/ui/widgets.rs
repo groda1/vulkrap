@@ -1,6 +1,6 @@
 use std::path::Path;
 use crate::engine::console::Console;
-use crate::engine::datatypes::{InstancedCharacter, InstancedQuad, Mesh, ModelWoblyPushConstant, PosSizeColor2dPushConstant, TexturedVertex, WindowExtent};
+use crate::engine::datatypes::{InstancedCharacter, InstancedQuad, Mesh, PosSizeColor2dPushConstant, TexturedVertex, WindowExtent};
 use crate::engine::stats;
 use crate::engine::ui::colors::{COLOR_BLACK, COLOR_INPUT_TEXT, COLOR_TEXT, COLOR_TEXT_CVAR, COLOR_TEXT_DEBUG, COLOR_TEXT_ERROR, COLOR_TEXT_INFO, COLOR_TEXT_KHRONOS, COLOR_WHITE};
 use crate::engine::ui::draw::{draw_quad, draw_text, draw_text_shadowed};
@@ -262,9 +262,7 @@ impl ConsoleRenderer {
 pub struct TextOverlayRenderer {
     extent: WindowExtent,
     text_sbo: BufferObjectHandle,
-    quad_sbo: BufferObjectHandle,
     text_pipeline: PipelineHandle,
-    quad_pipeline: PipelineHandle,
     mesh: Mesh,
 
     renderstats_active: bool,
@@ -279,7 +277,6 @@ impl TextOverlayRenderer {
                font_texture: TextureHandle,
                sampler: SamplerHandle) -> Self {
         let text_sbo = context.create_storage_buffer::<InstancedCharacter>(500);
-        let quad_sbo = context.create_storage_buffer::<InstancedQuad>(10);
 
         let text_pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/2d_text_ssbo_vert.spv")))
@@ -290,16 +287,8 @@ impl TextOverlayRenderer {
             .add_texture(1, font_texture, sampler)
             .build();
         let text_pipeline = context.add_pipeline::<TexturedVertex>(SWAPCHAIN_PASS, text_pipeline_config);
-        let quad_pipeline_config = PipelineConfiguration::builder()
-            .with_vertex_shader(file::read_file(Path::new("./resources/shaders/2d_flat_ssbo_vert.spv")))
-            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/2d_flat_ssbo_frag.spv")))
-            .with_vertex_uniform(0, vp_uniform)
-            .with_storage_buffer_object(2, quad_sbo)
-            .with_alpha_blending()
-            .build();
-        let quad_pipeline = context.add_pipeline::<TexturedVertex>(SWAPCHAIN_PASS, quad_pipeline_config);
 
-        TextOverlayRenderer { extent, text_sbo, quad_sbo, text_pipeline, quad_pipeline, mesh, renderstats_active: true, version_active: true }
+        TextOverlayRenderer { extent, text_sbo, text_pipeline, mesh, renderstats_active: true, version_active: true }
     }
 
     pub fn handle_window_resize(&mut self, new_extent: WindowExtent) {
@@ -308,7 +297,6 @@ impl TextOverlayRenderer {
 
     pub fn draw(&mut self, context: &mut Context) {
         context.reset_buffer_object(self.text_sbo);
-        context.reset_buffer_object(self.quad_sbo);
 
         let mut foreground_instance_count = 0;
         if self.renderstats_active {

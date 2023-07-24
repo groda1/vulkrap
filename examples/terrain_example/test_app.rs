@@ -1,13 +1,11 @@
 use std::path::Path;
 
-use cgmath::{Deg, Quaternion, Rotation3, Vector3};
 use winit::event::{ElementState, VirtualKeyCode};
 
 use vulkrap::engine::camera::Camera;
 use vulkrap::engine::cvars::ConfigVariables;
-use vulkrap::engine::datatypes::{ColoredVertex, ModelWoblyPushConstant, MovementFlags, VertexNormal, WindowExtent};
-use vulkrap::engine::entity::WobblyEntity;
-use vulkrap::engine::mesh::{MeshManager, PredefinedMesh};
+use vulkrap::engine::datatypes::{MovementFlags, VertexNormal, WindowExtent};
+use vulkrap::engine::mesh::MeshManager;
 use vulkrap::engine::runtime::{ControlSignal, VulkrapApplication};
 use vulkrap::renderer::context::Context;
 use vulkrap::renderer::types::{PipelineConfiguration, SWAPCHAIN_PASS, UniformHandle, UniformStage, VertexTopology};
@@ -75,24 +73,12 @@ impl VulkrapApplication for TestApp {
 
 
 impl TestApp {
-    pub fn new(context: &mut Context, mesh_manager: &mut MeshManager, config: &ConfigVariables) -> TestApp {
+    pub fn new(context: &mut Context, mesh_manager: &mut MeshManager, config: &ConfigVariables, window_extent: WindowExtent) -> TestApp {
 
         let camera = Camera::new(context, config);
         let flags_uniform = context.create_uniform_buffer::<u32>(UniformStage::Fragment);
 
         context.set_buffer_object(flags_uniform, 0_u32);
-
-        let pipeline_config = PipelineConfiguration::builder()
-            .with_vertex_shader(file::read_file(Path::new(
-                "./resources/shaders/crazy_triangle_vert.spv",
-            )))
-            .with_fragment_shader(file::read_file(Path::new(
-                "./resources/shaders/crazy_triangle_frag.spv",
-            )))
-            .with_push_constant::<ModelWoblyPushConstant>()
-            .with_vertex_uniform(0, camera.get_uniform())
-            .build();
-        let wobbly_pipeline = context.add_pipeline::<ColoredVertex>(SWAPCHAIN_PASS, pipeline_config);
 
         let pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/terrain_vert.spv")))
@@ -103,7 +89,7 @@ impl TestApp {
             .build();
         let terrain_pipeline = context.add_pipeline::<VertexNormal>(SWAPCHAIN_PASS, pipeline_config);
 
-        let scene = Scene::new(context, &mesh_manager, wobbly_pipeline, terrain_pipeline);
+        let scene = Scene::new(context, &mesh_manager, terrain_pipeline);
 
         let mut app = TestApp {
             scene,
@@ -112,8 +98,6 @@ impl TestApp {
             movement: MovementFlags::ZERO,
             draw_wireframe: false,
         };
-
-        app.create_entities(mesh_manager);
 
         app
     }
@@ -124,24 +108,6 @@ impl TestApp {
         context.set_buffer_object(self.flags_uniform, self.draw_wireframe as u32);
     }
 
-    fn create_entities(&mut self, mesh_manager: &MeshManager) {
-        let quad1 = WobblyEntity::new(
-            Vector3::new(0.0, 0.0, -1.0),
-            Quaternion::from_angle_z(Deg(0.0)),
-            *mesh_manager.get_predefined_mesh(PredefinedMesh::ColoredQuad),
-            0.0,
-        );
-
-        let quad2 = WobblyEntity::new(
-            Vector3::new(0.5, 1.0, -2.0),
-            Quaternion::from_angle_z(Deg(0.0)),
-            *mesh_manager.get_predefined_mesh(PredefinedMesh::ColoredTriangle),
-            0.0,
-        );
-
-        self.scene.add_wobbly_entity(quad1);
-        self.scene.add_wobbly_entity(quad2);
-    }
 
 }
 
