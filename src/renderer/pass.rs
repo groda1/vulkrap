@@ -600,7 +600,7 @@ fn create_imagetarget_render_pass(device: &Device, color_format: vk::Format, dep
         store_op: vk::AttachmentStoreOp::STORE,
         stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
         stencil_store_op: vk::AttachmentStoreOp::DONT_CARE,
-        initial_layout: vk::ImageLayout::UNDEFINED,
+        initial_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         final_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     };
 
