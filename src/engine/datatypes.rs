@@ -297,16 +297,20 @@ pub struct PosSizeColor2dPushConstant {
 }
 
 impl PosSizeColor2dPushConstant {
-    pub fn default() -> Self {
+
+
+    pub fn new(position: Vector2<f32>, size: Vector2<f32>, color: Vector4<f32>) -> Self {
+        PosSizeColor2dPushConstant { position, size, color }
+    }
+}
+
+impl Default for PosSizeColor2dPushConstant {
+    fn default() -> Self {
         PosSizeColor2dPushConstant {
             position: Vector2::zero(),
             size: Vector2::zero(),
             color: Vector4::new(1.0, 1.0, 1.0, 1.0)
         }
-    }
-
-    pub fn new(position: Vector2<f32>, size: Vector2<f32>, color: Vector4<f32>) -> Self {
-        PosSizeColor2dPushConstant { position, size, color }
     }
 }
 

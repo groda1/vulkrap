@@ -1,2 +1,2 @@
-pub mod test_app;
+pub mod terrain;
 mod scene;

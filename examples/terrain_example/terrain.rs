@@ -10,7 +10,7 @@ use vulkrap::engine::mesh::PredefinedMesh::TexturedQuad;
 use vulkrap::engine::runtime::{ControlSignal, EngineParameters, VulkrapApplication};
 use vulkrap::engine::ui::widgets::TexturedQuadRenderer;
 use vulkrap::renderer::context::Context;
-use vulkrap::renderer::types::{PipelineConfiguration, SWAPCHAIN_PASS, UniformHandle, UniformStage, VertexTopology};
+use vulkrap::renderer::types::{PipelineConfiguration, UniformHandle, UniformStage, VertexTopology};
 use vulkrap::util::file;
 
 use crate::terrain_example::scene::Scene;
@@ -86,9 +86,10 @@ impl TerrainApp {
 
         context.set_buffer_object(flags_uniform, 0_u32);
 
-        let temp_texture = context.add_render_texture(384, 240);
-        //let temp_texture = context.add_render_texture(3840*2, 2400*2);
-        //let temp_texture = context.add_render_texture(1920, 1200);
+        //let temp_texture = context.add_render_texture(384, 216);
+        let temp_texture = context.add_render_texture(480/2, 270/2);
+        //let temp_texture = context.add_render_texture(1920, 1080);
+
         let sampler = context.add_sampler();
         let pass = context.create_render_pass(temp_texture, 1000).unwrap();
 
@@ -100,29 +101,16 @@ impl TerrainApp {
             .with_vertex_uniform(0, camera.get_uniform())
             .with_fragment_uniform(1, flags_uniform)
             .build();
-        let terrain_pipeline = context.add_pipeline::<VertexNormal>(SWAPCHAIN_PASS, pipeline_config);
+        let terrain_pipeline = context.add_pipeline::<VertexNormal>(pass, pipeline_config);
 
-
-        let pipeline_config = PipelineConfiguration::builder()
-            .with_vertex_shader(file::read_file(Path::new("./resources/shaders/terrain_vert.spv")))
-            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/terrain_frag.spv")))
-            .with_vertex_topology(VertexTopology::TriangeStrip)
-            .with_vertex_uniform(0, camera.get_uniform())
-            .with_fragment_uniform(1, flags_uniform)
-            .build();
-        let terrain_pipeline2 = context.add_pipeline::<VertexNormal>(pass, pipeline_config);
-
-        let scene = Scene::new(context, engine_params.mesh_manager, terrain_pipeline, terrain_pipeline2);
-
-
-
+        let scene = Scene::new(context, engine_params.mesh_manager, terrain_pipeline);
 
         let mesh = *engine_params.mesh_manager.get_predefined_mesh(TexturedQuad);
 
         let mut texture_quad_renderer = TexturedQuadRenderer::new(context, engine_params.hud_vp_uniform, mesh, temp_texture, sampler);
         texture_quad_renderer.set(
             Vector2::new((engine_params.window_extent.width / 2) as f32, (engine_params.window_extent.height / 2)as f32),
-            Vector2::new((engine_params.window_extent.width/2) as f32, (engine_params.window_extent.height/2) as f32),
+            Vector2::new(engine_params.window_extent.width as f32, engine_params.window_extent.height as f32),
             Vector4::new(1.0, 1.0, 1.0, 1.0));
 
         TerrainApp {

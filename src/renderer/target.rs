@@ -1,4 +1,4 @@
-use ash::vk;
+use ash::{Device, vk};
 use ash::vk::SwapchainKHR;
 
 pub enum RenderTarget {
@@ -7,7 +7,7 @@ pub enum RenderTarget {
 }
 
 impl RenderTarget {
-    pub unsafe fn destroy(&mut self, device: &ash::Device) {
+    pub unsafe fn destroy(&mut self, device: &Device) {
         match self {
             RenderTarget::ImageTarget(image) => { image.destroy(device); }
             RenderTarget::SwapchainTarget(swapchain) => { swapchain.destroy(device); }
@@ -23,7 +23,7 @@ impl RenderTarget {
 
     pub fn image_count(&self) -> usize {
         match self {
-            RenderTarget::ImageTarget(_) => { 1 }
+            RenderTarget::ImageTarget(image_target) => { image_target.swapchain_image_count }
             RenderTarget::SwapchainTarget(swapchain) => { swapchain.image_count() }
         }
     }
@@ -36,12 +36,14 @@ impl RenderTarget {
     }
 }
 
+
 pub struct ImageTarget {
     depth_image: vk::Image,
     depth_image_view: vk::ImageView,
     depth_image_memory: vk::DeviceMemory,
 
     framebuffer: vk::Framebuffer,
+    swapchain_image_count: usize,
 }
 
 impl ImageTarget {
@@ -50,16 +52,18 @@ impl ImageTarget {
         depth_image_view: vk::ImageView,
         depth_image_memory: vk::DeviceMemory,
         framebuffer: vk::Framebuffer,
+        swapchain_image_count: usize,
     ) -> Self {
         Self {
             depth_image,
             depth_image_view,
             depth_image_memory,
             framebuffer,
+            swapchain_image_count,
         }
     }
 
-    unsafe fn destroy(&mut self, device: &ash::Device) {
+    unsafe fn destroy(&mut self, device: &Device) {
         // Depth buffer
         device.destroy_image_view(self.depth_image_view, None);
         device.destroy_image(self.depth_image, None);
@@ -68,8 +72,8 @@ impl ImageTarget {
         // Framebuffer
         device.destroy_framebuffer(self.framebuffer, None);
     }
-
 }
+
 
 pub struct SwapchainTarget {
     swapchain_loader: ash::extensions::khr::Swapchain,
@@ -105,7 +109,7 @@ impl SwapchainTarget {
         }
     }
 
-    unsafe fn destroy(&mut self, device: &ash::Device) {
+    unsafe fn destroy(&mut self, device: &Device) {
         // Depth buffer
         device.destroy_image_view(self.depth_image_view, None);
         device.destroy_image(self.depth_image, None);

@@ -32,9 +32,8 @@ impl RenderPass {
         color_format: vk::Format,
         depth_format: vk::Format,
         physical_device_memory_properties: &PhysicalDeviceMemoryProperties,
-
+        swapchain_image_count: usize,
     ) -> Self {
-
         let (depth_image, depth_image_view, depth_image_memory) = image::create_depth_resources(
             device,
             image_extent,
@@ -48,7 +47,7 @@ impl RenderPass {
             Some(image_view),
             Some(depth_image_view),
             image_extent,
-            render_pass
+            render_pass,
         );
 
         let target = ImageTarget::new(
@@ -56,6 +55,7 @@ impl RenderPass {
             depth_image_view,
             depth_image_memory,
             framebuffer,
+            swapchain_image_count,
         );
 
         RenderPass {
@@ -67,8 +67,6 @@ impl RenderPass {
             draw_cmd_buffer: Vec::new(),
             active: true,
         }
-
-
     }
 
     fn new_swapchain_pass(
@@ -78,7 +76,6 @@ impl RenderPass {
         swapchain_container: SwapChainContainer,
         pipelines: Vec<PipelineContainer>,
     ) -> Self {
-
         let (depth_image, depth_image_view, depth_image_memory) = image::create_depth_resources(
             device,
             swapchain_container.extent,
@@ -117,7 +114,7 @@ impl RenderPass {
         }
     }
 
-    pub unsafe fn destroy(&mut self, device: &ash::Device) {
+    pub unsafe fn destroy(&mut self, device: &Device) {
         debug_assert!(self.active);
 
         self.target.destroy(device);
@@ -133,7 +130,7 @@ impl RenderPass {
         self.active = false;
     }
 
-    pub unsafe fn destroy_static_pipeline_objects(&mut self, device: &ash::Device) {
+    pub unsafe fn destroy_static_pipeline_objects(&mut self, device: &Device) {
         for pipeline_container in self.pipelines.iter_mut() {
             pipeline_container.destroy_shaders(device);
             pipeline_container.destroy_descriptor_set_layout(device);
@@ -236,7 +233,7 @@ pub struct RenderPassManager {
 impl RenderPassManager {
     pub fn new(
         instance: &ash::Instance,
-        physical_device: vk::PhysicalDevice
+        physical_device: vk::PhysicalDevice,
     ) -> Self {
         let depth_format = image::find_depth_format(instance, physical_device);
 
@@ -256,13 +253,13 @@ impl RenderPassManager {
                                     image_width: u32,
                                     image_height: u32,
                                     image_format: vk::Format,
-                                    pass_order: u32) -> Result<RenderPassHandle, &str> {
+                                    pass_order: u32,
+                                    swapchain_image_count: usize) -> Result<RenderPassHandle, &str> {
         if self.render_passes.contains_key(&pass_order) {
             return Err("a render pass with same order already exists!");
         }
 
         let handle = pass_order;
-
         let extent = Extent2D { width: image_width, height: image_height };
 
         let render_pass = RenderPass::new_image_render_pass(handle,
@@ -271,7 +268,8 @@ impl RenderPassManager {
                                                             extent,
                                                             image_format,
                                                             self.depth_format,
-                                                            physical_device_memory_properties);
+                                                            physical_device_memory_properties,
+                                                            swapchain_image_count);
 
         self.render_passes.insert(handle, render_pass);
 
@@ -308,21 +306,24 @@ impl RenderPassManager {
         self.swapchain_pass = Some(swapchain_pass);
     }
 
-    pub unsafe fn destroy_swapchain(&mut self, device: &Device) {
+    pub unsafe fn destroy_passes(&mut self, device: &Device) {
         debug_assert!(self.swapchain_pass.is_some());
 
         self.swapchain_pass.as_mut().unwrap().destroy(device);
+
+        for pass in self.render_passes.values_mut() {
+            pass.destroy(device);
+        }
     }
 
     pub unsafe fn destroy_static_pipeline_objects(&mut self, device: &Device) {
         debug_assert!(self.swapchain_pass.is_some());
 
-        self.swapchain_pass
-            .as_mut()
-            .unwrap()
-            .destroy_static_pipeline_objects(device);
+        self.swapchain_pass.as_mut().unwrap().destroy_static_pipeline_objects(device);
 
-        // TODO should be done for all render passes
+        for pass in self.render_passes.values_mut() {
+            pass.destroy_static_pipeline_objects(device);
+        }
     }
 
     pub fn swapchain_target(&self) -> &SwapchainTarget {
@@ -338,7 +339,7 @@ impl RenderPassManager {
         self.swapchain_pass.as_mut().unwrap()
     }
 
-    pub fn swapchain_extent(&self) -> vk::Extent2D {
+    pub fn swapchain_extent(&self) -> Extent2D {
         debug_assert!(self.swapchain_pass.is_some());
 
         self.swapchain_pass.as_ref().unwrap().extent
@@ -457,7 +458,6 @@ impl RenderPassManager {
         pipeline_handle: PipelineHandle,
         render_pass_handle: RenderPassHandle,
     ) {
-
         if render_pass_handle == SWAPCHAIN_PASS {
             debug_assert!(self.swapchain_pass.is_some());
 
@@ -479,7 +479,7 @@ impl RenderPassManager {
 
         // TODO: use render pass order
         for pass in self.render_passes.values() {
-            pass.bake_command_buffer(device, command_buffer, 0, render_stats);
+            pass.bake_command_buffer(device, command_buffer, image_index, render_stats);
         }
 
         debug_assert!(self.swapchain_pass.is_some());

@@ -28,6 +28,12 @@ pub struct Console {
     caret_delta: f32,
 }
 
+impl Default for Console {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Console {
     pub const TOGGLE_BUTTON: VirtualKeyCode = VirtualKeyCode::F1;
 

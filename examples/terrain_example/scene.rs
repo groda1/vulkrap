@@ -14,16 +14,15 @@ impl Scene {
         context: &mut Context,
         _mesh_manager: &MeshManager,
         terrain_pipeline: PipelineHandle,
-        terrain_pipeline2: PipelineHandle,
     ) -> Scene {
 
 
         Scene {
-            terrain: Terrain::new(context, terrain_pipeline, terrain_pipeline2),
+            terrain: Terrain::new(context, terrain_pipeline),
         }
     }
 
-    pub fn update(&mut self, delta_time_s: f32) {
+    pub fn update(&mut self, _delta_time_s: f32) {
     }
 
     pub fn draw(&mut self, context: &mut Context) {

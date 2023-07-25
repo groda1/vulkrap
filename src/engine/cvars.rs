@@ -21,6 +21,12 @@ pub struct ConfigVariables {
     dirty: bool,
 }
 
+impl Default for ConfigVariables {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConfigVariables {
     pub fn new() -> Self {
         let mut id_to_cvar = HashMap::new();

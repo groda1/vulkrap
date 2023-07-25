@@ -1,6 +1,6 @@
 
 use vulkrap::vulkrap_start;
-use crate::terrain_example::test_app::TerrainApp;
+use crate::terrain_example::terrain::TerrainApp;
 
 
 const WINDOW_TITLE: &str = "terrain test";
