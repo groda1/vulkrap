@@ -112,14 +112,14 @@ pub fn create_colorattachment_image(
 
 pub fn create_depth_resources(
     device: &ash::Device,
-    swapchain_extent: vk::Extent2D,
+    image_extent: vk::Extent2D,
     device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
     depth_format: vk::Format,
 ) -> (vk::Image, vk::ImageView, vk::DeviceMemory) {
     let (depth_image, depth_image_memory) = create_image(
         device,
-        swapchain_extent.width,
-        swapchain_extent.height,
+        image_extent.width,
+        image_extent.height,
         1,
         vk::SampleCountFlags::TYPE_1,
         depth_format,
@@ -379,8 +379,13 @@ fn transition_image_layout(
         dst_access_mask = vk::AccessFlags::SHADER_READ;
         source_stage = vk::PipelineStageFlags::TRANSFER;
         destination_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
+    } else if old_layout == vk::ImageLayout::UNDEFINED && new_layout == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL {
+        src_access_mask = vk::AccessFlags::empty();
+        dst_access_mask = vk::AccessFlags::SHADER_READ;
+        source_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
+        destination_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
     } else {
-        panic!("Unsupported layout transition!")
+        unreachable!("Unsupported layout transition! {:?}- > {:?}", old_layout, new_layout)
     }
 
     let image_barriers = [vk::ImageMemoryBarrier {

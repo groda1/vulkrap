@@ -262,6 +262,7 @@ impl BufferObject {
 
         for buf in self.device_buffer.iter() {
             memory_manager.destroy_buffer(device, *buf);
+            println!("DESTROYING buffer {:?}", buf);
         }
         self.device_buffer.clear();
     }

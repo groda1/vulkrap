@@ -15,7 +15,7 @@ use vulkrap::util::file;
 
 use crate::terrain_example::scene::Scene;
 
-pub struct TestApp {
+pub struct TerrainApp {
     scene: Scene,
     camera: Camera,
 
@@ -28,7 +28,7 @@ pub struct TestApp {
 }
 
 
-impl VulkrapApplication for TestApp {
+impl VulkrapApplication for TerrainApp {
 
     fn update(&mut self, context: &mut Context, delta_time_s: f32) {
         self.camera.update(context, self.movement, delta_time_s);
@@ -78,13 +78,19 @@ impl VulkrapApplication for TestApp {
 }
 
 
-impl TestApp {
-    pub fn new(context: &mut Context, engine_params: EngineParameters) -> TestApp {
+impl TerrainApp {
+    pub fn new(context: &mut Context, engine_params: EngineParameters) -> TerrainApp {
 
         let camera = Camera::new(context, engine_params.config);
         let flags_uniform = context.create_uniform_buffer::<u32>(UniformStage::Fragment);
 
         context.set_buffer_object(flags_uniform, 0_u32);
+
+        let temp_texture = context.add_render_texture(384, 240);
+        //let temp_texture = context.add_render_texture(3840*2, 2400*2);
+        //let temp_texture = context.add_render_texture(1920, 1200);
+        let sampler = context.add_sampler();
+        let pass = context.create_render_pass(temp_texture, 1000).unwrap();
 
         // TODO: move all this shit to the scene
         let pipeline_config = PipelineConfiguration::builder()
@@ -96,19 +102,30 @@ impl TestApp {
             .build();
         let terrain_pipeline = context.add_pipeline::<VertexNormal>(SWAPCHAIN_PASS, pipeline_config);
 
-        let scene = Scene::new(context, engine_params.mesh_manager, terrain_pipeline);
 
-        //let temp_image = image::load_image(Path::new("./resources/textures/test.png"));
-        //let temp_texture = context.add_texture(temp_image.width, temp_image.height, &temp_image.data);
-        let temp_texture = context.add_render_texture(512, 512);
-        let sampler = context.add_sampler();
+        let pipeline_config = PipelineConfiguration::builder()
+            .with_vertex_shader(file::read_file(Path::new("./resources/shaders/terrain_vert.spv")))
+            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/terrain_frag.spv")))
+            .with_vertex_topology(VertexTopology::TriangeStrip)
+            .with_vertex_uniform(0, camera.get_uniform())
+            .with_fragment_uniform(1, flags_uniform)
+            .build();
+        let terrain_pipeline2 = context.add_pipeline::<VertexNormal>(pass, pipeline_config);
+
+        let scene = Scene::new(context, engine_params.mesh_manager, terrain_pipeline, terrain_pipeline2);
+
+
+
 
         let mesh = *engine_params.mesh_manager.get_predefined_mesh(TexturedQuad);
 
         let mut texture_quad_renderer = TexturedQuadRenderer::new(context, engine_params.hud_vp_uniform, mesh, temp_texture, sampler);
-        texture_quad_renderer.set(Vector2::new(768.0, 386.0), Vector2::new(256.0, 256.0), Vector4::new(1.0, 1.0, 1.0, 1.0));
+        texture_quad_renderer.set(
+            Vector2::new((engine_params.window_extent.width / 2) as f32, (engine_params.window_extent.height / 2)as f32),
+            Vector2::new((engine_params.window_extent.width/2) as f32, (engine_params.window_extent.height/2) as f32),
+            Vector4::new(1.0, 1.0, 1.0, 1.0));
 
-        let mut app = TestApp {
+        TerrainApp {
             scene,
             camera,
 
@@ -117,9 +134,7 @@ impl TestApp {
             flags_uniform,
             movement: MovementFlags::ZERO,
             draw_wireframe: false,
-        };
-
-        app
+        }
     }
 
     fn toggle_wireframe(&mut self, context: &mut Context) {

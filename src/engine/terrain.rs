@@ -21,12 +21,13 @@ pub struct _OctreeTerrainNode {
 
 pub struct Terrain {
     pipeline: PipelineHandle,
+    pipeline2: PipelineHandle,
 
     chunk: VertexData,
 }
 
 impl Terrain {
-    pub fn new(context: &mut Context, pipeline: PipelineHandle) -> Self {
+    pub fn new(context: &mut Context, pipeline: PipelineHandle, pipeline2: PipelineHandle) -> Self {
         let quad_width = 256;
         let quad_height = quad_width;
 
@@ -44,7 +45,7 @@ impl Terrain {
         let index_buffer = context.create_static_index_buffer_sync(&chunk_data.indices);
 
         Terrain {
-            pipeline,
+            pipeline, pipeline2,
             chunk: VertexData::new(vertex_buffer, index_buffer, chunk_data.indices.len() as u32),
         }
     }
@@ -52,6 +53,13 @@ impl Terrain {
     pub fn draw(&self, context: &mut Context) {
         context.add_draw_command(DrawCommand::new_buffered(
             self.pipeline,
+            ptr::null(),
+            self.chunk,
+            1,
+            0,
+        ));
+        context.add_draw_command(DrawCommand::new_buffered(
+            self.pipeline2,
             ptr::null(),
             self.chunk,
             1,

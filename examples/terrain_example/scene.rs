@@ -14,11 +14,12 @@ impl Scene {
         context: &mut Context,
         _mesh_manager: &MeshManager,
         terrain_pipeline: PipelineHandle,
+        terrain_pipeline2: PipelineHandle,
     ) -> Scene {
 
 
         Scene {
-            terrain: Terrain::new(context, terrain_pipeline),
+            terrain: Terrain::new(context, terrain_pipeline, terrain_pipeline2),
         }
     }
 

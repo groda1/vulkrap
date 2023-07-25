@@ -40,6 +40,8 @@ impl MemoryManager {
             vertices,
         );
 
+        println!("ALLOCATING BUF: {:?}", buffer);
+
         self.buffer_to_chunk_map.insert(buffer, device_memory);
 
         buffer

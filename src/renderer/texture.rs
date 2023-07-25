@@ -7,6 +7,10 @@ struct Texture {
     image: Image,
     image_memory: DeviceMemory,
     image_view: ImageView,
+
+    width: u32,
+    height: u32,
+    format: vk::Format,
 }
 
 pub struct TextureManager {
@@ -38,13 +42,22 @@ impl TextureManager {
         }
     }
 
-    pub fn add_texture(&mut self, image: Image, image_memory: DeviceMemory, image_view: ImageView) -> TextureHandle {
+    pub fn add_texture(&mut self,
+                       image: Image,
+                       image_memory: DeviceMemory,
+                       image_view: ImageView,
+                       width: u32,
+                       height: u32,
+                       format: vk::Format) -> TextureHandle {
         let handle = self.textures.len();
 
         let texture = Texture {
             image,
             image_memory,
             image_view,
+            width,
+            height,
+            format
         };
         self.textures.push(texture);
 
@@ -61,10 +74,28 @@ impl TextureManager {
     }
 
     pub fn get_imageview(&self, texture: TextureHandle) -> ImageView {
+        debug_assert!(self.textures.len() > texture);
+
         self.textures[texture].image_view
     }
 
+    pub fn get_extent(&self, texture: TextureHandle) -> (u32, u32) {
+        debug_assert!(self.textures.len() > texture);
+
+        let texture = &self.textures[texture];
+
+        (texture.width, texture.height)
+    }
+
+    pub fn get_format(&self, texture: TextureHandle) -> vk::Format {
+        debug_assert!(self.textures.len() > texture);
+
+        self.textures[texture].format
+    }
+
     pub fn get_sampler(&self, sampler: SamplerHandle) -> Sampler {
+        debug_assert!(self.samplers.len() > sampler);
+
         self.samplers[sampler]
     }
 }

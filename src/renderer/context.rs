@@ -128,11 +128,9 @@ impl Context {
 
         let image_count = swapchain_container.image_views.len();
 
-        let mut render_pass_handler = RenderPassManager::new();
+        let mut render_pass_handler = RenderPassManager::new(&instance, physical_device);
         render_pass_handler.create_swapchain_pass(
             &logical_device,
-            &instance,
-            physical_device,
             &physical_device_memory_properties,
             swapchain_container,
         );
@@ -297,18 +295,15 @@ impl Context {
             };
             if is_resized {
                 self.is_framebuffer_resized = false;
-                self.recreate_swapchain();
+
+                // TODO bleeeeh!!"3klj23kjlawjkasdjkl
+                //self.recreate_swapchain();
             }
         }
 
         self.sync_handler.step();
 
         stats
-    }
-
-
-    pub fn create_render_pass() -> RenderPassHandle {
-        0
     }
 
     pub fn create_static_vertex_buffer_sync<T: VertexInputDescription>(&mut self, vertices: &[T]) -> vk::Buffer {
@@ -335,7 +330,6 @@ impl Context {
         )
     }
 
-    #[allow(dead_code)]
     pub fn create_vertex_buffer<T>(&mut self) -> BufferObjectHandle {
         self.buffer_object_manager.create_buffer::<T>(
             &self.logical_device,
@@ -366,15 +360,17 @@ impl Context {
             image_height,
             image_data,
         );
+
+        let format = vk::Format::R8G8B8A8_SRGB;
         let image_view = image::create_image_view(
             &self.logical_device,
             image,
-            vk::Format::R8G8B8A8_SRGB,
+            format,
             vk::ImageAspectFlags::COLOR,
             1,
         );
 
-        self.texture_manager.add_texture(image, image_memory, image_view)
+        self.texture_manager.add_texture(image, image_memory, image_view, image_width, image_height, format)
     }
 
     pub fn add_render_texture(&mut self, image_width: u32, image_height: u32) -> TextureHandle {
@@ -387,15 +383,16 @@ impl Context {
             image_height
         );
 
+        let format = vk::Format::R8G8B8A8_SRGB;
         let image_view = image::create_image_view(
             &self.logical_device,
             image,
-            vk::Format::R8G8B8A8_SRGB,
+            format,
             vk::ImageAspectFlags::COLOR,
             1,
         );
 
-        self.texture_manager.add_texture(image, image_memory, image_view)
+        self.texture_manager.add_texture(image, image_memory, image_view, image_width, image_height, format)
     }
 
 
@@ -414,6 +411,27 @@ impl Context {
             &self.texture_manager,
             config,
             render_pass,
+        )
+    }
+
+    pub fn create_render_pass(
+        &mut self,
+        target_texture: TextureHandle,
+        pass_order: u32,
+    ) -> Result<RenderPassHandle, &str> {
+
+        let image_view = self.texture_manager.get_imageview(target_texture);
+        let (width, height) = self.texture_manager.get_extent(target_texture);
+        let format = self.texture_manager.get_format(target_texture);
+
+        self.render_pass_manager.create_image_target_pass(
+            &self.logical_device,
+            &self.physical_device_memory_properties,
+            image_view,
+            width,
+            height,
+            format,
+            pass_order,
         )
     }
 
@@ -467,8 +485,6 @@ impl Context {
 
         self.render_pass_manager.create_swapchain_pass(
             &self.logical_device,
-            &self.instance,
-            self.physical_device,
             &self.physical_device_memory_properties,
             swapchain_container,
         );

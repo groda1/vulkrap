@@ -37,11 +37,6 @@ impl RenderTarget {
 }
 
 pub struct ImageTarget {
-    /* TODO: I dont think we need to keep any of this as all this will is owned by the texture manager */
-    color_image: vk::Image,
-    color_image_view: vk::ImageView,
-    color_image_memory: vk::DeviceMemory,
-
     depth_image: vk::Image,
     depth_image_view: vk::ImageView,
     depth_image_memory: vk::DeviceMemory,
@@ -50,9 +45,30 @@ pub struct ImageTarget {
 }
 
 impl ImageTarget {
-    pub unsafe fn destroy(&mut self, device: &ash::Device) {
-        unimplemented!()
+    pub fn new(
+        depth_image: vk::Image,
+        depth_image_view: vk::ImageView,
+        depth_image_memory: vk::DeviceMemory,
+        framebuffer: vk::Framebuffer,
+    ) -> Self {
+        Self {
+            depth_image,
+            depth_image_view,
+            depth_image_memory,
+            framebuffer,
+        }
     }
+
+    unsafe fn destroy(&mut self, device: &ash::Device) {
+        // Depth buffer
+        device.destroy_image_view(self.depth_image_view, None);
+        device.destroy_image(self.depth_image, None);
+        device.free_memory(self.depth_image_memory, None);
+
+        // Framebuffer
+        device.destroy_framebuffer(self.framebuffer, None);
+    }
+
 }
 
 pub struct SwapchainTarget {

@@ -438,6 +438,8 @@ impl PipelineContainer {
             let mut descriptor_image_infos = Vec::new();
 
             if let Some(cfg) = self.vertex_uniform_cfg {
+                println!("VertexUniform {:?}", self.vertex_uniform_buffers[i]);
+
                 vertex_descriptor_buffer_infos.push(vk::DescriptorBufferInfo {
                     buffer: self.vertex_uniform_buffers[i],
                     offset: 0,
@@ -455,6 +457,7 @@ impl PipelineContainer {
             }
 
             if let Some(cfg) = self.storage_buffer_cfg {
+                println!("StorageBuffer {:?}", self.storage_buffers[i]);
                 storage_descriptor_buffer_infos.push(vk::DescriptorBufferInfo {
                     buffer: self.storage_buffers[i],
                     offset: 0,
@@ -472,6 +475,7 @@ impl PipelineContainer {
             }
 
             if let Some(cfg) = self.fragment_uniform_cfg {
+                println!("FragmentUniform {:?}", self.fragment_uniform_buffers[i]);
                 fragment_descriptor_buffer_infos.push(vk::DescriptorBufferInfo {
                     buffer: self.fragment_uniform_buffers[i],
                     offset: 0,

@@ -1,9 +1,9 @@
 Renderer:
 
     [ ] Render pass should not be specified by the user. Just make a target-method in the pipeline builder. If target is set then that is pass, otherwise its SWAPCHAIN_PASS
+    [ ] Render to texture. Support for multiple renderpasses.
     [ ] Pipelines can only have one uniform per stage. Fix!
     [ ] Pipelines can only have one storage buffer, and its hardcoded to be assigned to the vertex shader. Fix!
-    [ ] Render to texture. Support for multiple renderpasses.
     [ ] Pipeline creation parameter passing makes no sense. Most params are in the config, vertex shader input is generic and renderpass comes as add pipeline parameter. All should be in the config.
     [ ] Texture mipmaps
     [ ] Memory handling for images is weird. Handled by image.rs instead of the memory manager. fix!
