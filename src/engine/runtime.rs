@@ -49,7 +49,7 @@ impl<T: VulkrapApplication> Runtime<T> {
         let (window_width, window_height) = context.get_framebuffer_extent();
         let window_extent = WindowExtent::new(window_width, window_height);
 
-        let hud = Hud::new(&mut context, window_extent, &mut mesh_manager);
+        let hud = Hud::new(&mut context, window_extent, &mesh_manager);
 
         let engine_params = EngineParameters {
             mesh_manager: &mut mesh_manager,

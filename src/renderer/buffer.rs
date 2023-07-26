@@ -4,7 +4,7 @@ use std::time::Instant;
 use ash::vk;
 
 use crate::renderer::memory::MemoryManager;
-use crate::renderer::pipeline::PipelineContainer;
+use crate::renderer::pass::RenderPassManager;
 use crate::renderer::rawarray::{PushError, RawArray, RawArrayPtr};
 use crate::renderer::stats::RenderStats;
 use crate::renderer::types::{BufferObjectHandle, PipelineHandle, UniformStage};
@@ -66,19 +66,20 @@ impl BufferObjectManager {
         }
     }
 
-    pub fn reassign_pipeline_buffers(&self, pipelines: &mut Vec<PipelineContainer>) {
+    pub fn reassign_pipeline_buffers(&self, render_pass_manager: &mut RenderPassManager) {
         for buffer_object in self.buffer_objects.iter() {
             if let BufferObjectType::Uniform(stage) = buffer_object.buffer_object_type {
                 for pipeline in buffer_object.assigned_pipelines.iter() {
-                    pipelines[pipeline.index()].set_uniform_buffers(stage, buffer_object.devices());
+                    render_pass_manager.borrow_pipeline_mut(*pipeline).set_uniform_buffers(stage, buffer_object.devices());
                 }
             } else if let BufferObjectType::Storage = buffer_object.buffer_object_type {
                 for pipeline in buffer_object.assigned_pipelines.iter() {
-                    pipelines[pipeline.index()].set_storage_buffers(buffer_object.devices());
+                    render_pass_manager.borrow_pipeline_mut(*pipeline).set_storage_buffers(buffer_object.devices());
                 }
             }
         }
     }
+
 
     pub fn assign_pipeline(&mut self, bo_handle: BufferObjectHandle, pipeline_handle: PipelineHandle) {
         debug_assert!(self.buffer_objects.len() > bo_handle);
@@ -262,7 +263,7 @@ impl BufferObject {
 
         for buf in self.device_buffer.iter() {
             memory_manager.destroy_buffer(device, *buf);
-            println!("DESTROYING buffer {:?}", buf);
+            log_debug!("Destroying buffer {:?}", buf);
         }
         self.device_buffer.clear();
     }

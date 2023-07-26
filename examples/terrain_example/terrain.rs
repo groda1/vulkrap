@@ -29,7 +29,6 @@ pub struct TerrainApp {
 
 
 impl VulkrapApplication for TerrainApp {
-
     fn update(&mut self, context: &mut Context, delta_time_s: f32) {
         self.camera.update(context, self.movement, delta_time_s);
         self.scene.update(delta_time_s);
@@ -49,12 +48,14 @@ impl VulkrapApplication for TerrainApp {
         self.camera.update_yaw_pitch(x_delta as f32, y_delta as f32);
     }
 
-    fn handle_window_resize(&mut self, _context: &mut Context, _new_size: WindowExtent) {
-
+    fn handle_window_resize(&mut self, _context: &mut Context, new_size: WindowExtent) {
+        self.texture_quad_renderer.set(
+            Vector2::new((new_size.width / 2) as f32, (new_size.height / 2) as f32),
+            Vector2::new(new_size.width as f32, new_size.height as f32),
+            Vector4::new(1.0, 1.0, 1.0, 1.0));
     }
 
     fn handle_keyboard_event(&mut self, context: &mut Context, key: VirtualKeyCode, state: ElementState) -> ControlSignal {
-
         match (key, state) {
             (VirtualKeyCode::W, ElementState::Pressed) => self.movement.insert(MovementFlags::FORWARD),
             (VirtualKeyCode::W, ElementState::Released) => self.movement.remove(MovementFlags::FORWARD),
@@ -80,14 +81,13 @@ impl VulkrapApplication for TerrainApp {
 
 impl TerrainApp {
     pub fn new(context: &mut Context, engine_params: EngineParameters) -> TerrainApp {
-
         let camera = Camera::new(context, engine_params.config);
         let flags_uniform = context.create_uniform_buffer::<u32>(UniformStage::Fragment);
 
         context.set_buffer_object(flags_uniform, 0_u32);
 
-        //let temp_texture = context.add_render_texture(384, 216);
-        let temp_texture = context.add_render_texture(480/2, 270/2);
+        let temp_texture = context.add_render_texture(384, 216);
+        //let temp_texture = context.add_render_texture(480, 270);
         //let temp_texture = context.add_render_texture(1920, 1080);
 
         let sampler = context.add_sampler();
@@ -109,7 +109,7 @@ impl TerrainApp {
 
         let mut texture_quad_renderer = TexturedQuadRenderer::new(context, engine_params.hud_vp_uniform, mesh, temp_texture, sampler);
         texture_quad_renderer.set(
-            Vector2::new((engine_params.window_extent.width / 2) as f32, (engine_params.window_extent.height / 2)as f32),
+            Vector2::new((engine_params.window_extent.width / 2) as f32, (engine_params.window_extent.height / 2) as f32),
             Vector2::new(engine_params.window_extent.width as f32, engine_params.window_extent.height as f32),
             Vector4::new(1.0, 1.0, 1.0, 1.0));
 
@@ -130,8 +130,6 @@ impl TerrainApp {
 
         context.set_buffer_object(self.flags_uniform, self.draw_wireframe as u32);
     }
-
-
 }
 
 

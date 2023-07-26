@@ -10,7 +10,6 @@ pub struct Logger {
     history: Vec<LogMessage>,
 }
 
-#[allow(dead_code)]
 impl Logger {
     pub fn new() -> Logger {
         Logger {
@@ -38,6 +37,12 @@ impl Logger {
         let start_offset = if start >= scroll { start - scroll } else { 0 };
 
         &self.history[start_offset..end]
+    }
+}
+
+impl Default for Logger {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

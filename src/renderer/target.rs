@@ -72,6 +72,10 @@ impl ImageTarget {
         // Framebuffer
         device.destroy_framebuffer(self.framebuffer, None);
     }
+
+    pub fn set_image_count(&mut self, swapchain_image_count: usize) {
+        self.swapchain_image_count = swapchain_image_count;
+    }
 }
 
 

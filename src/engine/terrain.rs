@@ -9,6 +9,7 @@ use crate::renderer::types::{DrawCommand, VertexData, PipelineHandle};
 
 const QUAD_SIZE: f32 = 1.0;
 
+#[allow(dead_code)]
 pub struct _OctreeTerrainNode {
     size: f32, // quad_width_count * (adjusted for LOD QUAD_SIZE)
     center_point: Vector3<f32>,

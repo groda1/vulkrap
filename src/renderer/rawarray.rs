@@ -68,6 +68,10 @@ impl RawArray {
         self.write_index
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.write_index == 0
+    }
+
     pub fn len_bytes(&self) -> usize {
         self.write_index * self.data_size
     }

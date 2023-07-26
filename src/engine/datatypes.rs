@@ -266,8 +266,10 @@ impl ModelWoblyPushConstant {
             wobble,
         }
     }
+}
 
-    pub fn default() -> Self {
+impl Default for ModelWoblyPushConstant {
+    fn default() -> Self {
         Self {
             model_transform: Matrix4::identity(),
             wobble: 0.0,

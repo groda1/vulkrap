@@ -130,6 +130,12 @@ impl RenderPass {
         self.active = false;
     }
 
+    pub unsafe fn destroy_pipelines(&mut self, device: &Device) {
+        for pipeline_container in self.pipelines.iter_mut() {
+            pipeline_container.destroy_pipeline(device);
+        }
+    }
+
     pub unsafe fn destroy_static_pipeline_objects(&mut self, device: &Device) {
         for pipeline_container in self.pipelines.iter_mut() {
             pipeline_container.destroy_shaders(device);
@@ -306,11 +312,29 @@ impl RenderPassManager {
         self.swapchain_pass = Some(swapchain_pass);
     }
 
-    pub unsafe fn destroy_passes(&mut self, device: &Device) {
+    pub fn rebuild_image_target_pipelines(&mut self, device: &Device, swapchain_image_count: usize) {
+        for pass in self.render_passes.values_mut() {
+            if let RenderTarget::ImageTarget(target) = &mut pass.target {
+                target.set_image_count(swapchain_image_count)
+            } else {
+                unreachable!("BUG! Render target of a image pass must be an ImageTarget");
+            }
+            pass.rebuild_all_pipelines(device);
+        }
+    }
+
+    pub unsafe  fn destroy_image_pass_pipelines(&mut self, device: &Device) {
+        for pass in self.render_passes.values_mut() {
+            pass.destroy_pipelines(device);
+        }
+    }
+
+    pub unsafe fn destroy_swapchain_pass(&mut self, device: &Device) {
         debug_assert!(self.swapchain_pass.is_some());
-
         self.swapchain_pass.as_mut().unwrap().destroy(device);
+    }
 
+    pub unsafe fn destroy_all(&mut self, device: &Device) {
         for pass in self.render_passes.values_mut() {
             pass.destroy(device);
         }
@@ -326,6 +350,10 @@ impl RenderPassManager {
         }
     }
 
+    pub fn remove_pass(&mut self, _handle: RenderPassHandle) {
+        unimplemented!()
+    }
+
     pub fn swapchain_target(&self) -> &SwapchainTarget {
         debug_assert!(self.swapchain_pass.is_some());
 
@@ -337,6 +365,15 @@ impl RenderPassManager {
         debug_assert!(self.swapchain_pass.is_some());
 
         self.swapchain_pass.as_mut().unwrap()
+    }
+
+    pub fn borrow_pipeline_mut(&mut self, handle: PipelineHandle) -> &mut PipelineContainer {
+        if handle.render_pass == SWAPCHAIN_PASS {
+            debug_assert!(self.swapchain_pass.is_some());
+            &mut self.swapchain_pass.as_mut().unwrap().pipelines[handle.index()]
+        } else {
+            &mut self.render_passes.get_mut(&handle.render_pass).unwrap().pipelines[handle.index()]
+        }
     }
 
     pub fn swapchain_extent(&self) -> Extent2D {

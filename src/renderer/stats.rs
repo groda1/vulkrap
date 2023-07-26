@@ -24,6 +24,12 @@ impl RenderStats {
     }
 }
 
+impl Default for RenderStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct DrawCommandStats {
     pub triangle_count: u32,
 }

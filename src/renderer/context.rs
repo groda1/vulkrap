@@ -437,6 +437,11 @@ impl Context {
         )
     }
 
+    pub fn remove_render_pass(&mut self, pass: RenderPassHandle) {
+        unsafe { self.wait_idle() }
+        self.render_pass_manager.remove_pass(pass);
+    }
+
     pub unsafe fn wait_idle(&self) {
         self.logical_device
             .device_wait_idle()
@@ -445,8 +450,10 @@ impl Context {
 
     fn destroy_swapchain(&mut self) {
         unsafe {
-            // All render passes, its images and pipelines
-            self.render_pass_manager.destroy_passes(&self.logical_device);
+            // Destroy swapchain and all its images and pipelines
+            self.render_pass_manager.destroy_swapchain_pass(&self.logical_device);
+            // Destroy only the pipelines of the image render passes, as that is all that needs to rebuilt when recreating the swapchain
+            self.render_pass_manager.destroy_image_pass_pipelines(&self.logical_device);
 
             self.logical_device
                 .free_command_buffers(self.command_pool, &self.draw_command_buffers);
@@ -483,8 +490,9 @@ impl Context {
         self.buffer_object_manager
             .rebuild(&self.logical_device, &mut self.memory_manager, image_count);
         self.buffer_object_manager
-            .reassign_pipeline_buffers(self.render_pass_manager.swapchain_pass_mut().pipelines_mut());
+            .reassign_pipeline_buffers(&mut self.render_pass_manager);
 
+        self.render_pass_manager.rebuild_image_target_pipelines(&self.logical_device, image_count);
         self.render_pass_manager.create_swapchain_pass(
             &self.logical_device,
             &self.physical_device_memory_properties,
@@ -618,6 +626,9 @@ impl Drop for Context {
 
             // Swapchain
             self.destroy_swapchain();
+
+            // All render passes
+            self.render_pass_manager.destroy_all(&self.logical_device);
 
             // Buffers and memory
             self.memory_manager.destroy(&self.logical_device);
