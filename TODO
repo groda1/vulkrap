@@ -1,6 +1,5 @@
 Renderer:
 
-    [ ] Render pass should not be specified by the user. Just make a target-method in the pipeline builder. If target is set then that is pass, otherwise its SWAPCHAIN_PASS
     [ ] Render to texture. Support for multiple renderpasses.
     [ ] Pipelines can only have one uniform per stage. Fix!
     [ ] Pipelines can only have one storage buffer, and its hardcoded to be assigned to the vertex shader. Fix!
@@ -26,6 +25,7 @@ Renderer:
     [x] Recreating swapchain should possibly recreate uniform buffers as the number of images could change.
 
 Engine:
+    [ ] replace build shaders script with shaderc crate and some build.rs code
     [ ] read and save config file
     [ ] Include shaders in binary
     [x] changing window size cvars should resize the window

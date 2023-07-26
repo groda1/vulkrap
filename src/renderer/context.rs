@@ -31,7 +31,6 @@ use crate::renderer::types::{SamplerHandle, TextureHandle};
 use crate::renderer::types::{VertexInputDescription, SWAPCHAIN_PASS};
 use ash::extensions::ext::DebugUtils;
 use std::time::Instant;
-use crate::renderer::target::RenderTarget;
 
 pub struct Context {
     _entry: ash::Entry,
@@ -299,7 +298,7 @@ impl Context {
 
                 // TODO bleeeeh!!"3klj23kjlawjkasdjkl
                 // TODO pipelines need to rebuilt with the new buffer objects for image target render passes
-                //self.recreate_swapchain();
+                self.recreate_swapchain();
             }
         }
 
