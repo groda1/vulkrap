@@ -7,7 +7,7 @@ use crate::engine::ui::draw::{draw_quad, draw_text, draw_text_shadowed};
 use crate::log::logger;
 use crate::log::logger::{MessageLevel};
 use crate::renderer::context::Context;
-use crate::renderer::types::{BufferObjectHandle, DrawCommand, PipelineConfiguration, PipelineHandle, SamplerHandle, SWAPCHAIN_PASS, TextureHandle, UniformHandle};
+use crate::renderer::types::{BufferObjectHandle, DrawCommand, PipelineConfiguration, PipelineHandle, RenderPassHandle, SamplerHandle, SWAPCHAIN_PASS, TextureHandle, UniformHandle};
 use crate::ENGINE_VERSION;
 
 use cgmath::{Vector2, Vector4};
@@ -64,17 +64,67 @@ impl TexturedQuadRenderer {
 
 
 pub struct TextRenderer {
-    text: String,
+    pipeline: PipelineHandle,
+    sbo: BufferObjectHandle,
+    mesh: Mesh,
+
+    position: Vector2<u32>,
+    size: u32,
+    color: Vector4<f32>,
 }
 
 impl TextRenderer {
-    pub fn new(text: String) -> Self {
+    pub fn new(
+        context: &mut Context,
+        render_pass: RenderPassHandle,
+        vp_uniform: BufferObjectHandle,
+        mesh: Mesh,
+        font_texture: TextureHandle,
+        sampler: SamplerHandle) -> Self {
+        let text_sbo = context.create_storage_buffer::<InstancedCharacter>(10);
+
+        let text_pipeline_config = PipelineConfiguration::builder()
+            .with_vertex_shader(file::read_file(Path::new("./resources/shaders/2d_text_ssbo_vert.spv")))
+            .with_fragment_shader(file::read_file(Path::new("./resources/shaders/2d_texture_ssbo_frag.spv")))
+            .with_vertex_uniform(0, vp_uniform)
+            .with_storage_buffer_object(2, text_sbo)
+            .with_alpha_blending()
+            .add_texture(1, font_texture, sampler)
+            .build();
+        let text_pipeline = context.add_pipeline::<TexturedVertex>(render_pass, text_pipeline_config);
+
         TextRenderer {
-            text
+            pipeline: text_pipeline,
+            sbo: text_sbo,
+            mesh,
+            position: Vector2::new(0, 0),
+            size: 16,
+            color: Vector4::new(1.0, 1.0, 1.0, 1.0),
         }
     }
-    pub fn draw(&mut self, context: &mut Context, storage_buffer: BufferObjectHandle) -> u32 {
-        draw_text(context, storage_buffer, &self.text, Vector2::new(0, 0), 128, COLOR_TEXT_CVAR)
+    pub fn draw(&mut self, context: &mut Context, text: &str) {
+        context.reset_buffer_object(self.sbo);
+        let n = draw_text(context, self.sbo, text, self.position, self.size, self.color);
+
+        context.add_draw_command(DrawCommand::new_buffered(
+            self.pipeline,
+            ptr::null(),
+            self.mesh.vertex_data,
+            n,
+            0,
+        ));
+    }
+
+    pub fn set_position(&mut self, position: Vector2<u32>) {
+        self.position = position;
+    }
+
+    pub fn set_size(&mut self, size: u32) {
+        self.size = size;
+    }
+
+    pub fn set_color(&mut self, color: Vector4<f32>) {
+        self.color = color;
     }
 }
 

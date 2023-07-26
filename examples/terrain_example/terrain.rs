@@ -86,12 +86,12 @@ impl TerrainApp {
 
         context.set_buffer_object(flags_uniform, 0_u32);
 
-        let temp_texture = context.add_render_texture(384, 216);
+        let render_texture = context.add_render_texture(384, 216);
         //let temp_texture = context.add_render_texture(480, 270);
         //let temp_texture = context.add_render_texture(1920, 1080);
 
         let sampler = context.add_sampler();
-        let pass = context.create_render_pass(temp_texture, 1000).unwrap();
+        let pass = context.create_render_pass(render_texture, 1000).unwrap();
 
         // TODO: move all this shit to the scene
         let pipeline_config = PipelineConfiguration::builder()
@@ -107,7 +107,7 @@ impl TerrainApp {
 
         let mesh = *engine_params.mesh_manager.get_predefined_mesh(TexturedQuad);
 
-        let mut texture_quad_renderer = TexturedQuadRenderer::new(context, engine_params.hud_vp_uniform, mesh, temp_texture, sampler);
+        let mut texture_quad_renderer = TexturedQuadRenderer::new(context, engine_params.hud_vp_uniform, mesh, render_texture, sampler);
         texture_quad_renderer.set(
             Vector2::new((engine_params.window_extent.width / 2) as f32, (engine_params.window_extent.height / 2) as f32),
             Vector2::new(engine_params.window_extent.width as f32, engine_params.window_extent.height as f32),

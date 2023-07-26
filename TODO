@@ -1,6 +1,4 @@
 Renderer:
-
-    [ ] Render to texture. Support for multiple renderpasses.
     [ ] Pipelines can only have one uniform per stage. Fix!
     [ ] Pipelines can only have one storage buffer, and its hardcoded to be assigned to the vertex shader. Fix!
     [ ] Pipeline creation parameter passing makes no sense. Most params are in the config, vertex shader input is generic and renderpass comes as add pipeline parameter. All should be in the config.
@@ -9,6 +7,7 @@ Renderer:
     [ ] Proper device picking
     [ ] Dont allocate buffer memory on every vertex/index buffer creation. This could be managed by an allocator. See memory.rs
     [ ] Multiple textures could be stored as an array with a single binding. See descriptor_count in create_descriptor_set_layout (pipeline.rs)
+    [x] Render to texture. Support for multiple renderpasses.
     [x] SSBO + instanced drawing for text rendering!
     [x] Maybe create a separate queue for transfering data instead of graphics_queue for everything?
     [x] push constants buffer handling. it is so bad that the user has to manage these. so easy to fuck up by forgetting to clear them which

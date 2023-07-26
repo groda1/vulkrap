@@ -28,7 +28,7 @@ use crate::renderer::pass::RenderPassManager;
 use crate::renderer::stats::RenderStats;
 use crate::renderer::texture::TextureManager;
 use crate::renderer::types::{SamplerHandle, TextureHandle};
-use crate::renderer::types::{VertexInputDescription, SWAPCHAIN_PASS};
+use crate::renderer::types::VertexInputDescription;
 use ash::extensions::ext::DebugUtils;
 use std::time::Instant;
 
@@ -576,36 +576,13 @@ impl Context {
                 let sbo = self.buffer_object_manager.borrow_buffer(buffer_object);
                 let new_capacity = sbo.capacity_bytes();
                 for pipeline in sbo.assigned_pipelines().iter() {
-                    //self.pipelines[*pipeline].update_storage_buffer(sbo.devices(), new_capacity);
-
-                    // TODO THIS IS NOT LOCAL TO SWAPCHAIN PASS ONLY
-                    if pipeline.render_pass != SWAPCHAIN_PASS {
-                        unimplemented!();
-                    }
-
-                    self.render_pass_manager.swapchain_pass_mut().pipelines_mut()[pipeline.index()]
-                        .update_storage_buffer(sbo.devices(), new_capacity);
+                    self.render_pass_manager.update_storage_buffer(*pipeline, sbo.devices(), new_capacity);
                 }
                 unsafe {
                     self.wait_idle();
                     for pipeline in sbo.assigned_pipelines().iter() {
-                        // TODO THIS IS NOT LOCAL TO SWAPCHAIN PASS ONLY
-                        if pipeline.render_pass != SWAPCHAIN_PASS {
-                            unimplemented!();
-                        }
                         self.render_pass_manager
-                            .rebuild_pipeline(&self.logical_device, *pipeline, SWAPCHAIN_PASS)
-
-                        /*
-                        self.pipelines[*pipeline].destroy_pipeline(&self.logical_device);
-                        self.pipelines[*pipeline].build(
-                            &self.logical_device,
-                            self.descriptor_pool,
-                            self.render_pass,
-                            self.swapchain_extent,
-                            self.swapchain_images.len(),
-                        );
-                        */
+                            .rebuild_pipeline(&self.logical_device, *pipeline)
                     }
                 }
             }

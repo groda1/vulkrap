@@ -173,10 +173,6 @@ impl RenderPass {
         }
     }
 
-    pub(super) fn pipelines_mut(&mut self) -> &mut Vec<PipelineContainer> {
-        &mut self.pipelines
-    }
-
     pub unsafe fn bake_command_buffer(
         &self,
         device: &Device,
@@ -361,12 +357,6 @@ impl RenderPassManager {
             .expect("Bug. No swapchain target in swapchain pass")
     }
 
-    pub fn swapchain_pass_mut(&mut self) -> &mut RenderPass {
-        debug_assert!(self.swapchain_pass.is_some());
-
-        self.swapchain_pass.as_mut().unwrap()
-    }
-
     pub fn borrow_pipeline_mut(&mut self, handle: PipelineHandle) -> &mut PipelineContainer {
         if handle.render_pass == SWAPCHAIN_PASS {
             debug_assert!(self.swapchain_pass.is_some());
@@ -493,16 +483,24 @@ impl RenderPassManager {
         &mut self,
         device: &Device,
         pipeline_handle: PipelineHandle,
-        render_pass_handle: RenderPassHandle,
     ) {
-        if render_pass_handle == SWAPCHAIN_PASS {
+        let pass = if pipeline_handle.render_pass == SWAPCHAIN_PASS {
             debug_assert!(self.swapchain_pass.is_some());
-
-            let pass = self.swapchain_pass.as_mut().unwrap();
-            pass.destroy_pipeline(device, pipeline_handle);
-            pass.build_pipeline(device, pipeline_handle);
+            self.swapchain_pass.as_mut().unwrap()
         } else {
-            unimplemented!()
+            self.render_passes.get_mut(&pipeline_handle.render_pass).unwrap()
+        };
+
+        pass.destroy_pipeline(device, pipeline_handle);
+        pass.build_pipeline(device, pipeline_handle);
+    }
+
+    pub fn update_storage_buffer(&mut self, pipeline: PipelineHandle, new_buffers: &[vk::Buffer], new_capacity: usize) {
+        if pipeline.render_pass == SWAPCHAIN_PASS {
+            debug_assert!(self.swapchain_pass.is_some());
+            self.swapchain_pass.as_mut().unwrap().pipelines[pipeline.index()].update_storage_buffer(new_buffers, new_capacity);
+        } else {
+            self.render_passes.get_mut(&pipeline.render_pass).unwrap().pipelines[pipeline.index()].update_storage_buffer(new_buffers, new_capacity);
         }
     }
 

@@ -80,7 +80,6 @@ impl BufferObjectManager {
         }
     }
 
-
     pub fn assign_pipeline(&mut self, bo_handle: BufferObjectHandle, pipeline_handle: PipelineHandle) {
         debug_assert!(self.buffer_objects.len() > bo_handle);
 
