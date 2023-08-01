@@ -1,7 +1,13 @@
 use std::ptr;
 
 use cgmath::{InnerSpace, Vector3};
+use noise::Add;
+use noise::Constant;
+use noise::Multiply;
 use num::Integer;
+use noise::NoiseFn;
+use noise::Perlin;
+use noise::ScalePoint;
 
 use crate::engine::datatypes::VertexNormal;
 use crate::renderer::context::Context;
@@ -20,25 +26,49 @@ pub struct _OctreeTerrainNode {
     children: Option<Box<[_OctreeTerrainNode; 4]>>,
 }
 
+
+
+
+
 pub struct Terrain {
     pipeline: PipelineHandle,
 
     chunk: VertexData,
 }
 
+
+
+
 impl Terrain {
     pub fn new(context: &mut Context, pipeline: PipelineHandle) -> Self {
+
+        let seed = 1337;
+
+        let scale = ScalePoint::new(Perlin::new(seed))
+            .set_x_scale(4.0)
+            .set_y_scale(4.0);
+        let pass_1 = Multiply::new(scale, Constant::new(40.0));
+
+        let scale = ScalePoint::new(Perlin::new(5432))
+        .set_x_scale(8.0)
+        .set_y_scale(8.0);
+        let pass_2 = Multiply::new(scale, Constant::new(20.0));
+
+        let scale = ScalePoint::new(Perlin::new(123145))
+        .set_x_scale(16.0)
+        .set_y_scale(16.0);
+        let pass_3 = Multiply::new(scale, Constant::new(10.0));
+
+
+        let result = Add::new(pass_1, Add::new(pass_2, pass_3));
+
+
         let quad_width = 256;
         let quad_height = 256;
 
         debug_assert_eq!(quad_width % 64, 0);
 
-        let raw_vertices = create_raw_vertices(quad_width, quad_height, sin_terrain);
-        //for (i, vertex) in raw_vertices.iter().enumerate() {
-        //    println!("raw vertex: {} {:?}", i, vertex);
-        //}
-
-        //
+        let raw_vertices = create_raw_vertices(quad_width, quad_height, &result);
         let chunk_data = create_flat_normaled_chunk(quad_width, quad_height, &raw_vertices);
 
         let vertex_buffer = context.create_static_vertex_buffer_sync(&chunk_data.vertices);
@@ -61,6 +91,7 @@ impl Terrain {
     }
 }
 
+/*
 fn sin_terrain(x: f32, y: f32, scale: u8) -> f32 {
     let x_scaled = x * 64.0;
     let y_scaled = y * 64.0;
@@ -83,6 +114,8 @@ fn sin_terrain(x: f32, y: f32, scale: u8) -> f32 {
 
     (x1 + y1 + xy + bonus) * scale as f32
 }
+*/
+
 
 struct ChunkData {
     vertices: Vec<VertexNormal>,
@@ -117,8 +150,6 @@ fn create_flat_normaled_chunk(
         } else {
             let v1 = vertices[i + 1] - vertices[i];
             let v2 = vertices[i + 2] - vertices[i];
-            // v1 = v1.normalize();
-            // v2 = v2.normalize();
 
             if i.is_even() {
                 normals.push(v2.cross(v1).normalize());
@@ -134,9 +165,7 @@ fn create_flat_normaled_chunk(
     let mut complete_vertices = Vec::with_capacity(vertices.len());
     for (i, vertex) in vertices.iter().enumerate() {
         complete_vertices.push(VertexNormal::new(*vertex, normals[i]));
-        //println!("vertices: {} {:?} [{:?}]", i, vertex, normals[i]);
     }
-    //println!("indices: {:?}", indices);
 
     ChunkData {
         vertices: complete_vertices,
@@ -144,10 +173,10 @@ fn create_flat_normaled_chunk(
     }
 }
 
-fn create_raw_vertices(
+fn create_raw_vertices<T: NoiseFn<f64, 2>>(
     quad_count_width: usize,
     quad_count_height: usize,
-    height_function: fn(f32, f32, u8) -> f32,
+    noise_fn: &T,
 ) -> Vec<Vector3<f32>> {
     let width = quad_count_width;
     let height = quad_count_height;
@@ -159,15 +188,14 @@ fn create_raw_vertices(
     // Vertices
     for i in 0..(height + 1) {
         for j in 0..(width + 1) {
-            let x_offset = j as f32 * QUAD_SIZE;
-            let z_offset = i as f32 * -QUAD_SIZE;
+            let x_offset = j as f64 * QUAD_SIZE as f64;
+            let z_offset = i as f64 * -QUAD_SIZE as f64;
 
-            let normalized_x_offset = j as f32 / quad_count_width as f32;
-            let normalized_y_offset = i as f32 / quad_count_height as f32;
+            let x = (j as f64 / width as f64) - 0.5;
+            let z = (i as f64 / height as f64) - 0.5;
+            let y = noise_fn.get([x, z]);
 
-            let y = height_function(normalized_x_offset, normalized_y_offset, (quad_count_width / 64) as u8);
-
-            vertices.push(Vector3::new(x_offset, y, z_offset));
+            vertices.push(Vector3::new(x_offset as f32, y as f32, z_offset as f32));
         }
     }
 

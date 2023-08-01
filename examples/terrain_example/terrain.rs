@@ -86,9 +86,8 @@ impl TerrainApp {
 
         context.set_buffer_object(flags_uniform, 0_u32);
 
-        let render_texture = context.add_render_texture(384, 216);
-        //let temp_texture = context.add_render_texture(480, 270);
-        //let temp_texture = context.add_render_texture(1920, 1080);
+        //let render_texture = context.add_render_texture(384, 216);
+        let render_texture = context.add_render_texture(1920, 1080);
 
         let sampler = context.add_sampler();
         let pass = context.create_render_pass(render_texture, 1000).unwrap();
