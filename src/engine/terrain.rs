@@ -29,7 +29,7 @@ pub struct Terrain {
 impl Terrain {
     pub fn new(context: &mut Context, pipeline: PipelineHandle) -> Self {
         let quad_width = 256;
-        let quad_height = quad_width;
+        let quad_height = 256;
 
         debug_assert_eq!(quad_width % 64, 0);
 
