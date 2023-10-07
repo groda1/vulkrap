@@ -6,7 +6,6 @@ use vulkrap::engine::datatypes::{ColoredVertex, Mesh, ViewProjectionUniform, Win
 use vulkrap::engine::mesh::PredefinedMesh;
 use vulkrap::engine::runtime::{ControlSignal, EngineParameters, VulkrapApplication};
 use vulkrap::renderer::context::Context;
-use vulkrap::renderer::rawarray::RawArrayPtr;
 use vulkrap::renderer::types::{DrawCommand, PipelineConfiguration, PipelineHandle, SWAPCHAIN_PASS, UniformHandle, UniformStage};
 use vulkrap::util::file;
 use vulkrap::vulkrap_start;
@@ -50,10 +49,8 @@ impl VulkrapApplication for HelloKrap {
     fn draw(&mut self, context: &mut Context) {
         context.add_draw_command(DrawCommand::new_buffered(
             self.pipeline,
-            &self.push_constant_buf as *const PushConstantType as RawArrayPtr,
+            &self.push_constant_buf,
             self.mesh.vertex_data,
-            1,
-            0,
         ));
     }
 

@@ -1,5 +1,5 @@
 use crate::engine::cvars::{ConfigVariables, FOV, M_PITCH, M_SENSITIVITY, M_YAW};
-use crate::engine::datatypes::{MovementFlags, ViewProjectionUniform};
+use crate::engine::datatypes::ViewProjectionUniform;
 use crate::renderer::context::Context;
 use crate::renderer::types::BufferObjectHandle;
 use crate::renderer::types::{UniformHandle, UniformStage};
@@ -32,7 +32,7 @@ impl Camera {
         let uniform = context.create_uniform_buffer::<ViewProjectionUniform>(UniformStage::Vertex);
 
         let mut cam = Camera {
-            position: Vector3::new(0.0, 10.0, 3.0),
+            position: Vector3::new(0.0, 0.0, 0.0),
             pitch: 0.0,
             yaw: 0.0,
             uniform,
@@ -60,23 +60,7 @@ impl Camera {
         self.fovy = config.get(FOV).as_float();
     }
 
-    pub fn update(&mut self, context: &mut Context, movement_flags: MovementFlags, delta_time_s: f32) {
-        if movement_flags.contains(MovementFlags::FORWARD) {
-            self._move(Vector3::new(0.0, 0.0, -1.0), delta_time_s);
-        } else if movement_flags.contains(MovementFlags::BACKWARD) {
-            self._move(Vector3::new(0.0, 0.0, 1.0), delta_time_s);
-        }
-        if movement_flags.contains(MovementFlags::LEFT) {
-            self._move(Vector3::new(-1.0, 0.0, 0.0), delta_time_s);
-        } else if movement_flags.contains(MovementFlags::RIGHT) {
-            self._move(Vector3::new(1.0, 0.0, 0.0), delta_time_s);
-        }
-        if movement_flags.contains(MovementFlags::UP) {
-            self._move(Vector3::new(0.0, 1.0, 0.0), delta_time_s);
-        } else if movement_flags.contains(MovementFlags::DOWN) {
-            self._move(Vector3::new(0.0, -1.0, 0.0), delta_time_s);
-        }
-
+    pub fn update_uniform(&mut self, context: &mut Context) {
         let data = ViewProjectionUniform {
             view: self._get_view_matrix(),
             proj: cgmath::perspective(Deg(self.fovy), context.get_aspect_ratio(), 0.1, 1000.0),
@@ -100,11 +84,15 @@ impl Camera {
         }
     }
 
-    pub fn _set_position(&mut self, position: Vector3<f32>) {
+    pub fn set_yaw(&mut self, yaw: f32) {
+        self.yaw = yaw;
+    }
+
+    pub fn set_position(&mut self, position: Vector3<f32>) {
         self.position = position;
     }
 
-    fn _move(&mut self, direction: Vector3<f32>, delta_time_s: f32) {
+    pub fn move_(&mut self, direction: Vector3<f32>, delta_time_s: f32) {
         self.position += Quaternion::from_angle_y(Rad(self.yaw)) * (direction * MOVE_SPEED * delta_time_s);
     }
 

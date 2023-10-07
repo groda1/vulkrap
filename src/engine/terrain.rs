@@ -1,5 +1,3 @@
-use std::ptr;
-
 use cgmath::{InnerSpace, Vector3};
 use noise::Add;
 use noise::Constant;
@@ -81,12 +79,9 @@ impl Terrain {
     }
 
     pub fn draw(&self, context: &mut Context) {
-        context.add_draw_command(DrawCommand::new_buffered(
+        context.add_draw_command(DrawCommand::new_buffered_nopush(
             self.pipeline,
-            ptr::null(),
             self.chunk,
-            1,
-            0,
         ));
     }
 }

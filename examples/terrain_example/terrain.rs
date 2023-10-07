@@ -1,5 +1,5 @@
 use std::path::Path;
-use cgmath::{Vector2, Vector4};
+use cgmath::{Vector2, Vector3, Vector4};
 
 use winit::event::{ElementState, VirtualKeyCode};
 
@@ -30,7 +30,25 @@ pub struct TerrainApp {
 
 impl VulkrapApplication for TerrainApp {
     fn update(&mut self, context: &mut Context, delta_time_s: f32) {
-        self.camera.update(context, self.movement, delta_time_s);
+
+        if self.movement.contains(MovementFlags::FORWARD) {
+            self.camera.move_(Vector3::new(0.0, 0.0, -1.0), delta_time_s);
+        } else if self.movement.contains(MovementFlags::BACKWARD) {
+            self.camera.move_(Vector3::new(0.0, 0.0, 1.0), delta_time_s);
+        }
+        if self.movement.contains(MovementFlags::LEFT) {
+            self.camera.move_(Vector3::new(-1.0, 0.0, 0.0), delta_time_s);
+        } else if self.movement.contains(MovementFlags::RIGHT) {
+            self.camera.move_(Vector3::new(1.0, 0.0, 0.0), delta_time_s);
+        }
+        if self.movement.contains(MovementFlags::UP) {
+            self.camera.move_(Vector3::new(0.0, 1.0, 0.0), delta_time_s);
+        } else if self.movement.contains(MovementFlags::DOWN) {
+            self.camera.move_(Vector3::new(0.0, -1.0, 0.0), delta_time_s);
+        }
+
+
+        self.camera.update_uniform(context);
         self.scene.update(delta_time_s);
     }
 

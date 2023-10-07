@@ -30,7 +30,6 @@ pub struct EngineParameters<'a> {
     pub hud_vp_uniform: UniformHandle,
 }
 
-//pub type VulkrapApplicationFactory<T> = fn(context: &mut Context, mesh_manager: &mut MeshManager, config: &ConfigVariables, window_extent: WindowExtent) -> T;
 pub type VulkrapApplicationFactory<T> = fn(context: &mut Context, engine_parameters : EngineParameters) -> T;
 
 pub struct Runtime<T: VulkrapApplication> {

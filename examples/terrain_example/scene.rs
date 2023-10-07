@@ -4,8 +4,6 @@ use vulkrap::renderer::context::Context;
 use vulkrap::renderer::types::PipelineHandle;
 
 pub struct Scene {
-    // TODO replace with entity content system ( specs? )
-
     terrain: Terrain,
 }
 

@@ -1,3 +1,4 @@
+use std::ptr;
 use crate::renderer::rawarray::RawArrayPtr;
 use crate::renderer::types::DrawData::Buffered;
 use ash::vk;
@@ -259,16 +260,51 @@ pub struct DrawCommand {
 }
 
 impl DrawCommand {
-    pub fn new_buffered(
+    pub fn new_buffered_nopush(
         pipeline: PipelineHandle,
-        push_constant_ptr: RawArrayPtr,
+        vertex_data: VertexData,
+    ) -> DrawCommand {
+        DrawCommand {
+            pipeline,
+            push_constant_ptr: ptr::null(),
+            vertex_data: Buffered(BufferDrawData::new(
+                vertex_data.vertex_buffer,
+                vertex_data.index_buffer,
+                vertex_data.index_count,
+                1,
+                0,
+            )),
+        }
+    }
+
+    pub fn new_buffered<T>(
+        pipeline: PipelineHandle,
+        push_constant_ptr: &T,
+        vertex_data: VertexData,
+    ) -> DrawCommand {
+        DrawCommand {
+            pipeline,
+            push_constant_ptr: push_constant_ptr as *const T as RawArrayPtr,
+            vertex_data: Buffered(BufferDrawData::new(
+                vertex_data.vertex_buffer,
+                vertex_data.index_buffer,
+                vertex_data.index_count,
+                1,
+                0,
+            )),
+        }
+    }
+
+    pub fn new_buffered_instanced<T>(
+        pipeline: PipelineHandle,
+        push_constant_ptr: &T,
         vertex_data: VertexData,
         instance_count: u32,
         instance_start: u32,
     ) -> DrawCommand {
         DrawCommand {
             pipeline,
-            push_constant_ptr,
+            push_constant_ptr: push_constant_ptr as *const T as RawArrayPtr,
             vertex_data: Buffered(BufferDrawData::new(
                 vertex_data.vertex_buffer,
                 vertex_data.index_buffer,
@@ -278,6 +314,26 @@ impl DrawCommand {
             )),
         }
     }
+
+    pub fn new_buffered_instanced_nopush(
+        pipeline: PipelineHandle,
+        vertex_data: VertexData,
+        instance_count: u32,
+        instance_start: u32,
+    ) -> DrawCommand {
+        DrawCommand {
+            pipeline,
+            push_constant_ptr: ptr::null(),
+            vertex_data: Buffered(BufferDrawData::new(
+                vertex_data.vertex_buffer,
+                vertex_data.index_buffer,
+                vertex_data.index_count,
+                instance_count,
+                instance_start,
+            )),
+        }
+    }
+
 
     pub fn triangle_count(&self, primitive_topology: PrimitiveTopology) -> u32 {
         match primitive_topology {

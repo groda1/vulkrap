@@ -12,7 +12,6 @@ use crate::ENGINE_VERSION;
 
 use cgmath::{Vector2, Vector4};
 use std::ptr;
-use crate::renderer::rawarray::RawArrayPtr;
 use crate::util::file;
 
 // Console
@@ -54,10 +53,8 @@ impl TexturedQuadRenderer {
     pub fn draw(&mut self, context: &mut Context) {
         context.add_draw_command(DrawCommand::new_buffered(
             self.pipeline,
-            &self.push_constant_buf as *const PosSizeColor2dPushConstant as RawArrayPtr,
+            &self.push_constant_buf,
             self.mesh.vertex_data,
-            1,
-            0,
         ));
     }
 }
@@ -106,9 +103,8 @@ impl TextRenderer {
         context.reset_buffer_object(self.sbo);
         let n = draw_text(context, self.sbo, text, self.position, self.size, self.color);
 
-        context.add_draw_command(DrawCommand::new_buffered(
+        context.add_draw_command(DrawCommand::new_buffered_instanced_nopush(
             self.pipeline,
-            ptr::null(),
             self.mesh.vertex_data,
             n,
             0,
@@ -222,17 +218,15 @@ impl ConsoleRenderer {
         // Draw history
         text_instance_count += self._draw_console_history(context, self.text_sbo, console, height, offset);
 
-        context.add_draw_command(DrawCommand::new_buffered(
+        context.add_draw_command(DrawCommand::new_buffered_instanced_nopush(
             self.quad_pipeline,
-            ptr::null(),
             self.mesh.vertex_data,
             quad_instance_count,
             0,
         ));
 
-        context.add_draw_command(DrawCommand::new_buffered(
+        context.add_draw_command(DrawCommand::new_buffered_instanced_nopush(
             self.text_pipeline,
-            ptr::null(),
             self.mesh.vertex_data,
             text_instance_count,
             0,
@@ -355,9 +349,8 @@ impl TextOverlayRenderer {
         if self.version_active {
             foreground_instance_count += self.draw_engine_info(context, self.text_sbo);
         }
-        context.add_draw_command(DrawCommand::new_buffered(
+        context.add_draw_command(DrawCommand::new_buffered_instanced_nopush(
             self.text_pipeline,
-            ptr::null(),
             self.mesh.vertex_data,
             foreground_instance_count,
             0,
