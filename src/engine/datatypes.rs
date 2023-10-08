@@ -1,7 +1,6 @@
 use crate::renderer::types::{VertexData, VertexInputDescription};
 use ash::vk;
 use ash::vk::{VertexInputAttributeDescription, VertexInputBindingDescription};
-use bitflags::bitflags;
 use cgmath::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 use num::Zero;
 
@@ -26,23 +25,23 @@ impl ColoredVertex {
 }
 
 impl VertexInputDescription for ColoredVertex {
-    fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
-        vec![vk::VertexInputBindingDescription {
+    fn binding_descriptions() -> Vec<VertexInputBindingDescription> {
+        vec![VertexInputBindingDescription {
             binding: 0,
             stride: std::mem::size_of::<Self>() as u32,
             input_rate: vk::VertexInputRate::VERTEX,
         }]
     }
 
-    fn attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
+    fn attribute_descriptions() -> Vec<VertexInputAttributeDescription> {
         vec![
-            vk::VertexInputAttributeDescription {
+            VertexInputAttributeDescription {
                 binding: 0,
                 location: 0,
                 format: vk::Format::R32G32B32_SFLOAT,
                 offset: offset_of!(Self, position) as u32,
             },
-            vk::VertexInputAttributeDescription {
+            VertexInputAttributeDescription {
                 binding: 0,
                 location: 1,
                 format: vk::Format::R32G32B32_SFLOAT,
@@ -51,6 +50,7 @@ impl VertexInputDescription for ColoredVertex {
         ]
     }
 }
+
 
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
@@ -69,23 +69,23 @@ impl TexturedVertex {
 }
 
 impl VertexInputDescription for TexturedVertex {
-    fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
-        vec![vk::VertexInputBindingDescription {
+    fn binding_descriptions() -> Vec<VertexInputBindingDescription> {
+        vec![VertexInputBindingDescription {
             binding: 0,
             stride: std::mem::size_of::<Self>() as u32,
             input_rate: vk::VertexInputRate::VERTEX,
         }]
     }
 
-    fn attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
+    fn attribute_descriptions() -> Vec<VertexInputAttributeDescription> {
         vec![
-            vk::VertexInputAttributeDescription {
+            VertexInputAttributeDescription {
                 binding: 0,
                 location: 0,
                 format: vk::Format::R32G32B32_SFLOAT,
                 offset: offset_of!(Self, position) as u32,
             },
-            vk::VertexInputAttributeDescription {
+            VertexInputAttributeDescription {
                 binding: 0,
                 location: 1,
                 format: vk::Format::R32G32_SFLOAT,
@@ -116,7 +116,7 @@ impl TexturedColoredVertex2D {
 
 impl VertexInputDescription for TexturedColoredVertex2D {
     fn binding_descriptions() -> Vec<VertexInputBindingDescription> {
-        vec![vk::VertexInputBindingDescription {
+        vec![VertexInputBindingDescription {
             binding: 0,
             stride: std::mem::size_of::<Self>() as u32,
             input_rate: vk::VertexInputRate::VERTEX,
@@ -125,19 +125,19 @@ impl VertexInputDescription for TexturedColoredVertex2D {
 
     fn attribute_descriptions() -> Vec<VertexInputAttributeDescription> {
         vec![
-            vk::VertexInputAttributeDescription {
+            VertexInputAttributeDescription {
                 binding: 0,
                 location: 0,
                 format: vk::Format::R32G32_SFLOAT,
                 offset: offset_of!(Self, position) as u32,
             },
-            vk::VertexInputAttributeDescription {
+            VertexInputAttributeDescription {
                 binding: 0,
                 location: 1,
                 format: vk::Format::R32G32B32A32_SFLOAT,
                 offset: offset_of!(Self, color) as u32,
             },
-            vk::VertexInputAttributeDescription {
+            VertexInputAttributeDescription {
                 binding: 0,
                 location: 2,
                 format: vk::Format::R32G32_SFLOAT,
@@ -160,16 +160,16 @@ impl SimpleVertex {
 }
 
 impl VertexInputDescription for SimpleVertex {
-    fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
-        vec![vk::VertexInputBindingDescription {
+    fn binding_descriptions() -> Vec<VertexInputBindingDescription> {
+        vec![VertexInputBindingDescription {
             binding: 0,
             stride: std::mem::size_of::<Self>() as u32,
             input_rate: vk::VertexInputRate::VERTEX,
         }]
     }
 
-    fn attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
-        vec![vk::VertexInputAttributeDescription {
+    fn attribute_descriptions() -> Vec<VertexInputAttributeDescription> {
+        vec![VertexInputAttributeDescription {
             binding: 0,
             location: 0,
             format: vk::Format::R32G32B32_SFLOAT,
@@ -180,35 +180,35 @@ impl VertexInputDescription for SimpleVertex {
 
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
-pub struct VertexNormal {
+pub struct NormalVertex {
     pub position: Vector3<f32>,
     pub normal: Vector3<f32>,
 }
 
-impl VertexNormal {
+impl NormalVertex {
     pub fn new(position: Vector3<f32>, normal: Vector3<f32>) -> Self {
-        VertexNormal { position, normal }
+        NormalVertex { position, normal }
     }
 }
 
-impl VertexInputDescription for VertexNormal {
-    fn binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
-        vec![vk::VertexInputBindingDescription {
+impl VertexInputDescription for NormalVertex {
+    fn binding_descriptions() -> Vec<VertexInputBindingDescription> {
+        vec![VertexInputBindingDescription {
             binding: 0,
             stride: std::mem::size_of::<Self>() as u32,
             input_rate: vk::VertexInputRate::VERTEX,
         }]
     }
 
-    fn attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
+    fn attribute_descriptions() -> Vec<VertexInputAttributeDescription> {
         vec![
-            vk::VertexInputAttributeDescription {
+            VertexInputAttributeDescription {
                 binding: 0,
                 location: 0,
                 format: vk::Format::R32G32B32_SFLOAT,
                 offset: offset_of!(Self, position) as u32,
             },
-            vk::VertexInputAttributeDescription {
+            VertexInputAttributeDescription {
                 binding: 0,
                 location: 1,
                 format: vk::Format::R32G32B32_SFLOAT,
@@ -338,19 +338,6 @@ impl Mesh {
         Mesh {
             vertex_data
         }
-    }
-}
-
-bitflags! {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-    pub struct MovementFlags: u8 {
-        const ZERO = 0;
-        const FORWARD = 1 << 0;
-        const BACKWARD = 1 << 1;
-        const LEFT = 1 << 2;
-        const RIGHT = 1 << 3;
-        const UP = 1 << 4;
-        const DOWN = 1 << 5;
     }
 }
 

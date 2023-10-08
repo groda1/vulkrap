@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use cgmath::{Vector2, Vector3};
 
-use crate::engine::datatypes::{ColoredVertex, Mesh, SimpleVertex, TexturedVertex};
+use crate::engine::datatypes::{ColoredVertex, Mesh, SimpleVertex, TexturedVertex, NormalVertex};
 use crate::renderer::context::Context;
 use crate::renderer::types::VertexData;
 
@@ -13,11 +13,16 @@ pub enum PredefinedMesh {
     SimpleQuad = 1,
     _SimpleCube = 2,
 
-    ColoredTriangle = 3,
-    ColoredQuad = 4,
-    _ColoredCube = 5,
+    _NormaledTriangle = 3,
+    NormaledQuad = 4,
+    _NormaledCube = 5,
 
-    TexturedQuad = 6,
+    ColoredTriangle = 6,
+    ColoredQuad = 7,
+    _ColoredCube = 8,
+
+    _TexturedTriangle = 9,
+    TexturedQuad = 10,
 }
 
 type MeshHandle = u32;
@@ -90,6 +95,12 @@ impl MeshManager {
                 SimpleVertex::new(Vector3::new(-0.5, -0.5, 0.0)),
                 SimpleVertex::new(Vector3::new(0.5, -0.5, 0.0)),
             ];
+            let normaled_vertices = vec![
+                NormalVertex::new(Vector3::new(-0.5, 0.5, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+                NormalVertex::new(Vector3::new(0.5, 0.5, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+                NormalVertex::new(Vector3::new(-0.5, -0.5, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+                NormalVertex::new(Vector3::new(0.5, -0.5, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+            ];
             let colored_vertices = vec![
                 ColoredVertex::new(Vector3::new(-0.5, 0.5, 0.0), Vector3::new(1.0, 0.0, 0.0)),
                 ColoredVertex::new(Vector3::new(0.5, 0.5, 0.0), Vector3::new(0.0, 1.0, 0.0)),
@@ -104,33 +115,45 @@ impl MeshManager {
             ];
 
             let indices = vec![0, 1, 2, 2, 1, 3];
-            let colored_vertex_buffer = context.create_static_vertex_buffer_sync(&colored_vertices);
+            let index_count = indices.len() as u32;
             let simple_vertex_buffer = context.create_static_vertex_buffer_sync(&simple_vertices);
+            let normaled_vertex_buffer = context.create_static_vertex_buffer_sync(&normaled_vertices);
+            let colored_vertex_buffer = context.create_static_vertex_buffer_sync(&colored_vertices);
             let textured_vertex_buffer = context.create_static_vertex_buffer_sync(&textured_vertices);
             let index_buffer = context.create_static_index_buffer_sync(&indices);
             let simple_mesh = Mesh {
                 vertex_data: VertexData {
                     vertex_buffer: simple_vertex_buffer,
                     index_buffer,
-                    index_count: indices.len() as u32
+                    index_count
+                }
+            };
+            let normaled_mesh = Mesh {
+                vertex_data: VertexData {
+                    vertex_buffer: normaled_vertex_buffer,
+                    index_buffer,
+                    index_count
+
                 }
             };
             let colored_mesh = Mesh {
                 vertex_data: VertexData {
                     vertex_buffer: colored_vertex_buffer,
                     index_buffer,
-                    index_count: indices.len() as u32
+                    index_count
                 }
             };
             let textured_mesh = Mesh {
                 vertex_data: VertexData {
                     vertex_buffer: textured_vertex_buffer,
                     index_buffer,
-                    index_count: indices.len() as u32
+                    index_count
                 }
             };
             self.meshes
                 .insert(PredefinedMesh::SimpleQuad as MeshHandle, simple_mesh);
+            self.meshes
+                .insert(PredefinedMesh::NormaledQuad as MeshHandle, normaled_mesh);
             self.meshes
                 .insert(PredefinedMesh::ColoredQuad as MeshHandle, colored_mesh);
             self.meshes

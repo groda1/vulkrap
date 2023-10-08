@@ -7,7 +7,7 @@ use noise::NoiseFn;
 use noise::Perlin;
 use noise::ScalePoint;
 
-use crate::engine::datatypes::VertexNormal;
+use crate::engine::datatypes::NormalVertex;
 use crate::renderer::context::Context;
 use crate::renderer::types::{DrawCommand, VertexData, PipelineHandle};
 
@@ -113,7 +113,7 @@ fn sin_terrain(x: f32, y: f32, scale: u8) -> f32 {
 
 
 struct ChunkData {
-    vertices: Vec<VertexNormal>,
+    vertices: Vec<NormalVertex>,
     indices: Vec<u32>,
 }
 
@@ -159,7 +159,7 @@ fn create_flat_normaled_chunk(
 
     let mut complete_vertices = Vec::with_capacity(vertices.len());
     for (i, vertex) in vertices.iter().enumerate() {
-        complete_vertices.push(VertexNormal::new(*vertex, normals[i]));
+        complete_vertices.push(NormalVertex::new(*vertex, normals[i]));
     }
 
     ChunkData {

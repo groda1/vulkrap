@@ -1,11 +1,12 @@
 use std::path::Path;
+use bitflags::bitflags;
 use cgmath::{Vector2, Vector3, Vector4};
 
 use winit::event::{ElementState, VirtualKeyCode};
 
 use vulkrap::engine::camera::Camera;
 use vulkrap::engine::cvars::ConfigVariables;
-use vulkrap::engine::datatypes::{MovementFlags, VertexNormal, WindowExtent};
+use vulkrap::engine::datatypes::{NormalVertex, WindowExtent};
 use vulkrap::engine::mesh::PredefinedMesh::TexturedQuad;
 use vulkrap::engine::runtime::{ControlSignal, EngineParameters, VulkrapApplication};
 use vulkrap::engine::ui::widgets::TexturedQuadRenderer;
@@ -118,7 +119,7 @@ impl TerrainApp {
             .with_vertex_uniform(0, camera.get_uniform())
             .with_fragment_uniform(1, flags_uniform)
             .build();
-        let terrain_pipeline = context.add_pipeline::<VertexNormal>(pass, pipeline_config);
+        let terrain_pipeline = context.add_pipeline::<NormalVertex>(pass, pipeline_config);
 
         let scene = Scene::new(context, engine_params.mesh_manager, terrain_pipeline);
 
@@ -148,5 +149,19 @@ impl TerrainApp {
         context.set_buffer_object(self.flags_uniform, self.draw_wireframe as u32);
     }
 }
+
+bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    pub struct MovementFlags: u8 {
+        const ZERO = 0;
+        const FORWARD = 1 << 0;
+        const BACKWARD = 1 << 1;
+        const LEFT = 1 << 2;
+        const RIGHT = 1 << 3;
+        const UP = 1 << 4;
+        const DOWN = 1 << 5;
+    }
+}
+
 
 
