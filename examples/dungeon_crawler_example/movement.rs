@@ -10,7 +10,7 @@ use vulkrap::renderer::context::Context;
 const CAMERA_HEIGHT: f32 = 0.4;
 const MAX_BUFFERED_MOVES: usize = 3;
 
-const MOVE_SPEED: f32 = 3.0;
+const MOVE_SPEED: f32 = 4.0;
 
 
 #[derive(Copy, Clone)]

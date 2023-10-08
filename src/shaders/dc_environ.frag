@@ -9,7 +9,7 @@ layout(location = 0) out vec4 outColor;
 
 const vec3 lightPos = vec3(0.0, -0.1, 0.0);
 const vec3 lightColor = vec3(1.0, 0.8, 0.6);
-const float ambientFactor = 0.04;
+const float ambientFactor = 0.02;
 
 void main() {
 
