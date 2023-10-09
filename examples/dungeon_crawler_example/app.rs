@@ -37,13 +37,13 @@ impl VulkrapApplication for DungeonCrawler {
         self.scene.reconfigure(config);
     }
 
-    fn handle_mouse_input(&mut self, x_delta: f64, y_delta: f64) {
+    fn handle_mouse_input(&mut self, _x_delta: f64, _y_delta: f64) {
         //self.camera.update_yaw_pitch(x_delta as f32, y_delta as f32);
     }
 
-    fn handle_window_resize(&mut self, context: &mut Context, new_size: WindowExtent) {}
+    fn handle_window_resize(&mut self, _context: &mut Context, _new_size: WindowExtent) {}
 
-    fn handle_keyboard_event(&mut self, context: &mut Context, key: VirtualKeyCode, state: ElementState) -> ControlSignal {
+    fn handle_keyboard_event(&mut self, _context: &mut Context, key: VirtualKeyCode, state: ElementState) -> ControlSignal {
 
         match (key, state) {
             (VirtualKeyCode::W, ElementState::Pressed) => self.movement.add_input(MovementInput::Forward),

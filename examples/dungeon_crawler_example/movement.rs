@@ -24,19 +24,15 @@ pub enum MovementInput {
 }
 
 impl MovementInput {
-    pub fn is_rotation(&self) -> bool {
-        match self {
-            MovementInput::RotateLeft => { true }
-            MovementInput::RotateRight => { true }
-            _ => { false }
-        }
+    fn is_rotation(&self) -> bool {
+        self.rotation().is_some()
     }
 
-    pub fn is_translation(&self) -> bool {
-        !self.is_rotation()
+    fn is_translation(&self) -> bool {
+        self.translation().is_some()
     }
 
-    pub fn translation(&self) -> Option<TranslationInput> {
+    fn translation(&self) -> Option<TranslationInput> {
         match self {
             MovementInput::Forward => { Some(TranslationInput::Forward) }
             MovementInput::Right => { Some(TranslationInput::Right) }
@@ -46,7 +42,7 @@ impl MovementInput {
         }
     }
 
-    pub fn rotation(&self) -> Option<RotationalInput> {
+    fn rotation(&self) -> Option<RotationalInput> {
         match self {
             MovementInput::RotateLeft => { Some(RotationalInput::Left) }
             MovementInput::RotateRight => { Some(RotationalInput::Right) }
@@ -130,12 +126,11 @@ impl Movement {
     pub fn update(&mut self, delta_time_s: f32) {
         if let Some(current_movement) = self.current_move {
             self.current_move_progress += MOVE_SPEED * delta_time_s;
-            if self.current_move_progress > 1.0 {
+            if self.current_move_progress >= 1.0 {
                 self.current_move_progress = 1.0;
                 self.current_move = None;
-            }
-
-            if current_movement.is_translation() {
+                self.current_yaw = self.orientation.to_yaw();
+            } else if current_movement.is_translation() {
                 let from = Vector2::new(self.from_discrete_position.x as f32, self.from_discrete_position.y as f32);
                 let to = Vector2::new(self.discrete_position.x as f32, self.discrete_position.y as f32);
                 self.real_position = from.lerp(to, self.current_move_progress);
@@ -164,13 +159,17 @@ impl Movement {
                     self.from_discrete_position = self.discrete_position;
                     self.discrete_position += movement_vector;
                 } else if let Some(rotation) = movement.rotation() {
-                    let new_orientation = match rotation {
-                        RotationalInput::Left => { self.orientation.prev() }
-                        RotationalInput::Right => { self.orientation.next() }
-                    };
-                    self.to_yaw = new_orientation.to_yaw();
-                    self.from_yaw = self.orientation.to_yaw();
-                    self.orientation = new_orientation;
+                    self.from_yaw = self.current_yaw;
+                    match rotation { 
+                        RotationalInput::Left => {
+                            self.to_yaw = self.current_yaw + FRAC_PI_2 + 0.02;
+                            self.orientation = self.orientation.prev();
+                        },
+                        RotationalInput::Right => {
+                            self.to_yaw = self.current_yaw - FRAC_PI_2;
+                            self.orientation = self.orientation.next();
+                        },
+                    }
                 } else {
                     unreachable!()
                 }

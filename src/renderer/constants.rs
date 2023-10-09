@@ -13,7 +13,7 @@ pub const ENGINE_VERSION: u32 = make_api_version(
     crate::ENGINE_VERSION.2,
 );
 pub const DEVICE_EXTENSIONS: [&str; 2] = ["VK_KHR_swapchain", "VK_KHR_maintenance1"];
-pub const USE_VSYNC: bool = true;
+pub const USE_VSYNC: bool = false;
 
 #[cfg(debug_assertions)]
 pub const VALIDATION_LAYER_NAME: &str = "VK_LAYER_KHRONOS_validation";
