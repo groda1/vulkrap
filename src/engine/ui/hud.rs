@@ -6,7 +6,7 @@ use crate::engine::datatypes::{ViewProjectionUniform, WindowExtent};
 
 use crate::engine::image;
 use crate::engine::mesh::PredefinedMesh::TexturedQuad;
-use crate::engine::mesh::MeshManager;
+use crate::engine::mesh::{MeshHandle, MeshManager, PredefinedMesh};
 use crate::engine::ui::widgets::{ConsoleRenderer, TextOverlayRenderer};
 
 use crate::renderer::context::Context;
@@ -32,7 +32,7 @@ impl Hud {
         let font_texture = context.add_texture(font_image.width, font_image.height, &font_image.data);
         let sampler = context.add_sampler();
 
-        let mesh = *mesh_manager.get_predefined_mesh(TexturedQuad);
+        let mesh = *mesh_manager.get_mesh(TexturedQuad as MeshHandle);
 
         let text_overlay_renderer = TextOverlayRenderer::new(context, vp_uniform, mesh, window_extent, font_texture, sampler);
         let console_renderer = ConsoleRenderer::new(context, vp_uniform, mesh, window_extent, font_texture, sampler);

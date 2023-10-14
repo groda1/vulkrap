@@ -123,7 +123,7 @@ impl TerrainApp {
 
         let scene = Scene::new(context, engine_params.mesh_manager, terrain_pipeline);
 
-        let mesh = *engine_params.mesh_manager.get_predefined_mesh(TexturedQuad);
+        let mesh = *engine_params.mesh_manager.get_mesh(TexturedQuad);
 
         let mut texture_quad_renderer = TexturedQuadRenderer::new(context, engine_params.hud_vp_uniform, mesh, render_texture, sampler);
         texture_quad_renderer.set(

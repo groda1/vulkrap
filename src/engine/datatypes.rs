@@ -328,16 +328,5 @@ impl WindowExtent {
     }
 }
 
-#[derive(Clone, Debug, Copy)]
-pub struct Mesh {
-    pub vertex_data: VertexData,
-}
-
-impl Mesh {
-    pub fn new(vertex_data: VertexData) -> Self {
-        Mesh {
-            vertex_data
-        }
-    }
-}
+pub type Mesh = VertexData;
 

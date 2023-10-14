@@ -8,6 +8,7 @@ pub mod terrain;
 pub mod ui;
 pub mod image;
 pub mod math;
+pub mod model;
 
 mod console;
 

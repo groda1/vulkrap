@@ -4,7 +4,7 @@ use vulkrap::engine::camera::Camera;
 use vulkrap::engine::cvars::ConfigVariables;
 
 use vulkrap::engine::datatypes::{Mesh, NormalVertex};
-use vulkrap::engine::mesh::MeshManager;
+use vulkrap::engine::mesh::{MeshHandle, MeshManager};
 use vulkrap::engine::mesh::PredefinedMesh::NormaledQuad;
 use vulkrap::{log, log_debug};
 use vulkrap::renderer::context::Context;
@@ -124,27 +124,27 @@ impl Block {
 
                 // Draw floor
                 context.add_draw_command(DrawCommand::new_buffered(pipeline, &block.floor.push_constant,
-                                                                   block.floor.mesh.vertex_data,
+                                                                   block.floor.mesh,
                 ));
 
                 if let Some(wall) = &block.west_wall {
                     context.add_draw_command(DrawCommand::new_buffered(pipeline, &wall.push_constant,
-                                                                       wall.mesh.vertex_data,
+                                                                       wall.mesh,
                     ));
                 }
                 if let Some(wall) = &block.east_wall {
                     context.add_draw_command(DrawCommand::new_buffered(pipeline, &wall.push_constant,
-                                                                       wall.mesh.vertex_data,
+                                                                       wall.mesh,
                     ));
                 }
                 if let Some(wall) = &block.north_wall {
                     context.add_draw_command(DrawCommand::new_buffered(pipeline, &wall.push_constant,
-                                                                       wall.mesh.vertex_data,
+                                                                       wall.mesh,
                     ));
                 }
                 if let Some(wall) = &block.south_wall {
                     context.add_draw_command(DrawCommand::new_buffered(pipeline, &wall.push_constant,
-                                                                       wall.mesh.vertex_data,
+                                                                       wall.mesh,
                     ));
                 }
             }
@@ -181,7 +181,7 @@ pub struct Scene {
 
 impl Scene {
     pub fn new(context: &mut Context, mesh_manager: &MeshManager, camera: &Camera) -> Scene {
-        let mesh = *mesh_manager.get_predefined_mesh(NormaledQuad);
+        let mesh = *mesh_manager.get_mesh(NormaledQuad as MeshHandle);
 
 
         let pipeline_config = PipelineConfiguration::builder()

@@ -54,7 +54,7 @@ impl TexturedQuadRenderer {
         context.add_draw_command(DrawCommand::new_buffered(
             self.pipeline,
             &self.push_constant_buf,
-            self.mesh.vertex_data,
+            self.mesh,
         ));
     }
 }
@@ -105,7 +105,7 @@ impl TextRenderer {
 
         context.add_draw_command(DrawCommand::new_buffered_instanced_nopush(
             self.pipeline,
-            self.mesh.vertex_data,
+            self.mesh,
             n,
             0,
         ));
@@ -220,14 +220,14 @@ impl ConsoleRenderer {
 
         context.add_draw_command(DrawCommand::new_buffered_instanced_nopush(
             self.quad_pipeline,
-            self.mesh.vertex_data,
+            self.mesh,
             quad_instance_count,
             0,
         ));
 
         context.add_draw_command(DrawCommand::new_buffered_instanced_nopush(
             self.text_pipeline,
-            self.mesh.vertex_data,
+            self.mesh,
             text_instance_count,
             0,
         ));
@@ -351,7 +351,7 @@ impl TextOverlayRenderer {
         }
         context.add_draw_command(DrawCommand::new_buffered_instanced_nopush(
             self.text_pipeline,
-            self.mesh.vertex_data,
+            self.mesh,
             foreground_instance_count,
             0,
         ));

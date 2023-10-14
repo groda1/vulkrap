@@ -4,7 +4,7 @@ use winit::event::{ElementState, VirtualKeyCode};
 use vulkrap::engine::cvars::ConfigVariables;
 use vulkrap::engine::datatypes::{ViewProjectionUniform, WindowExtent};
 use vulkrap::engine::image::load_image;
-use vulkrap::engine::mesh::PredefinedMesh;
+use vulkrap::engine::mesh::{MeshHandle, PredefinedMesh};
 use vulkrap::engine::runtime::{ControlSignal, EngineParameters, VulkrapApplication};
 use vulkrap::engine::ui::widgets::{TextRenderer, TexturedQuadRenderer};
 use vulkrap::renderer::context::Context;
@@ -73,7 +73,7 @@ impl TextSBO {
         let sampler = context.add_sampler();
         let pass = context.create_render_pass(render_texture, 1000).unwrap();
 
-        let mesh = *engine_params.mesh_manager.get_predefined_mesh(PredefinedMesh::TexturedQuad);
+        let mesh = *engine_params.mesh_manager.get_mesh(PredefinedMesh::TexturedQuad as MeshHandle);
 
         let font_image = load_image(Path::new("./resources/textures/font.png"));
         let font_texture = context.add_texture(font_image.width, font_image.height, &font_image.data);

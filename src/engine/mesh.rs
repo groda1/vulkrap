@@ -7,25 +7,26 @@ use crate::renderer::context::Context;
 use crate::renderer::types::VertexData;
 
 
+
 #[repr(u32)]
 pub enum PredefinedMesh {
     SimpleTriangle = 0,
     SimpleQuad = 1,
-    _SimpleCube = 2,
+    SimpleCube = 2,
 
-    _NormaledTriangle = 3,
+    NormaledTriangle = 3,
     NormaledQuad = 4,
-    _NormaledCube = 5,
+    NormaledCube = 5,
 
     ColoredTriangle = 6,
     ColoredQuad = 7,
-    _ColoredCube = 8,
+    ColoredCube = 8,
 
-    _TexturedTriangle = 9,
+    TexturedTriangle = 9,
     TexturedQuad = 10,
 }
 
-type MeshHandle = u32;
+pub type MeshHandle = u32;
 
 const _START_HANDLE: MeshHandle = 1000;
 
@@ -41,14 +42,11 @@ impl MeshManager {
         mesh_manager
     }
 
-    pub fn _get_mesh(&self, handle: MeshHandle) -> Option<&Mesh> {
-        self.meshes.get(&handle)
-    }
 
-    pub fn get_predefined_mesh(&self, predefined: PredefinedMesh) -> &Mesh {
+    pub fn get_mesh(&self, mesh_handle: MeshHandle) -> &Mesh {
         self.meshes
-            .get(&(predefined as MeshHandle))
-            .expect("Failed to fetch predefined mesh")
+            .get(&mesh_handle)
+            .expect("Failed to fetch mesh")
     }
 
     fn load_predefined_meshes(&mut self, context: &mut Context) {
@@ -68,20 +66,8 @@ impl MeshManager {
             let simple_vertex_buffer = context.create_static_vertex_buffer_sync(&simple_vertices);
             let index_buffer = context.create_static_index_buffer_sync(&indices);
 
-            let simple_mesh = Mesh {
-                vertex_data: VertexData {
-                    vertex_buffer: simple_vertex_buffer,
-                    index_buffer,
-                    index_count: indices.len() as u32
-                }
-            };
-            let colored_mesh = Mesh {
-                vertex_data: VertexData {
-                    vertex_buffer: colored_vertex_buffer,
-                    index_buffer,
-                    index_count: indices.len() as u32
-                }
-            };
+            let simple_mesh = Mesh::new(simple_vertex_buffer, index_buffer, indices.len() as u32);
+            let colored_mesh = Mesh::new(colored_vertex_buffer, index_buffer, indices.len() as u32);
             self.meshes
                 .insert(PredefinedMesh::SimpleTriangle as MeshHandle, simple_mesh);
             self.meshes
@@ -121,35 +107,12 @@ impl MeshManager {
             let colored_vertex_buffer = context.create_static_vertex_buffer_sync(&colored_vertices);
             let textured_vertex_buffer = context.create_static_vertex_buffer_sync(&textured_vertices);
             let index_buffer = context.create_static_index_buffer_sync(&indices);
-            let simple_mesh = Mesh {
-                vertex_data: VertexData {
-                    vertex_buffer: simple_vertex_buffer,
-                    index_buffer,
-                    index_count
-                }
-            };
-            let normaled_mesh = Mesh {
-                vertex_data: VertexData {
-                    vertex_buffer: normaled_vertex_buffer,
-                    index_buffer,
-                    index_count
 
-                }
-            };
-            let colored_mesh = Mesh {
-                vertex_data: VertexData {
-                    vertex_buffer: colored_vertex_buffer,
-                    index_buffer,
-                    index_count
-                }
-            };
-            let textured_mesh = Mesh {
-                vertex_data: VertexData {
-                    vertex_buffer: textured_vertex_buffer,
-                    index_buffer,
-                    index_count
-                }
-            };
+            let simple_mesh = Mesh::new(simple_vertex_buffer, index_buffer, index_count);
+            let normaled_mesh = Mesh::new(normaled_vertex_buffer, index_buffer, index_count);
+            let colored_mesh = Mesh::new(colored_vertex_buffer, index_buffer, index_count);
+            let textured_mesh = Mesh::new(textured_vertex_buffer, index_buffer, index_count);
+
             self.meshes
                 .insert(PredefinedMesh::SimpleQuad as MeshHandle, simple_mesh);
             self.meshes
