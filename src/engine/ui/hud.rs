@@ -6,7 +6,7 @@ use crate::engine::datatypes::{ViewProjectionUniform, WindowExtent};
 
 use crate::engine::image;
 use crate::engine::mesh::PredefinedMesh::TexturedQuad;
-use crate::engine::mesh::{MeshHandle, MeshManager, PredefinedMesh};
+use crate::engine::mesh::{MeshHandle, MeshManager};
 use crate::engine::ui::widgets::{ConsoleRenderer, TextOverlayRenderer};
 
 use crate::renderer::context::Context;

@@ -24,18 +24,11 @@ pub struct _OctreeTerrainNode {
     children: Option<Box<[_OctreeTerrainNode; 4]>>,
 }
 
-
-
-
-
 pub struct Terrain {
     pipeline: PipelineHandle,
 
     chunk: VertexData,
 }
-
-
-
 
 impl Terrain {
     pub fn new(context: &mut Context, pipeline: PipelineHandle) -> Self {
@@ -57,9 +50,7 @@ impl Terrain {
         .set_y_scale(16.0);
         let pass_3 = Multiply::new(scale, Constant::new(10.0));
 
-
         let result = Add::new(pass_1, Add::new(pass_2, pass_3));
-
 
         let quad_width = 256;
         let quad_height = 256;

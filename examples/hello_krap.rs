@@ -3,7 +3,7 @@ use cgmath::{Deg, Matrix4, Quaternion, Rotation3, SquareMatrix, Vector3};
 use winit::event::{ElementState, VirtualKeyCode};
 use vulkrap::engine::cvars::ConfigVariables;
 use vulkrap::engine::datatypes::{ColoredVertex, Mesh, ViewProjectionUniform, WindowExtent};
-use vulkrap::engine::mesh::PredefinedMesh;
+use vulkrap::engine::mesh::{MeshHandle, PredefinedMesh};
 use vulkrap::engine::runtime::{ControlSignal, EngineParameters, VulkrapApplication};
 use vulkrap::renderer::context::Context;
 use vulkrap::renderer::types::{DrawCommand, PipelineConfiguration, PipelineHandle, SWAPCHAIN_PASS, UniformHandle, UniformStage};
@@ -50,7 +50,7 @@ impl VulkrapApplication for HelloKrap {
         context.add_draw_command(DrawCommand::new_buffered(
             self.pipeline,
             &self.push_constant_buf,
-            self.mesh.vertex_data,
+            self.mesh,
         ));
     }
 
@@ -71,7 +71,7 @@ impl VulkrapApplication for HelloKrap {
 
 impl HelloKrap {
     pub fn new(context: &mut Context, engine_params: EngineParameters) -> HelloKrap {
-        let mesh = *engine_params.mesh_manager.get_mesh(PredefinedMesh::ColoredQuad);
+        let mesh = *engine_params.mesh_manager.get_mesh(PredefinedMesh::ColoredQuad as MeshHandle);
         let push_constant_buf = PushConstantType::new(Matrix4::identity(), 0.0);
 
         let vp = create_view_projection_uniform(engine_params.window_extent);

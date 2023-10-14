@@ -1,12 +1,11 @@
 use std::collections::HashMap;
+use std::path::Path;
 
 use cgmath::{Vector2, Vector3};
 
 use crate::engine::datatypes::{ColoredVertex, Mesh, SimpleVertex, TexturedVertex, NormalVertex};
+use crate::engine::model::obj;
 use crate::renderer::context::Context;
-use crate::renderer::types::VertexData;
-
-
 
 #[repr(u32)]
 pub enum PredefinedMesh {
@@ -32,13 +31,17 @@ const _START_HANDLE: MeshHandle = 1000;
 
 pub struct MeshManager {
     meshes: HashMap<MeshHandle, Mesh>,
+    next_handle: MeshHandle
 }
 
 impl MeshManager {
     pub fn new(context: &mut Context) -> MeshManager {
-        let mut mesh_manager = MeshManager { meshes: HashMap::new() };
-        mesh_manager.load_predefined_meshes(context);
+        let mut mesh_manager = MeshManager {
+            meshes: HashMap::new(),
+            next_handle: 1000
+        };
 
+        mesh_manager.load_predefined_meshes(context);
         mesh_manager
     }
 
@@ -47,6 +50,29 @@ impl MeshManager {
         self.meshes
             .get(&mesh_handle)
             .expect("Failed to fetch mesh")
+    }
+
+    pub fn load_new_mesh(&mut self, context: &mut Context, path: &Path) -> Result<MeshHandle, &'static str> {
+        let extension = path.extension();
+        if extension.is_none() {
+            return Err("Unknown file type");
+        }
+
+        let extension = extension.unwrap();
+
+        if extension == "obj" {
+            let mesh = obj::load_obj_mesh(context, path).unwrap();
+            let handle = self.next_handle;
+            self.meshes.insert(handle ,mesh);
+            self.next_handle = self.next_handle + 1;
+            return Ok(handle);
+
+        } else {
+
+        }
+
+        Err("failed to load mesh")
+
     }
 
     fn load_predefined_meshes(&mut self, context: &mut Context) {

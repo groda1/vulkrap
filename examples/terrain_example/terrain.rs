@@ -7,6 +7,7 @@ use winit::event::{ElementState, VirtualKeyCode};
 use vulkrap::engine::camera::Camera;
 use vulkrap::engine::cvars::ConfigVariables;
 use vulkrap::engine::datatypes::{NormalVertex, WindowExtent};
+use vulkrap::engine::mesh::MeshHandle;
 use vulkrap::engine::mesh::PredefinedMesh::TexturedQuad;
 use vulkrap::engine::runtime::{ControlSignal, EngineParameters, VulkrapApplication};
 use vulkrap::engine::ui::widgets::TexturedQuadRenderer;
@@ -123,7 +124,7 @@ impl TerrainApp {
 
         let scene = Scene::new(context, engine_params.mesh_manager, terrain_pipeline);
 
-        let mesh = *engine_params.mesh_manager.get_mesh(TexturedQuad);
+        let mesh = *engine_params.mesh_manager.get_mesh(TexturedQuad as MeshHandle);
 
         let mut texture_quad_renderer = TexturedQuadRenderer::new(context, engine_params.hud_vp_uniform, mesh, render_texture, sampler);
         texture_quad_renderer.set(

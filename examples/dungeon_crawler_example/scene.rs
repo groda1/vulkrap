@@ -3,7 +3,7 @@ use cgmath::{Deg, Matrix4, Vector3, Vector4};
 use vulkrap::engine::camera::Camera;
 use vulkrap::engine::cvars::ConfigVariables;
 
-use vulkrap::engine::datatypes::{Mesh, NormalVertex};
+use vulkrap::engine::datatypes::{Mesh, NormalVertex, TransformColorPushConstant};
 use vulkrap::engine::mesh::{MeshHandle, MeshManager};
 use vulkrap::engine::mesh::PredefinedMesh::NormaledQuad;
 use vulkrap::{log, log_debug};
@@ -16,23 +16,11 @@ const BLOCK_HEIGHT: usize = 16;
 const BLOCK_SIZE: usize = BLOCK_WIDTH * BLOCK_HEIGHT;
 
 
-#[repr(C)]
-#[derive(Debug)]
-pub struct GeometryPushConstant {
-    transform: Matrix4<f32>,
-    color: Vector4<f32>,
-}
-
-impl GeometryPushConstant {
-    pub fn new(transform: Matrix4<f32>, color: Vector4<f32>) -> Self {
-        GeometryPushConstant { transform, color }
-    }
-}
 
 #[derive(Debug)]
 struct Geometry {
     mesh: Mesh,
-    push_constant: GeometryPushConstant,
+    push_constant: TransformColorPushConstant,
 }
 
 

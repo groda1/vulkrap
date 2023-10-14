@@ -46,6 +46,7 @@ impl Camera {
             _flight_mode: true,
         };
         cam.reconfigure(config);
+        cam.update_uniform(context);
         cam
     }
 

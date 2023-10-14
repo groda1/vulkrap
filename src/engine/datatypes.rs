@@ -316,6 +316,21 @@ impl Default for PosSizeColor2dPushConstant {
     }
 }
 
+#[repr(C)]
+#[derive(Debug)]
+pub struct TransformColorPushConstant {
+    pub transform: Matrix4<f32>,
+    pub color: Vector4<f32>,
+}
+
+impl TransformColorPushConstant {
+    pub fn new(transform: Matrix4<f32>, color: Vector4<f32>) -> Self {
+        TransformColorPushConstant { transform, color }
+    }
+}
+
+
+
 #[derive(Clone, Debug, Copy)]
 pub struct WindowExtent {
     pub width: u32,
