@@ -19,10 +19,11 @@ layout(location = 1) out vec3 outNormal;
 layout(location = 2) out vec4 outColor;
 
 void main() {
-    gl_Position = vp.proj * vp.view * model.transform * vec4(inPosition, 1.0);
+    mat4 mvp = vp.proj * vp.view * model.transform;
+    gl_Position = mvp * vec4(inPosition, 1.0);
 
-    outPosition = vec3(vp.proj * vp.view * model.transform * vec4(inPosition, 1.0));
-    outNormal = vec3(vp.proj * vp.view * model.transform * vec4(inNormal, 0.0));
+    outPosition = vec3(mvp* vec4(inPosition, 1.0));
+    outNormal = normalize(vec3(mvp * vec4(inNormal, 0.0)));
     outColor = model.color;
 
 }

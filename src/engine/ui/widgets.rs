@@ -12,6 +12,8 @@ use crate::ENGINE_VERSION;
 
 use cgmath::{Vector2, Vector4};
 use std::ptr;
+use crate::engine::mesh::{MeshHandle, MeshManager};
+use crate::engine::mesh::PredefinedMesh::TexturedQuad;
 use crate::util::file;
 
 // Console
@@ -28,7 +30,8 @@ pub struct TexturedQuadRenderer {
 }
 
 impl TexturedQuadRenderer {
-    pub fn new(context: &mut Context, vp_uniform: UniformHandle, mesh: Mesh, texture: TextureHandle, sampler: SamplerHandle) -> Self {
+    pub fn new(context: &mut Context, vp_uniform: UniformHandle, mesh_manager: &MeshManager, texture: TextureHandle, sampler: SamplerHandle) -> Self {
+        let mesh = *mesh_manager.get_mesh(TexturedQuad as MeshHandle);
         let textured_quad_pipeline_config = PipelineConfiguration::builder()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/2d_texture_push_vert.spv")))
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/2d_texture_ssbo_frag.spv")))

@@ -75,20 +75,19 @@ impl VulkrapApplication for ModelExample {
 
 impl ModelExample {
     pub fn new(context: &mut Context, engine_params: EngineParameters) -> ModelExample {
-        let mesh_handle = engine_params.mesh_manager.load_new_mesh(context, Path::new("./resources/models/suzanne.obj"));
-        let mesh = *engine_params.mesh_manager.get_mesh(mesh_handle.unwrap());
+        let (_, mesh) = engine_params.mesh_manager.load_new_mesh(context, Path::new("./resources/models/suzanne.obj")).unwrap();
+
         let suzanne = Entity {
-            mesh,
+            mesh: *mesh,
             push_constant: TransformColorPushConstant::new(
                 Matrix4::identity(),
                 Vector4::from((0.25, 0.25, 0.12, 1.0))),
             orientation: Quaternion::from_angle_y(Deg(0.0)),
         };
 
-        let mesh_handle = engine_params.mesh_manager.load_new_mesh(context, Path::new("./resources/models/sphere.obj"));
-        let mesh = *engine_params.mesh_manager.get_mesh(mesh_handle.unwrap());
+        let (_, mesh) = engine_params.mesh_manager.load_new_mesh(context, Path::new("./resources/models/sphere.obj")).unwrap();
         let sphere = Entity {
-            mesh,
+            mesh: *mesh,
             push_constant: TransformColorPushConstant::new(
                 Matrix4::identity(),
                 Vector4::from((0.0, 0.75, 0.15, 1.0))),

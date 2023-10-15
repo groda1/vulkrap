@@ -89,6 +89,10 @@ impl Camera {
         self.yaw = yaw;
     }
 
+    pub fn set_pitch(&mut self, pitch: f32) {
+        self.pitch = pitch;
+    }
+
     pub fn set_position(&mut self, position: Vector3<f32>) {
         self.position = position;
     }

@@ -7,8 +7,6 @@ use winit::event::{ElementState, VirtualKeyCode};
 use vulkrap::engine::camera::Camera;
 use vulkrap::engine::cvars::ConfigVariables;
 use vulkrap::engine::datatypes::{NormalVertex, WindowExtent};
-use vulkrap::engine::mesh::MeshHandle;
-use vulkrap::engine::mesh::PredefinedMesh::TexturedQuad;
 use vulkrap::engine::runtime::{ControlSignal, EngineParameters, VulkrapApplication};
 use vulkrap::engine::ui::widgets::TexturedQuadRenderer;
 use vulkrap::renderer::context::Context;
@@ -108,7 +106,6 @@ impl TerrainApp {
 
         //let render_texture = context.add_render_texture(384, 216);
         let render_texture = context.add_render_texture(1920, 1080);
-
         let sampler = context.add_sampler();
         let pass = context.create_render_pass(render_texture, 1000).unwrap();
 
@@ -124,9 +121,7 @@ impl TerrainApp {
 
         let scene = Scene::new(context, engine_params.mesh_manager, terrain_pipeline);
 
-        let mesh = *engine_params.mesh_manager.get_mesh(TexturedQuad as MeshHandle);
-
-        let mut texture_quad_renderer = TexturedQuadRenderer::new(context, engine_params.hud_vp_uniform, mesh, render_texture, sampler);
+        let mut texture_quad_renderer = TexturedQuadRenderer::new(context, engine_params.hud_vp_uniform, engine_params.mesh_manager, render_texture, sampler);
         texture_quad_renderer.set(
             Vector2::new((engine_params.window_extent.width / 2) as f32, (engine_params.window_extent.height / 2) as f32),
             Vector2::new(engine_params.window_extent.width as f32, engine_params.window_extent.height as f32),

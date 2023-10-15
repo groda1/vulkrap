@@ -24,7 +24,7 @@ pub trait VulkrapApplication {
 
 pub struct EngineParameters<'a> {
     pub mesh_manager: &'a mut MeshManager,
-    pub config: &'a ConfigVariables,
+    pub config: &'a mut ConfigVariables,
     pub window_extent: WindowExtent,
 
     pub hud_vp_uniform: UniformHandle,
@@ -41,7 +41,7 @@ pub struct Runtime<T: VulkrapApplication> {
 }
 
 impl<T: VulkrapApplication> Runtime<T> {
-    pub fn new(window: &Window, config: ConfigVariables, app_factory: VulkrapApplicationFactory<T>) -> Runtime<T> {
+    pub fn new(window: &Window, mut config: ConfigVariables, app_factory: VulkrapApplicationFactory<T>) -> Runtime<T> {
         let mut context = Context::new(window);
         let mut mesh_manager = MeshManager::new(&mut context);
 
@@ -52,7 +52,7 @@ impl<T: VulkrapApplication> Runtime<T> {
 
         let engine_params = EngineParameters {
             mesh_manager: &mut mesh_manager,
-            config: &config,
+            config: &mut config,
             window_extent,
             hud_vp_uniform: hud.get_vp_uniform()
         };

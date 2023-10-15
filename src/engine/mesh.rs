@@ -52,7 +52,7 @@ impl MeshManager {
             .expect("Failed to fetch mesh")
     }
 
-    pub fn load_new_mesh(&mut self, context: &mut Context, path: &Path) -> Result<MeshHandle, &'static str> {
+    pub fn load_new_mesh(&mut self, context: &mut Context, path: &Path) -> Result<(MeshHandle, &Mesh), &'static str> {
         let extension = path.extension();
         if extension.is_none() {
             return Err("Unknown file type");
@@ -65,8 +65,7 @@ impl MeshManager {
             let handle = self.next_handle;
             self.meshes.insert(handle ,mesh);
             self.next_handle = self.next_handle + 1;
-            return Ok(handle);
-
+            return Ok((handle, self.meshes.get(&handle).unwrap()));
         } else {
 
         }
