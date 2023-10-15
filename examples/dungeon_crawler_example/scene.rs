@@ -40,7 +40,7 @@ impl Block {
         let floor_trans = Matrix4::from_translation(Vector3::new(x as f32, 0.0, y as f32));
         let floor_geom = Geometry {
             mesh,
-            push_constant: GeometryPushConstant::new(floor_trans * floor_rot, color - Vector4::new(0.3, 0.3, 0.3, 0.0)),
+            push_constant: TransformColorPushConstant::new(floor_trans * floor_rot, color - Vector4::new(0.3, 0.3, 0.3, 0.0)),
         };
 
         let mut cell = Cell::new(floor_geom);
@@ -49,27 +49,27 @@ impl Block {
         let west_wall_trans = Matrix4::from_translation(Vector3::new(x as f32 - 0.5, 0.5, y as f32));
         let west_wall_geom = Geometry {
             mesh,
-            push_constant: GeometryPushConstant::new(west_wall_trans * west_wall_rot, color),
+            push_constant: TransformColorPushConstant::new(west_wall_trans * west_wall_rot, color),
         };
         let east_wall_rot = Matrix4::from_angle_y(Deg(-90.0));
         let east_wall_trans = Matrix4::from_translation(Vector3::new(x as f32 + 0.5, 0.5, y as f32));
         let east_wall_geom = Geometry {
             mesh,
-            push_constant: GeometryPushConstant::new(east_wall_trans * east_wall_rot, color),
+            push_constant: TransformColorPushConstant::new(east_wall_trans * east_wall_rot, color),
         };
 
         let north_wall_rot = Matrix4::from_angle_y(Deg(0.0));
         let north_wall_trans = Matrix4::from_translation(Vector3::new(x as f32, 0.5, y as f32 - 0.5));
         let north_wall_geom = Geometry {
             mesh,
-            push_constant: GeometryPushConstant::new(north_wall_trans * north_wall_rot, color),
+            push_constant: TransformColorPushConstant::new(north_wall_trans * north_wall_rot, color),
         };
 
         let south_wall_rot = Matrix4::from_angle_y(Deg(180.0));
         let south_wall_trans = Matrix4::from_translation(Vector3::new(x as f32, 0.5, y as f32 + 0.5));
         let south_wall_geom = Geometry {
             mesh,
-            push_constant: GeometryPushConstant::new(south_wall_trans * south_wall_rot, color),
+            push_constant: TransformColorPushConstant::new(south_wall_trans * south_wall_rot, color),
         };
 
         cell.west_wall = Some(west_wall_geom);
@@ -173,7 +173,7 @@ impl Scene {
 
 
         let pipeline_config = PipelineConfiguration::builder()
-            .with_push_constant::<GeometryPushConstant>()
+            .with_push_constant::<TransformColorPushConstant>()
             .with_vertex_shader(file::read_file(Path::new("./resources/shaders/dc_environ_vert.spv")))
             .with_fragment_shader(file::read_file(Path::new("./resources/shaders/dc_environ_frag.spv")))
             .with_vertex_topology(VertexTopology::Triangle)

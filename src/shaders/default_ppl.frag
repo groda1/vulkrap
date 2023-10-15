@@ -15,7 +15,7 @@ const vec3 lightColor = vec3(1.0, 0.7, 0.7);
 
 void main() {
     vec3 lightVector = normalize(inLightPosition - inPosition);
-    float diffuse_factor = max(dot(normalize(inNormal), lightVector), 0.0);
+    float diffuse_factor = max(dot(inNormal, lightVector), 0.0);
     vec3 diffuse = diffuse_factor * lightColor;
 
     vec3 eyeVector = -normalize(inPosition);

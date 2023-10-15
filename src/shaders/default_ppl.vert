@@ -24,7 +24,7 @@ void main() {
 
     gl_Position = mvp * vec4(inPosition, 1.0);
     outPosition = vec3(mvp * vec4(inPosition, 1.0));
-    outNormal = vec3(mvp * vec4(inNormal, 0.0));
+    outNormal = normalize(vec3(mvp * vec4(inNormal, 0.0)));
     lightPosition = vec3(vp.proj * vp.view * vec4(-1.0, 1.0, 0.0, 3.0));
     outColor = vec3(model.color);
 }
