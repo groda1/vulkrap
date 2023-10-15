@@ -26,7 +26,7 @@ impl VulkrapApplication for DungeonCrawler {
     }
 
     fn draw(&mut self, context: &mut Context) {
-        self.scene.draw(context);
+        self.scene.draw(context, &self.movement);
         self.main.draw(context);
     }
 

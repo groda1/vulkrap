@@ -1,5 +1,7 @@
+use std::cmp::{max, min};
+use std::mem::swap;
 use std::path::Path;
-use cgmath::{Deg, Matrix4, Vector3, Vector4};
+use cgmath::{Deg, Matrix4, Vector2, Vector3, Vector4};
 use vulkrap::engine::camera::Camera;
 use vulkrap::engine::cvars::ConfigVariables;
 
@@ -10,6 +12,7 @@ use vulkrap::log_debug;
 use vulkrap::renderer::context::Context;
 use vulkrap::renderer::types::{DrawCommand, PipelineConfiguration, PipelineHandle, TextureHandle, VertexTopology};
 use vulkrap::util::file;
+use crate::dungeon_crawler_example::movement::{Movement, Orientation};
 
 const BLOCK_WIDTH: usize = 16;
 const BLOCK_HEIGHT: usize = 16;
@@ -113,41 +116,90 @@ impl Block {
         self.grid[y as usize * BLOCK_WIDTH + x as usize] = Some(cell);
     }
 
-    pub fn draw(&mut self, context: &mut Context, pipeline: PipelineHandle) {
-        for i in self.grid.iter() {
-            if let Some(block) = i {
+    pub fn draw(&mut self, context: &mut Context, pipeline: PipelineHandle, movement: &Movement) {
 
-                // Draw floor
-                context.add_draw_command(DrawCommand::new_buffered(pipeline, &block.floor.push_constant,
-                                                                   block.floor.mesh,
-                ));
-                // Draw roof
-                context.add_draw_command(DrawCommand::new_buffered(pipeline, &block.roof.push_constant,
-                                                                   block.roof.mesh,
-                ));
-
-                if let Some(wall) = &block.west_wall {
-                    context.add_draw_command(DrawCommand::new_buffered(pipeline, &wall.push_constant,
-                                                                       wall.mesh,
-                    ));
-                }
-                if let Some(wall) = &block.east_wall {
-                    context.add_draw_command(DrawCommand::new_buffered(pipeline, &wall.push_constant,
-                                                                       wall.mesh,
-                    ));
-                }
-                if let Some(wall) = &block.north_wall {
-                    context.add_draw_command(DrawCommand::new_buffered(pipeline, &wall.push_constant,
-                                                                       wall.mesh,
-                    ));
-                }
-                if let Some(wall) = &block.south_wall {
-                    context.add_draw_command(DrawCommand::new_buffered(pipeline, &wall.push_constant,
-                                                                       wall.mesh,
-                    ));
-                }
+        // TODO: this is so bad. replace with some real line tracing
+        // Simple culling to only attempt to draw close cells in the direction of the player
+        let mut start_x =  movement.discrete_position.x;
+        let mut end_x= movement.discrete_position.x;
+        let mut start_y = movement.discrete_position.y;
+        let mut end_y = movement.discrete_position.y;
+        match movement.orientation {
+            Orientation::North => {
+                start_y += 2;
+                end_y -= 10;
+                start_x -= 5;
+                end_x += 5;
+            }
+            Orientation::East => {
+                start_x -= 1;
+                end_x += 10;
+                start_y -= 5;
+                end_y += 5;
+            }
+            Orientation::South => {
+                start_y -= 1;
+                end_y += 10;
+                start_x -= 5;
+                end_x += 5;
+            }
+            Orientation::West => {
+                start_x +=2;
+                end_x -= 10;
+                start_y -= 5;
+                end_y += 5;
             }
         }
+
+        if start_y > end_y {
+            swap(&mut start_y, &mut end_y);
+        }
+        if start_x > end_x {
+            swap(&mut start_x, &mut end_x);
+        }
+        start_y = start_y.max(0);
+        start_x = start_x.max(0);
+        end_y = end_y.min(BLOCK_HEIGHT as i32);
+        end_x = end_x.min(BLOCK_HEIGHT as i32);
+
+        for y in start_y..end_y {
+            for x in start_x..end_x {
+                if let Some(block) = &self.grid[y as usize * BLOCK_WIDTH + x as usize] {
+                    // Draw floor
+                    context.add_draw_command(DrawCommand::new_buffered(pipeline, &block.floor.push_constant,
+                                                                       block.floor.mesh,
+                    ));
+                    // Draw roof
+                    context.add_draw_command(DrawCommand::new_buffered(pipeline, &block.roof.push_constant,
+                                                                       block.roof.mesh,
+                    ));
+
+                    if let Some(wall) = &block.west_wall {
+                        context.add_draw_command(DrawCommand::new_buffered(pipeline, &wall.push_constant,
+                                                                           wall.mesh,
+                        ));
+                    }
+                    if let Some(wall) = &block.east_wall {
+                        context.add_draw_command(DrawCommand::new_buffered(pipeline, &wall.push_constant,
+                                                                           wall.mesh,
+                        ));
+                    }
+                    if let Some(wall) = &block.north_wall {
+                        context.add_draw_command(DrawCommand::new_buffered(pipeline, &wall.push_constant,
+                                                                           wall.mesh,
+                        ));
+                    }
+                    if let Some(wall) = &block.south_wall {
+                        context.add_draw_command(DrawCommand::new_buffered(pipeline, &wall.push_constant,
+                                                                           wall.mesh,
+                        ));
+                    }
+                }
+
+
+            }
+        }
+
     }
 }
 
@@ -239,8 +291,8 @@ impl Scene {
 
     pub fn update(&mut self, _context: &mut Context, _delta_time_s: f32) {}
 
-    pub fn draw(&mut self, context: &mut Context) {
-        self.block.draw(context, self.geometry_pipeline);
+    pub fn draw(&mut self, context: &mut Context, movement: &Movement) {
+        self.block.draw(context, self.geometry_pipeline, movement);
     }
 
     pub fn get_target_texture(&self) -> TextureHandle {

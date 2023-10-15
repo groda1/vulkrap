@@ -91,13 +91,13 @@ pub struct Movement {
     movement_input: VecDeque<MovementInput>,
 
     from_discrete_position: Vector2<i32>,
-    discrete_position: Vector2<i32>,
+    pub discrete_position: Vector2<i32>,
     real_position: Vector2<f32>,
 
     to_yaw: f32,
     from_yaw: f32,
     current_yaw: f32,
-    orientation: Orientation,
+    pub orientation: Orientation,
 }
 
 impl Movement {
