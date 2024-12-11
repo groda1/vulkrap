@@ -176,6 +176,16 @@ impl Context {
     pub fn end_frame(&mut self) -> RenderStats {
         let mut stats = RenderStats::new();
 
+        let wait_fences = [self.sync_handler.inflight_fence()];
+        unsafe {
+            self.logical_device
+                .wait_for_fences(&wait_fences, true, u64::MAX)
+                .expect("Failed to wait for Fence!");
+            self.logical_device
+                .reset_fences(&wait_fences)
+                .expect("Failed to reset Fence!");
+        }
+
         let (image_index, _is_sub_optimal) = unsafe {
             let result = self.render_pass_manager.swapchain_target().loader().acquire_next_image(
                 self.render_pass_manager.swapchain_target().swapchain(),
@@ -197,16 +207,6 @@ impl Context {
         };
 
         let image_index_usize = image_index as usize;
-
-        let wait_fences = [self.sync_handler.inflight_fence(image_index)];
-        unsafe {
-            self.logical_device
-                .wait_for_fences(&wait_fences, true, u64::MAX)
-                .expect("Failed to wait for Fence!");
-            self.logical_device
-                .reset_fences(&wait_fences)
-                .expect("Failed to reset Fence!");
-        }
 
         // Transfer data
         let transfer_command_buffer = self.transfer_command_buffers[image_index_usize];
@@ -264,7 +264,7 @@ impl Context {
                 .queue_submit(
                     self.graphics_queue,
                     &draw_submit_infos,
-                    self.sync_handler.inflight_fence(image_index),
+                    self.sync_handler.inflight_fence(),
                 )
                 .expect("Failed to execute queue submit.");
         }

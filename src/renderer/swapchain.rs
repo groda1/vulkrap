@@ -34,9 +34,11 @@ pub fn create_swapchain(
 
     let extent = choose_swapchain_extent(&swapchain_support.capabilities);
 
-    let image_count = 2;
+    let image_count = 3;
     if swapchain_support.capabilities.min_image_count > image_count || swapchain_support.capabilities.max_image_count < image_count {
-        panic!("Unsupported swapchain image count: {}", image_count)
+        panic!("Unsupported swapchain image count: min={} max={}", 
+            swapchain_support.capabilities.min_image_count, 
+            swapchain_support.capabilities.max_image_count)
     }
 
     let graphics_family = queue_families.graphics.family_index;
@@ -85,6 +87,7 @@ pub fn create_swapchain(
     };
     log_debug!("image count: {}", images.len());
 
+    debug_assert!(images.len() == image_count as usize);
     let image_views = _create_image_views(device, surface_format.format, &images);
 
     SwapChainContainer {

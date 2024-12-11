@@ -77,8 +77,8 @@ impl SynchronizationHandler {
         self.render_finished_semaphores[self.inflight_counter]
     }
 
-    pub fn inflight_fence(&self, image_index: u32) -> vk::Fence {
-        self.inflight_fences[image_index as usize]
+    pub fn inflight_fence(&self) -> vk::Fence {
+        self.inflight_fences[self.inflight_counter]
     }
 
     pub fn step(&mut self) {
