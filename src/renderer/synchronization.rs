@@ -1,4 +1,3 @@
-use crate::renderer::constants::MAX_FRAMES_IN_FLIGHT;
 use ash::vk;
 
 pub struct SynchronizationHandler {
@@ -9,6 +8,9 @@ pub struct SynchronizationHandler {
 
     inflight_counter: usize,
 }
+
+// TODO this needs to fixed
+const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
 impl SynchronizationHandler {
     pub fn new(logical_device: &ash::Device) -> SynchronizationHandler {

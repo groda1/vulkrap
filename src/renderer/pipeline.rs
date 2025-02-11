@@ -7,7 +7,7 @@ use ash::vk::{
     VertexInputBindingDescription,
 };
 
-use crate::renderer::constants::{MAX_FRAMES_IN_FLIGHT, SAMPLER_DESCRIPTOR_POOL_SIZE, UNIFORM_DESCRIPTOR_POOL_SIZE};
+use crate::renderer::constants::{SAMPLER_DESCRIPTOR_POOL_SIZE, UNIFORM_DESCRIPTOR_POOL_SIZE};
 use crate::renderer::stats::DrawCommandStats;
 use crate::renderer::types::DrawData::Buffered;
 use crate::renderer::types::VertexInputDescription;
@@ -311,7 +311,7 @@ impl PipelineContainer {
         self.vk_pipeline = graphics_pipelines[0];
         self.layout = pipeline_layout;
 
-        self.descriptor_pool = create_descriptor_pool(logical_device);
+        self.descriptor_pool = create_descriptor_pool(logical_device, image_count);
         self.descriptor_sets = self.create_descriptor_sets(logical_device, image_count);
 
         self.is_built = true;
@@ -620,7 +620,7 @@ fn create_descriptor_set_layout(
     }
 }
 
-fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
+fn create_descriptor_pool(device: &ash::Device, image_count: usize) -> vk::DescriptorPool {
     let pool_sizes = [
         vk::DescriptorPoolSize::builder()
             .ty(DescriptorType::UNIFORM_BUFFER)
@@ -634,7 +634,7 @@ fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
 
     let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo::builder()
         .flags(DescriptorPoolCreateFlags::empty())
-        .max_sets(MAX_FRAMES_IN_FLIGHT as u32)
+        .max_sets(image_count as u32)
         .pool_sizes(&pool_sizes);
 
     unsafe {

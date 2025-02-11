@@ -176,6 +176,7 @@ impl Context {
     pub fn end_frame(&mut self) -> RenderStats {
         let mut stats = RenderStats::new();
 
+
         let wait_fences = [self.sync_handler.inflight_fence()];
         unsafe {
             self.logical_device
@@ -296,8 +297,6 @@ impl Context {
             if is_resized {
                 self.is_framebuffer_resized = false;
 
-                // TODO bleeeeh!!"3klj23kjlawjkasdjkl
-                // TODO pipelines need to rebuilt with the new buffer objects for image target render passes
                 self.recreate_swapchain();
             }
         }
